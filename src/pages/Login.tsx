@@ -18,7 +18,7 @@ export default function Login() {
   useEffect(() => {
     const testConnection = async () => {
       try {
-        const { data, error } = await supabase.from('surveys').select('count', { count: 'exact', head: true });
+        const { error } = await supabase.from('surveys').select('count', { count: 'exact', head: true });
         if (error) {
           console.error('Connection test failed:', error);
           setConnectionError('Cannot connect to Supabase. Check console.');
