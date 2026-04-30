@@ -11,9 +11,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Auto-login admin user
+// Auto-login admin user (real Supabase user)
 const AUTO_ADMIN: Profile = {
-  id: '00000000-0000-0000-0000-000000000001',
+  id: 'c6ae1256-0bda-4a98-8fcc-8765446f9d32',
   email: 'admin@qdash.app',
   role: 'admin',
   created_at: new Date().toISOString()
