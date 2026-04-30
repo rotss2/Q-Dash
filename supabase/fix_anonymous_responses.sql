@@ -20,12 +20,22 @@ END $$;
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_group_id UUID NOT NULL DEFAULT uuid_generate_v4();
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS show_when_question_id UUID;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS show_when_answer_value TEXT;
 
 -- Ensure legacy questions have a stable group id for versioning
 UPDATE questions SET question_group_id = id WHERE question_group_id IS NULL;
 
 -- Add optional email support to survey session records
 ALTER TABLE survey_sessions ADD COLUMN IF NOT EXISTS email TEXT;
+
+-- Add optional branding, scheduling, and language support to surveys
+ALTER TABLE surveys ADD COLUMN IF NOT EXISTS theme_color TEXT;
+ALTER TABLE surveys ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE surveys ADD COLUMN IF NOT EXISTS default_language TEXT;
+ALTER TABLE surveys ADD COLUMN IF NOT EXISTS supported_languages TEXT[];
+ALTER TABLE surveys ADD COLUMN IF NOT EXISTS open_date TIMESTAMP WITH TIME ZONE;
+ALTER TABLE surveys ADD COLUMN IF NOT EXISTS close_date TIMESTAMP WITH TIME ZONE;
 
 -- Update the trigger function to work with TEXT user_id
 -- ONLY increment when first response from this user/survey is inserted

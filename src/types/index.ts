@@ -17,6 +17,12 @@ export interface Survey {
   status: SurveyStatus;
   admin_id: string;
   total_responses: number;
+  theme_color?: string | null;
+  logo_url?: string | null;
+  default_language?: string | null;
+  supported_languages?: string[] | null;
+  open_date?: string | null;
+  close_date?: string | null;
   created_at: string;
 }
 
@@ -26,6 +32,8 @@ export interface Question {
   type: QuestionType;
   question_text: string;
   options: string[] | null;
+  show_when_question_id?: string | null;
+  show_when_answer_value?: string | null;
   order_index: number;
   required: boolean;
 }

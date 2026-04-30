@@ -20,6 +20,12 @@ CREATE TABLE surveys (
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
   admin_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   total_responses INTEGER NOT NULL DEFAULT 0,
+  theme_color TEXT,
+  logo_url TEXT,
+  default_language TEXT,
+  supported_languages TEXT[],
+  open_date TIMESTAMP WITH TIME ZONE,
+  close_date TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -34,6 +40,8 @@ CREATE TABLE questions (
   question_text TEXT NOT NULL,
   options TEXT[],
   order_index INTEGER NOT NULL DEFAULT 0,
+  show_when_question_id UUID,
+  show_when_answer_value TEXT,
   required BOOLEAN NOT NULL DEFAULT true
 );
 

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Plus, X, Check, FileText } from 'lucide-react';
 
-type QuestionType = 'text' | 'choice' | 'rating' | 'boolean';
+type QuestionType = 'text' | 'choice' | 'likert';
 
 interface ParsedQuestion {
   id: string;
@@ -12,10 +12,19 @@ interface ParsedQuestion {
 
 const detectQuestionType = (text: string): QuestionType => {
   const lower = text.toLowerCase();
-  
-  if (text.trim().endsWith('?')) return 'boolean';
-  if (lower.includes('rate') || lower.includes('scale') || lower.includes('level')) return 'rating';
+
+  const booleanTriggers = [/^(do you\b)/i, /^(would you\b)/i, /^(have you\b)/i, /^(is it\b)/i, /^(are you\b)/i, /^(should you\b)/i, /^(can you\b)/i, /^(will you\b)/i];
+  if (booleanTriggers.some((pattern) => pattern.test(text.trim())) || text.trim().endsWith('?')) {
+    return 'choice';
+  }
+  if (lower.includes('rate') || lower.includes('scale') || lower.includes('level')) return 'likert';
   return 'text';
+};
+
+const defaultOptionsForType = (type: QuestionType) => {
+  if (type === 'choice') return ['Option 1', 'Option 2'];
+  if (type === 'likert') return ['1', '2', '3', '4', '5'];
+  return [];
 };
 
 const cleanQuestionText = (text: string): string => {
@@ -86,11 +95,16 @@ export default function BulkQuestionImporter({
     const parsed = lines
       .map((line, index) => {
         const cleaned = cleanQuestionText(line);
+        const type = detectQuestionType(cleaned);
+        const options = defaultOptionsForType(type);
+        if (type === 'choice' && /^(do you\b|would you\b|have you\b|is it\b|are you\b|should you\b|can you\b|will you\b)/i.test(cleaned.trim())) {
+          options.splice(0, options.length, 'Yes', 'No');
+        }
         return {
           id: `bulk-${index}-${Date.now()}`,
           text: cleaned,
-          type: detectQuestionType(cleaned),
-          options: ['Option 1', 'Option 2', 'Option 3']
+          type,
+          options
         };
       })
       .filter(q => isValidQuestion(q.text)); // Only keep valid questions
@@ -158,9 +172,8 @@ export default function BulkQuestionImporter({
   const getTypeLabel = (type: QuestionType) => {
     switch (type) {
       case 'text': return 'Short Text';
-      case 'choice': return 'Multiple Choice';
-      case 'rating': return 'Star Rating';
-      case 'boolean': return 'Boolean (Yes/No)';
+      case 'choice': return 'Multiple Choice / Boolean';
+      case 'likert': return 'Scaling (Likert)';
     }
   };
 
@@ -202,11 +215,11 @@ export default function BulkQuestionImporter({
             className="px-3 py-1.5 border border-gray-200 rounded text-sm text-slate-900 bg-white focus:outline-none focus:border-slate-400"
           >
             <option value="text">Short Text</option>
-            <option value="choice">Multiple Choice</option>
-            <option value="rating">Star Rating</option>
-            <option value="boolean">Boolean (Yes/No)</option>
+            <option value="choice">Multiple Choice / Boolean</option>
+            <option value="likert">Scaling (Likert)</option>
           </select>
           <button
+            type="button"
             onClick={applyGlobalType}
             className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-gray-200 hover:bg-gray-50"
           >
@@ -229,9 +242,8 @@ export default function BulkQuestionImporter({
                 className="flex-1 px-3 py-1.5 border border-gray-200 rounded text-sm text-slate-900 bg-white focus:outline-none focus:border-slate-400"
               >
                 <option value="text">Short Text</option>
-                <option value="choice">Multiple Choice</option>
-                <option value="rating">Star Rating</option>
-                <option value="boolean">Boolean (Yes/No)</option>
+                <option value="choice">Multiple Choice / Boolean</option>
+                <option value="likert">Scaling (Likert)</option>
               </select>
               
               <button

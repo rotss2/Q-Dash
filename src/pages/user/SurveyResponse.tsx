@@ -599,7 +599,8 @@ function SurveyContent() {
 // Main exported component wrapped with LanguageProvider
 export default function SurveyResponse() {
   const { surveyId } = useParams<{ surveyId: string }>();
-  const [survey, setSurvey] = useState<Survey | null>(null);
+  const [defaultLanguage, setDefaultLanguage] = useState<string>('en');
+  const [supportedLanguages, setSupportedLanguages] = useState<string[] | undefined>(undefined);
 
   // Load survey to get supported languages
   useEffect(() => {
@@ -613,7 +614,8 @@ export default function SurveyResponse() {
         .single();
       
       if (data) {
-        setSurvey(data as Survey);
+        setDefaultLanguage(data.default_language || 'en');
+        setSupportedLanguages(data.supported_languages || undefined);
       }
     };
     
@@ -622,8 +624,8 @@ export default function SurveyResponse() {
 
   return (
     <LanguageProvider 
-      defaultLocale={survey?.default_language as any} 
-      surveySupportedLanguages={survey?.supported_languages || undefined}
+      defaultLocale={defaultLanguage as any} 
+      surveySupportedLanguages={supportedLanguages}
     >
       <SurveyContent />
     </LanguageProvider>

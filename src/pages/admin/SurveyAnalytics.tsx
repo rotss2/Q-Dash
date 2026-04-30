@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
-import { apiGet } from '../../lib/api';
+import { apiGet, apiDelete } from '../../lib/api';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
-import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2 } from 'lucide-react';
 import IntelligenceDashboard from '../../components/IntelligenceDashboard';
 import ResearchConclusion from '../../components/ResearchConclusion';
 import {
@@ -38,9 +38,10 @@ export default function SurveyAnalytics() {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [responses, setResponses] = useState<Array<Response & { question?: Question; profile?: { email: string } }>>([]);
-  const [aggregations, setAggregations] = useState<ResponseAggregation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'conclusion' | 'raw'>('analytics');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
 
   useEffect(() => {
     if (surveyId) {
@@ -74,24 +75,22 @@ export default function SurveyAnalytics() {
     }));
 
     setResponses(typedResponses);
-    const aggs = calculateAggregations(data.questions || [], typedResponses);
-    setAggregations(aggs);
     setIsLoading(false);
   };
 
-  const calculateAggregations = (questions: Question[], responses: Array<Response & { question?: Question; profile?: { email: string } }>): ResponseAggregation[] => {
-    const questionMap = new Map(questions.map(q => [q.id, q]));
-    responses.forEach(r => {
+  const calculateAggregations = (): ResponseAggregation[] => {
+    const questionMap = new Map(questions.map((q) => [q.id, q]));
+    responses.forEach((r) => {
       if (r.question && !questionMap.has(r.question_id)) {
         questionMap.set(r.question_id, r.question);
       }
     });
 
-    return Array.from(questionMap.values()).map(question => {
-      const questionResponses = responses.filter(r => r.question_id === question.id);
+    return Array.from(questionMap.values()).map((question) => {
+      const questionResponses = filteredResponses.filter((r) => r.question_id === question.id);
       const answers: { [key: string]: number } = {};
       
-      questionResponses.forEach(r => {
+      questionResponses.forEach((r) => {
         answers[r.answer] = (answers[r.answer] || 0) + 1;
       });
 
@@ -105,6 +104,34 @@ export default function SurveyAnalytics() {
     });
   };
 
+  const filteredResponses = responses.filter((response) => {
+    const submittedAt = new Date(response.submitted_at);
+    const fromDate = filterFrom ? new Date(filterFrom) : null;
+    const toDate = filterTo ? new Date(filterTo) : null;
+
+    if (fromDate && submittedAt < fromDate) return false;
+    if (toDate && submittedAt > toDate) return false;
+    return true;
+  });
+
+  const surveyUrl = surveyId ? `${window.location.origin}/survey/${surveyId}` : '';
+
+  const deleteSubmission = async (responseIds: string[]) => {
+    if (!surveyId || responseIds.length === 0) return;
+    if (!confirm('Delete this full submission? This cannot be undone.')) return;
+
+    for (const responseId of responseIds) {
+      const { error } = await apiDelete<{ success: boolean }>(`/api/admin/surveys/${surveyId}/responses/${responseId}`);
+      if (error) {
+        showToast(`Failed to delete response ${responseId}: ${error}`, 'error');
+        return;
+      }
+    }
+
+    showToast('Submission deleted successfully', 'success');
+    loadData();
+  };
+
   const exportToCSV = () => {
     if (!questions.length || !responses.length) return;
 
@@ -114,7 +141,7 @@ export default function SurveyAnalytics() {
     // Group responses by user_id and submitted_at
     const grouped: { [key: string]: { userLabel: string; submitted_at: string; answers: { [qid: string]: string } } } = {};
     
-    responses.forEach(r => {
+    filteredResponses.forEach(r => {
       const key = `${r.user_id}_${r.submitted_at}`;
       if (!grouped[key]) {
         grouped[key] = {
@@ -149,7 +176,7 @@ export default function SurveyAnalytics() {
     const data = {
       survey,
       questions,
-      responses: responses.map(r => ({
+      responses: filteredResponses.map(r => ({
         ...r,
         user_label: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`
       }))
@@ -235,18 +262,58 @@ export default function SurveyAnalytics() {
         <div className="card mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">{survey?.title}</h1>
           <p className="text-gray-600 mb-4">{survey?.description || 'No description'}</p>
-          <div className="flex items-center gap-6 text-sm text-gray-500">
-            <span className="flex items-center gap-1">
-              <Users className="w-4 h-4" />
-              {new Set(responses.map(r => r.user_id)).size} unique responses
-              {survey?.total_responses !== new Set(responses.map(r => r.user_id)).size && (
-                <span className="text-xs text-gray-400">(cached: {survey?.total_responses})</span>
-              )}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
-              Created {survey && new Date(survey.created_at).toLocaleDateString()}
-            </span>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-500">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
+              <span className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                {new Set(responses.map(r => r.user_id)).size} unique responses
+                {survey?.total_responses !== new Set(responses.map(r => r.user_id)).size && (
+                  <span className="text-xs text-gray-400">(cached: {survey?.total_responses})</span>
+                )}
+              </span>
+              <span className="flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                Created {survey && new Date(survey.created_at).toLocaleDateString()}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:items-end">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-xs uppercase tracking-wide text-gray-400">Share</span>
+                <button
+                  onClick={() => navigator.clipboard.writeText(surveyUrl)}
+                  disabled={!surveyUrl}
+                  className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+                >
+                  Copy Link
+                </button>
+                <a
+                  href={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(surveyUrl)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-secondary"
+                >
+                  QR Code
+                </a>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <label className="text-xs uppercase tracking-wide text-gray-400">Filter responses</label>
+                <input
+                  type="date"
+                  value={filterFrom}
+                  onChange={e => setFilterFrom(e.target.value)}
+                  className="input-sm"
+                  placeholder="From"
+                />
+                <input
+                  type="date"
+                  value={filterTo}
+                  onChange={e => setFilterTo(e.target.value)}
+                  className="input-sm"
+                  placeholder="To"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -297,45 +364,57 @@ export default function SurveyAnalytics() {
           /* Raw Data View */
           <div className="card overflow-hidden">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Response Data</h2>
-            {responses.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No responses yet</p>
+            {filteredResponses.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No responses match the selected filter</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
                       {questions.map(q => (
                         <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase break-words max-w-[14rem]">
                           {q.question_text}
                         </th>
                       ))}
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {/* Group responses by submission */}
                     {Object.entries(
-                      responses.reduce((acc, r) => {
+                      filteredResponses.reduce((acc, r) => {
                         const key = `${r.user_id}_${r.submitted_at}`;
                         if (!acc[key]) {
-                          acc[key] = { 
-                            user_id: r.user_id, 
-                            submitted_at: r.submitted_at, 
-                            userLabel: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`, 
-                            answers: {} 
+                          acc[key] = {
+                            user_id: r.user_id,
+                            submitted_at: r.submitted_at,
+                            responseIds: [],
+                            userLabel: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`,
+                            answers: {}
                           };
                         }
+                        acc[key].responseIds.push(r.id);
                         acc[key].answers[r.question_id] = r.answer;
                         return acc;
-                      }, {} as { [key: string]: { user_id: string; submitted_at: string; userLabel: string; answers: { [qid: string]: string } } })
+                      }, {} as { [key: string]: { user_id: string; submitted_at: string; responseIds: string[]; userLabel: string; answers: { [qid: string]: string } } })
                     ).map(([key, submission]) => (
                       <tr key={key}>
                         <td className="px-4 py-3 text-sm text-gray-900">{submission.userLabel}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{new Date(submission.submitted_at).toLocaleString()}</td>
-                        {questions.map(q => (
+                        {questions.map((q) => (
                           <td key={q.id} className="px-4 py-3 text-sm text-gray-900">{submission.answers[q.id] || '-'}</td>
                         ))}
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          <button
+                            onClick={() => deleteSubmission(submission.responseIds)}
+                            className="inline-flex items-center gap-2 text-red-600 hover:text-red-800 text-sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -353,7 +432,7 @@ export default function SurveyAnalytics() {
                 <p className="text-gray-600">Share your survey link to start collecting responses</p>
               </div>
             ) : (
-              aggregations.map((agg) => (
+              calculateAggregations().map((agg) => (
                 <div key={agg.question_id} className="card">
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">{agg.question_text}</h3>
