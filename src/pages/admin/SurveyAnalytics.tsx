@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
 import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb } from 'lucide-react';
 import IntelligenceDashboard from '../../components/IntelligenceDashboard';
+import ResearchConclusion from '../../components/ResearchConclusion';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -39,13 +40,47 @@ export default function SurveyAnalytics() {
   const [responses, setResponses] = useState<Array<Response & { question?: Question; profile?: { email: string } }>>([]);
   const [aggregations, setAggregations] = useState<ResponseAggregation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'raw'>('analytics');
+  const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'conclusion' | 'raw'>('analytics');
 
   useEffect(() => {
     if (surveyId) {
       loadData();
+      setupRealtimeSubscription();
     }
+    
+    return () => {
+      // Cleanup subscription on unmount
+      supabase.removeAllChannels();
+    };
   }, [surveyId]);
+
+  const setupRealtimeSubscription = () => {
+    console.log('Setting up analytics realtime subscription...');
+    
+    const subscription = supabase
+      .channel(`analytics-${surveyId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'responses',
+          filter: `survey_id=eq.${surveyId}`
+        },
+        (payload) => {
+          console.log('New response received:', payload);
+          // Refresh data when new response arrives
+          loadData();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Analytics subscription status:', status);
+      });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  };
 
   const loadData = async () => {
     if (!surveyId) return;
@@ -136,16 +171,16 @@ export default function SurveyAnalytics() {
     if (!questions.length || !responses.length) return;
 
     // Build CSV rows
-    const headers = ['User Email', 'Submitted At', ...questions.map(q => q.question_text)];
+    const headers = ['User', 'Submitted At', ...questions.map(q => q.question_text)];
     
     // Group responses by user_id and submitted_at
-    const grouped: { [key: string]: { email: string; submitted_at: string; answers: { [qid: string]: string } } } = {};
+    const grouped: { [key: string]: { userLabel: string; submitted_at: string; answers: { [qid: string]: string } } } = {};
     
     responses.forEach(r => {
       const key = `${r.user_id}_${r.submitted_at}`;
       if (!grouped[key]) {
         grouped[key] = {
-          email: (r as any).profile?.email || 'Unknown',
+          userLabel: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`,
           submitted_at: r.submitted_at,
           answers: {}
         };
@@ -154,7 +189,7 @@ export default function SurveyAnalytics() {
     });
 
     const rows = Object.values(grouped).map(g => [
-      g.email,
+      g.userLabel,
       new Date(g.submitted_at).toLocaleString(),
       ...questions.map(q => g.answers[q.id] || '')
     ]);
@@ -178,7 +213,7 @@ export default function SurveyAnalytics() {
       questions,
       responses: responses.map(r => ({
         ...r,
-        user_email: (r as any).profile?.email
+        user_label: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`
       }))
     };
 
@@ -265,7 +300,10 @@ export default function SurveyAnalytics() {
           <div className="flex items-center gap-6 text-sm text-gray-500">
             <span className="flex items-center gap-1">
               <Users className="w-4 h-4" />
-              {survey?.total_responses} total responses
+              {new Set(responses.map(r => r.user_id)).size} unique responses
+              {survey?.total_responses !== new Set(responses.map(r => r.user_id)).size && (
+                <span className="text-xs text-gray-400">(cached: {survey?.total_responses})</span>
+              )}
             </span>
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
@@ -290,6 +328,12 @@ export default function SurveyAnalytics() {
             Intelligence
           </button>
           <button
+            onClick={() => setActiveView('conclusion')}
+            className={`px-4 py-2 font-medium ${activeView === 'conclusion' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
+          >
+            Conclusion
+          </button>
+          <button
             onClick={() => setActiveView('raw')}
             className={`px-4 py-2 font-medium ${activeView === 'raw' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
           >
@@ -300,6 +344,13 @@ export default function SurveyAnalytics() {
         {activeView === 'intelligence' ? (
           /* Intelligence Dashboard */
           <IntelligenceDashboard
+            questions={questions}
+            responses={responses}
+            surveyTitle={survey?.title || 'Survey'}
+          />
+        ) : activeView === 'conclusion' ? (
+          /* Research Conclusion */
+          <ResearchConclusion
             questions={questions}
             responses={responses}
             surveyTitle={survey?.title || 'Survey'}
@@ -330,14 +381,19 @@ export default function SurveyAnalytics() {
                       responses.reduce((acc, r) => {
                         const key = `${r.user_id}_${r.submitted_at}`;
                         if (!acc[key]) {
-                          acc[key] = { user_id: r.user_id, submitted_at: r.submitted_at, email: (r as any).profile?.email, answers: {} };
+                          acc[key] = { 
+                            user_id: r.user_id, 
+                            submitted_at: r.submitted_at, 
+                            userLabel: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`, 
+                            answers: {} 
+                          };
                         }
                         acc[key].answers[r.question_id] = r.answer;
                         return acc;
-                      }, {} as { [key: string]: { user_id: string; submitted_at: string; email: string; answers: { [qid: string]: string } } })
+                      }, {} as { [key: string]: { user_id: string; submitted_at: string; userLabel: string; answers: { [qid: string]: string } } })
                     ).map(([key, submission]) => (
                       <tr key={key}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{submission.email || 'Unknown'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900">{submission.userLabel}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{new Date(submission.submitted_at).toLocaleString()}</td>
                         {questions.map(q => (
                           <td key={q.id} className="px-4 py-3 text-sm text-gray-900">{submission.answers[q.id] || '-'}</td>

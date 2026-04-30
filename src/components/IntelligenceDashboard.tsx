@@ -271,22 +271,23 @@ ${conclusions.filter(c => c.confidence === 'high').map(c => `• ${c.questionTex
 
   // Download flattened CSV
   const downloadCSV = () => {
-    // Group responses by profile
-    const byRespondent: Record<string, { email: string; responses: Record<string, string> }> = {};
+    // Group responses by user (using userLabel or fingerprint)
+    const byRespondent: Record<string, { userLabel: string; responses: Record<string, string> }> = {};
     
     responses.forEach(r => {
-      const email = r.profile?.email || 'anonymous';
-      if (!byRespondent[email]) {
-        byRespondent[email] = { email, responses: {} };
+      const userId = r.user_id || 'anonymous';
+      const userLabel = (r as any).userLabel || `User-${userId.slice(0, 8)}`;
+      if (!byRespondent[userId]) {
+        byRespondent[userId] = { userLabel, responses: {} };
       }
       const questionText = r.question?.question_text || 'Unknown';
-      byRespondent[email].responses[questionText] = r.answer as string;
+      byRespondent[userId].responses[questionText] = r.answer as string;
     });
     
     // Create CSV
-    const headers = ['Respondent', ...questions.map(q => q.question_text)];
+    const headers = ['User', ...questions.map(q => q.question_text)];
     const rows = Object.values(byRespondent).map(r => [
-      r.email,
+      r.userLabel,
       ...questions.map(q => r.responses[q.question_text] || '')
     ]);
     

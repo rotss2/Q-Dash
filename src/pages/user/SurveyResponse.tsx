@@ -219,6 +219,11 @@ export default function SurveyResponse() {
         // Still mark as submitted since responses were saved
       }
 
+      // Update survey response count for dashboard
+      await supabase.rpc('increment_survey_response_count', {
+        p_survey_id: surveyId!
+      });
+
       // Layer 1: Save to localStorage to block future attempts
       localStorage.setItem(`survey-completed-${surveyId}`, 'true');
       

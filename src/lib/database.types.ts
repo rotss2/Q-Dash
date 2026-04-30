@@ -222,6 +222,12 @@ export interface Database {
           error_message: string
         }[]
       }
+      increment_survey_response_count: {
+        Args: {
+          p_survey_id: string
+        }
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never
