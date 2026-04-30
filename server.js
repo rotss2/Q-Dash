@@ -469,7 +469,7 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
       .from('surveys')
       .select('id, title, admin_id')
       .eq('id', surveyId)
-      .single();
+      .maybeSingle();
 
     if (checkError) {
       console.error('Survey lookup failed:', checkError);
@@ -477,8 +477,8 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
     }
 
     if (!survey) {
-      console.log('Survey not found:', surveyId);
-      return res.status(404).json({ error: 'Survey not found' });
+      console.log('Survey already deleted or not found:', surveyId);
+      return res.status(404).json({ error: 'Survey not found or already deleted' });
     }
 
     console.log('Found survey to delete:', survey);
