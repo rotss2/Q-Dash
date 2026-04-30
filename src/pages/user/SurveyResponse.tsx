@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { supabase } from '../../lib/supabase';
 import { getAnonymousUserId } from '../../lib/fingerprint';
 import { Survey, Question } from '../../types';
+import { LanguageProvider, useLanguage } from '../../hooks/useLanguage';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 import { Send, CheckCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface Answer {
@@ -11,7 +13,9 @@ interface Answer {
   answer: string;
 }
 
-export default function SurveyResponse() {
+// Inner component that uses localization
+function SurveyContent() {
+  const { t } = useLanguage();
   const { surveyId } = useParams<{ surveyId: string }>();
   const { showToast } = useToast();
   
@@ -28,6 +32,27 @@ export default function SurveyResponse() {
   const [userId, setUserId] = useState<string>('');
   const [fingerprint, setFingerprint] = useState<string>('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  const answersMap = useMemo(
+    () => Object.fromEntries(answers.map((answer) => [answer.question_id, answer.answer])),
+    [answers]
+  );
+
+  const shouldShowQuestion = (question: Question, answerValues: Record<string, string>) => {
+    if (!question.show_when_question_id) return true;
+    return answerValues[question.show_when_question_id] === question.show_when_answer_value;
+  };
+
+  const visibleQuestions = useMemo(
+    () => questions.filter((question) => shouldShowQuestion(question, answersMap)),
+    [questions, answersMap]
+  );
+
+  useEffect(() => {
+    if (currentQuestionIndex >= visibleQuestions.length) {
+      setCurrentQuestionIndex(Math.max(0, visibleQuestions.length - 1));
+    }
+  }, [currentQuestionIndex, visibleQuestions.length]);
 
   // Initialize anonymous user ID on mount
   useEffect(() => {
@@ -100,11 +125,36 @@ export default function SurveyResponse() {
       .from('surveys')
       .select('*')
       .eq('id', surveyId)
-      .eq('status', 'open')
       .single();
 
     if (surveyError || !surveyData) {
-      showToast('Survey not found or is closed', 'error');
+      showToast(t('errorLoadingSurvey'), 'error');
+      setIsLoading(false);
+      return;
+    }
+
+    const now = new Date();
+    if (surveyData.status !== 'open') {
+      setSurvey(surveyData);
+      setIsBlocked(true);
+      setBlockReason(t('surveyClosed'));
+      setIsLoading(false);
+      return;
+    }
+
+    if (surveyData.open_date && new Date(surveyData.open_date) > now) {
+      setSurvey(surveyData);
+      setIsBlocked(true);
+      setBlockReason(`${t('surveyNotOpen')} ${new Date(surveyData.open_date).toLocaleString()}.`);
+      setIsLoading(false);
+      return;
+    }
+
+    if (surveyData.close_date && new Date(surveyData.close_date) < now) {
+      setSurvey(surveyData);
+      setIsBlocked(true);
+      setBlockReason(`${t('surveyExpired')} ${new Date(surveyData.close_date).toLocaleString()}.`);
+      setIsLoading(false);
       return;
     }
 
@@ -117,10 +167,11 @@ export default function SurveyResponse() {
       .order('order_index', { ascending: true });
 
     if (questionsError) {
-      showToast('Failed to load questions', 'error');
+      showToast(t('errorLoadingSurvey'), 'error');
     } else {
       setQuestions(questionsData || []);
     }
+    setIsLoading(false);
   };
 
   const checkPreviousSubmission = async () => {
@@ -145,7 +196,7 @@ export default function SurveyResponse() {
 
       if (data && data.length > 0) {
         setIsBlocked(true);
-        setBlockReason('You have already completed this survey.');
+        setBlockReason(t('responseRecorded'));
         localStorage.setItem(`survey-completed-${surveyId}`, 'true');
       }
       return;
@@ -153,54 +204,63 @@ export default function SurveyResponse() {
 
     if (hasCompleted) {
       setIsBlocked(true);
-      setBlockReason('You have already completed this survey.');
+      setBlockReason(t('responseRecorded'));
       localStorage.setItem(`survey-completed-${surveyId}`, 'true');
     }
   };
 
   const updateAnswer = (questionId: string, value: string) => {
-    setAnswers(prev => {
-      const existing = prev.find(a => a.question_id === questionId);
-      if (existing) {
-        return prev.map(a => a.question_id === questionId ? { ...a, answer: value } : a);
-      }
-      return [...prev, { question_id: questionId, answer: value }];
+    setAnswers((prev) => {
+      const existing = prev.find((a) => a.question_id === questionId);
+      const updated = existing
+        ? prev.map((a) => (a.question_id === questionId ? { ...a, answer: value } : a))
+        : [...prev, { question_id: questionId, answer: value }];
+
+      const updatedMap = Object.fromEntries(updated.map((answer) => [answer.question_id, answer.answer]));
+      const visibleQuestionIds = new Set(
+        questions.filter((question) => shouldShowQuestion(question, updatedMap)).map((question) => question.id)
+      );
+
+      return updated.filter((answer) => visibleQuestionIds.has(answer.question_id));
     });
   };
 
   const getAnswer = (questionId: string): string => {
-    return answers.find(a => a.question_id === questionId)?.answer || '';
+    return answers.find((a) => a.question_id === questionId)?.answer || '';
   };
 
   const handleSubmit = async () => {
     if (!userId) {
-      showToast('Unable to identify user', 'error');
+      showToast(t('error'), 'error');
       return;
     }
 
-    // Validate required fields for current and previous questions
-    const missingRequired = questions
-      .filter(q => q.required)
-      .filter(q => !getAnswer(q.id));
+    // Validate required fields for visible questions only
+    const missingRequired = visibleQuestions
+      .filter((q) => q.required)
+      .filter((q) => !getAnswer(q.id));
 
     if (missingRequired.length > 0) {
-      showToast(`Please answer all required questions`, 'error');
+      showToast(t('errorRequiredField'), 'error');
       return;
     }
 
     setIsSubmitting(true);
 
     const now = new Date().toISOString();
-    const responsesToInsert = answers.map(a => ({
-      survey_id: surveyId!,
-      user_id: userId,
-      question_id: a.question_id,
-      answer: a.answer,
-      submitted_at: now
-    }));
+    const visibleQuestionIds = new Set(visibleQuestions.map((q) => q.id));
+    const responsesToInsert = answers
+      .filter((a) => visibleQuestionIds.has(a.question_id))
+      .map((a) => ({
+        survey_id: surveyId!,
+        user_id: userId,
+        question_id: a.question_id,
+        answer: a.answer,
+        submitted_at: now
+      }));
 
     if (email.trim() && !/^[\w.%+-]+@gmail\.com$/i.test(email.trim())) {
-      showToast('Please enter a valid Gmail address or leave the email blank.', 'error');
+      showToast(t('errorInvalidEmail'), 'error');
       setIsSubmitting(false);
       return;
     }
@@ -210,7 +270,7 @@ export default function SurveyResponse() {
       .insert(responsesToInsert);
 
     if (error) {
-      showToast('Failed to submit response', 'error');
+      showToast(t('errorSubmitting'), 'error');
       console.error(error);
     } else {
       // Layer 3: Record completion in survey_sessions table
@@ -237,13 +297,13 @@ export default function SurveyResponse() {
       
       setSubmissionPreview({
         email: email.trim() || undefined,
-        answers: questions.map((q) => ({
+        answers: visibleQuestions.map((q) => ({
           questionText: q.question_text,
           answer: getAnswer(q.id)
         }))
       });
 
-      showToast('Response submitted successfully!', 'success');
+      showToast(t('success'), 'success');
       setHasSubmitted(true);
     }
 
@@ -251,13 +311,13 @@ export default function SurveyResponse() {
   };
 
   const goToNext = () => {
-    const currentQ = questions[currentQuestionIndex];
+    const currentQ = visibleQuestions[currentQuestionIndex];
     if (currentQ?.required && !getAnswer(currentQ.id)) {
-      showToast('Please answer this question', 'error');
+      showToast(t('errorRequiredField'), 'error');
       return;
     }
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+    if (currentQuestionIndex < visibleQuestions.length - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
     }
   };
 
@@ -270,7 +330,10 @@ export default function SurveyResponse() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p className="text-gray-500">{t('loading')}</p>
+        </div>
       </div>
     );
   }
@@ -285,7 +348,7 @@ export default function SurveyResponse() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Survey Completed</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('thankYou')}</h2>
           <p className="text-gray-600 mb-2">{blockReason}</p>
           <p className="text-sm text-gray-500">Each device may only submit one response.</p>
         </div>
@@ -300,8 +363,8 @@ export default function SurveyResponse() {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Thank You!</h2>
-          <p className="text-gray-600 mb-4">Your response has been recorded.</p>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('thankYou')}</h2>
+          <p className="text-gray-600 mb-4">{t('responseRecorded')}</p>
           {submissionPreview.email && (
             <p className="text-sm text-slate-500 mb-4">
               A preview summary has been generated for <strong>{submissionPreview.email}</strong>.
@@ -330,16 +393,30 @@ export default function SurveyResponse() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Survey Not Available</h2>
-          <p className="text-gray-600 mb-6">This survey may be closed or does not exist.</p>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('surveyClosed')}</h2>
+          <p className="text-gray-600 mb-6">{t('errorLoadingSurvey')}</p>
         </div>
       </div>
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const isLastQuestion = currentQuestionIndex === questions.length - 1;
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  if (visibleQuestions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="card max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-yellow-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('surveyTitle')}</h2>
+          <p className="text-gray-600 mb-6">{t('errorLoadingSurvey')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuestion = visibleQuestions[currentQuestionIndex];
+  const isLastQuestion = currentQuestionIndex === visibleQuestions.length - 1;
+  const progress = visibleQuestions.length > 0 ? ((currentQuestionIndex + 1) / visibleQuestions.length) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -348,7 +425,7 @@ export default function SurveyResponse() {
         <div className="max-w-lg mx-auto px-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between h-auto sm:h-14 min-w-0">
             <span className="text-sm font-medium text-gray-500 break-words">
-              {currentQuestionIndex + 1} of {questions.length}
+              {visibleQuestions.length > 0 ? currentQuestionIndex + 1 : 0} of {visibleQuestions.length}
             </span>
             <span className="text-sm font-medium text-slate-900 break-words text-center sm:text-left max-w-full">
               {survey.title}
@@ -374,7 +451,7 @@ export default function SurveyResponse() {
               {currentQuestionIndex === 0 && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Gmail (optional)
+                    Gmail ({t('optional').toLowerCase()})
                   </label>
                   <input
                     type="email"
@@ -384,7 +461,7 @@ export default function SurveyResponse() {
                     placeholder="Enter your Gmail to receive a preview summary"
                   />
                   <p className="mt-2 text-xs text-slate-500">
-                    This field is optional. Leave blank to proceed anonymously.
+                    {t('optional')}. Leave blank to proceed anonymously.
                   </p>
                 </div>
               )}
@@ -393,7 +470,7 @@ export default function SurveyResponse() {
                 <h2 className="text-xl font-semibold text-slate-900 leading-relaxed break-words">
                   {currentQuestion.question_text}
                   {currentQuestion.required && (
-                    <span className="text-red-500 ml-1">*</span>
+                    <span className="text-red-500 ml-1" title={t('required')}>*</span>
                   )}
                 </h2>
               </div>
@@ -405,13 +482,13 @@ export default function SurveyResponse() {
                     value={getAnswer(currentQuestion.id)}
                     onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
                     className="w-full p-4 border border-gray-200 rounded-lg text-slate-900 min-h-[120px] focus:outline-none focus:border-slate-400 resize-none"
-                    placeholder="Type your answer here..."
+                    placeholder={t('textPlaceholder')}
                     autoFocus
                   />
                 )}
 
                 {currentQuestion.type === 'choice' && currentQuestion.options && (
-                  <div className="space-y-2">
+                  <div className="space-y-2" role="radiogroup" aria-label={currentQuestion.question_text}>
                     {currentQuestion.options.map((option) => (
                       <button
                         key={option}
@@ -421,6 +498,8 @@ export default function SurveyResponse() {
                             ? 'border-slate-900 bg-slate-50 text-slate-900'
                             : 'border-gray-200 hover:border-slate-300 text-slate-700'
                         }`}
+                        role="radio"
+                        aria-checked={getAnswer(currentQuestion.id) === option}
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0">
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
@@ -466,7 +545,7 @@ export default function SurveyResponse() {
                     className="flex items-center gap-2 px-4 py-3 border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 font-medium"
                   >
                     <ChevronLeft className="w-5 h-5" />
-                    Back
+                    {t('back')}
                   </button>
                 )}
                 
@@ -479,12 +558,12 @@ export default function SurveyResponse() {
                     {isSubmitting ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Submitting...
+                        {t('loading')}
                       </>
                     ) : (
                       <>
                         <Send className="w-5 h-5" />
-                        Submit
+                        {t('submit')}
                       </>
                     )}
                   </button>
@@ -494,7 +573,7 @@ export default function SurveyResponse() {
                     disabled={currentQuestion.required && !getAnswer(currentQuestion.id)}
                     className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Next
+                    {t('next')}
                     <ChevronRight className="w-5 h-5" />
                   </button>
                 )}
@@ -506,12 +585,47 @@ export default function SurveyResponse() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 py-4">
-        <div className="max-w-lg mx-auto px-4 text-center">
+        <div className="max-w-lg mx-auto px-4 text-center flex flex-col items-center gap-2">
+          <LanguageSwitcher variant="minimal" />
           <p className="text-xs text-slate-500">
             Secured with browser fingerprinting
           </p>
         </div>
       </footer>
     </div>
+  );
+}
+
+// Main exported component wrapped with LanguageProvider
+export default function SurveyResponse() {
+  const { surveyId } = useParams<{ surveyId: string }>();
+  const [survey, setSurvey] = useState<Survey | null>(null);
+
+  // Load survey to get supported languages
+  useEffect(() => {
+    if (!surveyId) return;
+    
+    const loadSurveyLanguages = async () => {
+      const { data } = await supabase
+        .from('surveys')
+        .select('default_language, supported_languages')
+        .eq('id', surveyId)
+        .single();
+      
+      if (data) {
+        setSurvey(data as Survey);
+      }
+    };
+    
+    loadSurveyLanguages();
+  }, [surveyId]);
+
+  return (
+    <LanguageProvider 
+      defaultLocale={survey?.default_language as any} 
+      surveySupportedLanguages={survey?.supported_languages || undefined}
+    >
+      <SurveyContent />
+    </LanguageProvider>
   );
 }

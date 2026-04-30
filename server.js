@@ -564,7 +564,91 @@ app.get('*', (req, res) => {
   res.sendFile(indexPath);
 });
 
+// ============================================================================
+// SURVEY SCHEDULING ENGINE
+// Automatically opens/closes surveys based on open_date and close_date
+// ============================================================================
+
+const SCHEDULER_INTERVAL_MS = 60 * 1000; // Run every minute
+let schedulerRuns = 0;
+let lastSchedulerError = null;
+
+async function runSurveyScheduler() {
+  try {
+    // Auto-open surveys that have reached their open_date
+    const { data: openedData, error: openError } = await supabaseAdmin
+      .from('surveys')
+      .update({ status: 'open' })
+      .eq('status', 'closed')
+      .not('open_date', 'is', null)
+      .lte('open_date', new Date().toISOString())
+      .select('id, title');
+
+    if (openError) {
+      console.error('Scheduler: Error opening surveys:', openError);
+    } else if (openedData && openedData.length > 0) {
+      console.log(`Scheduler: Auto-opened ${openedData.length} survey(s):`, openedData.map(s => s.title).join(', '));
+    }
+
+    // Auto-close surveys that have reached their close_date
+    const { data: closedData, error: closeError } = await supabaseAdmin
+      .from('surveys')
+      .update({ status: 'closed' })
+      .eq('status', 'open')
+      .not('close_date', 'is', null)
+      .lte('close_date', new Date().toISOString())
+      .select('id, title');
+
+    if (closeError) {
+      console.error('Scheduler: Error closing surveys:', closeError);
+    } else if (closedData && closedData.length > 0) {
+      console.log(`Scheduler: Auto-closed ${closedData.length} survey(s):`, closedData.map(s => s.title).join(', '));
+    }
+
+    schedulerRuns++;
+    if ((openedData?.length > 0 || closedData?.length > 0) || schedulerRuns % 10 === 0) {
+      console.log(`Scheduler: Run #${schedulerRuns} completed at ${new Date().toISOString()}`);
+    }
+  } catch (error) {
+    lastSchedulerError = error;
+    console.error('Scheduler: Unexpected error:', error);
+  }
+}
+
+// Start the scheduler
+function startScheduler() {
+  console.log('Starting survey scheduling engine...');
+  console.log(`Scheduler will run every ${SCHEDULER_INTERVAL_MS / 1000} seconds`);
+  
+  // Run immediately on startup
+  runSurveyScheduler();
+  
+  // Then schedule periodic runs
+  setInterval(runSurveyScheduler, SCHEDULER_INTERVAL_MS);
+}
+
+// Health check endpoint that includes scheduler status
+app.get('/api/health', (_req, res) => {
+  return res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    scheduler: {
+      active: true,
+      runs: schedulerRuns,
+      intervalSeconds: SCHEDULER_INTERVAL_MS / 1000,
+      lastError: lastSchedulerError ? lastSchedulerError.message : null
+    }
+  });
+});
+
+// ============================================================================
+// SERVER STARTUP
+// ============================================================================
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Serving files from: ${distPath}`);
+  
+  // Start the scheduling engine
+  startScheduler();
 });

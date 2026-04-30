@@ -6,14 +6,55 @@ import { QuestionType, Survey } from '../../types';
 import { ArrowLeft, Plus, Trash2, X, Save, FileText } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 
+interface SurveyTemplate {
+  id: string;
+  title: string;
+  description: string;
+  questions: Omit<FormQuestion, 'id'>[];
+}
+
 interface FormQuestion {
   id: string;
   type: QuestionType;
   question_text: string;
   options: string[];
+  show_when_question_id?: string;
+  show_when_answer_value?: string;
   required: boolean;
   order_index: number;
 }
+
+const SURVEY_TEMPLATES: SurveyTemplate[] = [
+  {
+    id: 'template-feedback',
+    title: 'Customer Feedback',
+    description: 'Collect quick feedback from customers about your product or service.',
+    questions: [
+      { type: 'text', question_text: 'What did you like most about your experience?', options: [], required: true, order_index: 0 },
+      { type: 'choice', question_text: 'How satisfied are you with our service?', options: ['Very satisfied', 'Satisfied', 'Neutral', 'Dissatisfied', 'Very dissatisfied'], required: true, order_index: 1 },
+      { type: 'text', question_text: 'What can we improve?', options: [], required: false, order_index: 2 }
+    ]
+  },
+  {
+    id: 'template-nps',
+    title: 'Net Promoter Score',
+    description: 'Measure customer loyalty and likelihood to recommend your company.',
+    questions: [
+      { type: 'likert', question_text: 'How likely are you to recommend us to a friend?', options: ['1', '2', '3', '4', '5'], required: true, order_index: 0 },
+      { type: 'text', question_text: 'Tell us why you chose that score.', options: [], required: false, order_index: 1 }
+    ]
+  },
+  {
+    id: 'template-event',
+    title: 'Event Check-In',
+    description: 'Gather attendee impressions and improvement ideas after your event.',
+    questions: [
+      { type: 'choice', question_text: 'How did you hear about the event?', options: ['Email', 'Social media', 'Friend', 'Website', 'Other'], required: true, order_index: 0 },
+      { type: 'likert', question_text: 'How would you rate the event overall?', options: ['1', '2', '3', '4', '5'], required: true, order_index: 1 },
+      { type: 'text', question_text: 'Any comments for our team?', options: [], required: false, order_index: 2 }
+    ]
+  }
+];
 
 export default function SurveyBuilder() {
   const { showToast } = useToast();
@@ -24,6 +65,12 @@ export default function SurveyBuilder() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState<FormQuestion[]>([]);
+  const [themeColor, setThemeColor] = useState('#111827');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [defaultLanguage, setDefaultLanguage] = useState('en');
+  const [supportedLanguages, setSupportedLanguages] = useState('en,es');
+  const [openDate, setOpenDate] = useState('');
+  const [closeDate, setCloseDate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showBulkImporter, setShowBulkImporter] = useState(false);
@@ -47,6 +94,12 @@ export default function SurveyBuilder() {
 
     setTitle(data.survey.title);
     setDescription(data.survey.description || '');
+    setThemeColor(data.survey.theme_color || '#111827');
+    setLogoUrl(data.survey.logo_url || '');
+    setDefaultLanguage(data.survey.default_language || 'en');
+    setSupportedLanguages((data.survey.supported_languages || ['en']).join(','));
+    setOpenDate(data.survey.open_date ? new Date(data.survey.open_date).toISOString().slice(0, 16) : '');
+    setCloseDate(data.survey.close_date ? new Date(data.survey.close_date).toISOString().slice(0, 16) : '');
     setQuestions(data.questions || []);
     setIsLoading(false);
   };
@@ -58,16 +111,41 @@ export default function SurveyBuilder() {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   };
 
-  const addQuestion = (type: QuestionType) => {
+  const applyTemplate = (templateId: string) => {
+    const template = SURVEY_TEMPLATES.find((item) => item.id === templateId);
+    if (!template) return;
+
+    setTitle(template.title);
+    setDescription(template.description);
+    setQuestions(template.questions.map((question, index) => ({
+      ...question,
+      id: generateId(),
+      order_index: index,
+      show_when_question_id: undefined,
+      show_when_answer_value: undefined
+    })));
+  };
+
+  const addQuestion = (type: QuestionType, options: string[] = []) => {
     const newQuestion: FormQuestion = {
       id: generateId(),
       type,
       question_text: '',
-      options: type === 'choice' ? ['Option 1', 'Option 2'] : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
+      options: options.length > 0 ? options : type === 'choice' ? ['Option 1', 'Option 2'] : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
       required: true,
       order_index: questions.length
     };
     setQuestions([...questions, newQuestion]);
+  };
+
+  /**
+   * Boolean questions are stored as 'choice' type with ['Yes', 'No'] options.
+   * The database schema only supports: 'text' | 'choice' | 'likert' (see schema.sql line 39)
+   * The UI displays it as "Boolean" when options are exactly ['Yes', 'No'] (see line 464-466).
+   * This is intentional design - there is no separate 'boolean' column in the database.
+   */
+  const addBooleanQuestion = () => {
+    addQuestion('choice', ['Yes', 'No']);
   };
 
   const updateQuestion = (id: string, updates: Partial<FormQuestion>) => {
@@ -142,6 +220,12 @@ export default function SurveyBuilder() {
       const payload = {
         title,
         description,
+        theme_color: themeColor,
+        logo_url: logoUrl || null,
+        default_language: defaultLanguage || null,
+        supported_languages: supportedLanguages.split(',').map((lang) => lang.trim()).filter(Boolean),
+        open_date: openDate ? new Date(openDate).toISOString() : null,
+        close_date: closeDate ? new Date(closeDate).toISOString() : null,
         questions
       };
 
@@ -202,16 +286,28 @@ export default function SurveyBuilder() {
         <div className="card mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Survey Details</h2>
           <div className="space-y-4">
-            <div>
-              <label className="label">Survey Title *</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="input"
-                placeholder="Enter survey title"
-              />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
+              <div className="flex-1">
+                <label className="label">Survey Title *</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="input"
+                  placeholder="Enter survey title"
+                />
+              </div>
+              <div className="sm:w-52">
+                <label className="label">Brand Color</label>
+                <input
+                  type="color"
+                  value={themeColor}
+                  onChange={(e) => setThemeColor(e.target.value)}
+                  className="w-full h-12 rounded-lg border border-gray-200 p-0"
+                />
+              </div>
             </div>
+
             <div>
               <label className="label">Description</label>
               <textarea
@@ -221,6 +317,84 @@ export default function SurveyBuilder() {
                 placeholder="Enter survey description"
               />
             </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <label className="label">Logo URL</label>
+                <input
+                  type="text"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  className="input"
+                  placeholder="https://..."
+                />
+                {logoUrl && (
+                  <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+                    <img src={logoUrl} alt="Logo preview" className="h-10 w-10 rounded-md object-contain" />
+                    <span className="text-sm text-gray-600">Logo preview</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="label">Supported Languages</label>
+                <input
+                  type="text"
+                  value={supportedLanguages}
+                  onChange={(e) => setSupportedLanguages(e.target.value)}
+                  className="input"
+                  placeholder="en, es, fr"
+                />
+                <p className="text-xs text-gray-500 mt-1">Comma-separated locale codes for respondent language switching.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <label className="label">Default Language</label>
+                <input
+                  type="text"
+                  value={defaultLanguage}
+                  onChange={(e) => setDefaultLanguage(e.target.value)}
+                  className="input"
+                  placeholder="en"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Open Date</label>
+                  <input
+                    type="datetime-local"
+                    value={openDate}
+                    onChange={(e) => setOpenDate(e.target.value)}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="label">Close Date</label>
+                  <input
+                    type="datetime-local"
+                    value={closeDate}
+                    onChange={(e) => setCloseDate(e.target.value)}
+                    className="input"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Templates */}
+        <div className="card mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Start from a template</h3>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {SURVEY_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                onClick={() => applyTemplate(template.id)}
+                className="rounded-xl border border-gray-200 bg-white p-4 text-left hover:border-slate-900"
+              >
+                <h4 className="text-sm font-semibold text-gray-900 mb-2">{template.title}</h4>
+                <p className="text-sm text-gray-500">{template.description}</p>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -251,11 +425,18 @@ export default function SurveyBuilder() {
                 Choice
               </button>
               <button
+                onClick={addBooleanQuestion}
+                className="btn-secondary text-sm flex items-center gap-1"
+              >
+                <Plus className="w-4 h-4" />
+                Boolean
+              </button>
+              <button
                 onClick={() => addQuestion('likert')}
                 className="btn-secondary text-sm flex items-center gap-1"
               >
                 <Plus className="w-4 h-4" />
-                Likert
+                Scaling
               </button>
             </div>
           </div>
@@ -284,7 +465,11 @@ export default function SurveyBuilder() {
                 <div className="flex-1 space-y-4">
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded break-words">
-                      {question.type === 'text' ? 'Text' : question.type === 'choice' ? 'Multiple Choice' : 'Likert Scale'}
+                      {question.type === 'text'
+                    ? 'Text'
+                    : question.type === 'choice'
+                      ? (question.options.length === 2 && question.options.includes('Yes') && question.options.includes('No') ? 'Boolean' : 'Multiple Choice')
+                      : 'Scaling'}
                     </span>
                     <label className="flex items-center gap-2 text-sm">
                       <input
@@ -304,6 +489,32 @@ export default function SurveyBuilder() {
                     className="input min-w-0"
                     placeholder="Enter your question"
                   />
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div>
+                      <label className="label">Show this question only if</label>
+                      <select
+                        value={question.show_when_question_id || ''}
+                        onChange={(e) => updateQuestion(question.id, { show_when_question_id: e.target.value || undefined })}
+                        className="input"
+                      >
+                        <option value="">No condition</option>
+                        {questions.slice(0, index).map((prevQ) => (
+                          <option key={prevQ.id} value={prevQ.id}>{prevQ.question_text || `Question ${prevQ.order_index + 1}`}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Answer must equal</label>
+                      <input
+                        type="text"
+                        value={question.show_when_answer_value || ''}
+                        onChange={(e) => updateQuestion(question.id, { show_when_answer_value: e.target.value || undefined })}
+                        className="input"
+                        placeholder="Expected answer value"
+                      />
+                    </div>
+                  </div>
 
                   {question.type === 'choice' && (
                     <div className="space-y-2">
@@ -366,7 +577,7 @@ export default function SurveyBuilder() {
           {questions.length === 0 && !showBulkImporter && (
             <div className="card text-center py-12">
               <p className="text-gray-500 mb-4">No questions yet. Add your first question above.</p>
-              <div className="flex justify-center gap-2">
+              <div className="flex justify-center gap-2 flex-wrap">
                 <button
                   onClick={() => setShowBulkImporter(true)}
                   className="btn-secondary"
@@ -379,6 +590,12 @@ export default function SurveyBuilder() {
                   className="btn-secondary"
                 >
                   Add Text Question
+                </button>
+                <button
+                  onClick={addBooleanQuestion}
+                  className="btn-secondary"
+                >
+                  Add Boolean Question
                 </button>
               </div>
             </div>
@@ -399,15 +616,18 @@ export default function SurveyBuilder() {
               <BulkQuestionImporter
                 onImport={(importedQuestions) => {
                   const newQuestions: FormQuestion[] = importedQuestions.map((q, index) => {
-                    let type: QuestionType = 'text';
-                    if (q.type === 'choice') type = 'choice';
-                    else if (q.type === 'rating' || q.type === 'boolean') type = 'likert';
-                    
+                    const type: QuestionType = q.type;
+                    const options = type === 'choice'
+                      ? q.options.length > 0 ? q.options : ['Option 1', 'Option 2']
+                      : type === 'likert'
+                        ? ['1', '2', '3', '4', '5']
+                        : [];
+
                     return {
                       id: generateId(),
                       type,
                       question_text: q.text,
-                      options: type === 'choice' ? q.options : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
+                      options,
                       required: true,
                       order_index: questions.length + index
                     };

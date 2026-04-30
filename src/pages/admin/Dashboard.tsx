@@ -40,25 +40,44 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Optimistically remove from UI first
+    const previousSurveys = [...surveys];
+    setSurveys(surveys.filter(s => s.id !== surveyId));
+
     const response = await apiDelete<{ success: boolean }>(`/api/admin/surveys/${surveyId}`);
 
     if (response.error) {
+      // Revert on error
+      setSurveys(previousSurveys);
       showToast(response.error, 'error');
-    } else {
+    } else if (response.data?.success) {
       showToast('Survey deleted successfully', 'success');
-      loadSurveys();
+      // Re-fetch to ensure sync
+      await loadSurveys();
+    } else {
+      // Unexpected response - re-fetch to be safe
+      showToast('Survey deleted', 'success');
+      await loadSurveys();
     }
   };
 
   const toggleStatus = async (survey: Survey) => {
     const newStatus = survey.status === 'open' ? 'closed' : 'open';
+
+    // Optimistically update UI
+    const previousSurveys = [...surveys];
+    setSurveys(surveys.map(s => s.id === survey.id ? { ...s, status: newStatus } : s));
+
     const response = await apiPost<{ success: boolean }>(`/api/admin/surveys/${survey.id}/status`, { status: newStatus });
 
     if (response.error) {
+      // Revert on error
+      setSurveys(previousSurveys);
       showToast(response.error, 'error');
     } else {
       showToast(`Survey ${newStatus === 'open' ? 'opened' : 'closed'}`, 'success');
-      loadSurveys();
+      // Re-fetch to ensure sync
+      await loadSurveys();
     }
   };
 
