@@ -173,6 +173,7 @@ app.get('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
       .from('questions')
       .select('*')
       .eq('survey_id', surveyId)
+      .eq('is_active', true)
       .order('order_index', { ascending: true });
 
     if (questionsError) {
@@ -211,7 +212,11 @@ app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
     }
 
     const questionRows = questions.map((q) => ({
+      id: q.id,
       survey_id: survey.id,
+      question_group_id: q.id,
+      version: 1,
+      is_active: true,
       type: q.type,
       question_text: q.question_text,
       options: q.type === 'text' ? null : q.options,
@@ -256,30 +261,127 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: surveyError?.message || 'Survey not found.' });
     }
 
-    const { error: deleteError } = await supabaseAdmin
+    const { data: existingQuestions = [], error: existingQuestionsError } = await supabaseAdmin
       .from('questions')
-      .delete()
+      .select('id, question_group_id, type, question_text, options, required, order_index, version, is_active')
       .eq('survey_id', surveyId);
 
-    if (deleteError) {
-      return res.status(500).json({ error: deleteError.message });
+    if (existingQuestionsError) {
+      return res.status(500).json({ error: existingQuestionsError.message });
     }
 
-    const questionRows = questions.map((q) => ({
-      survey_id: surveyId,
-      type: q.type,
-      question_text: q.question_text,
-      options: q.type === 'text' ? null : q.options,
-      required: q.required,
-      order_index: q.order_index
-    }));
+    const { data: responseRows, error: responseRowsError } = await supabaseAdmin
+      .from('responses')
+      .select('question_id')
+      .eq('survey_id', surveyId);
 
-    const { error: questionError } = await supabaseAdmin
-      .from('questions')
-      .insert(questionRows);
+    if (responseRowsError) {
+      return res.status(500).json({ error: responseRowsError.message });
+    }
 
-    if (questionError) {
-      return res.status(500).json({ error: questionError.message });
+    const responseCountByQuestion = new Map();
+    (responseRows || []).forEach((row) => {
+      const key = row.question_id;
+      responseCountByQuestion.set(key, (responseCountByQuestion.get(key) || 0) + 1);
+    });
+
+    const existingQuestionMap = new Map(existingQuestions.map((q) => [q.id, q]));
+    const activeIncomingIds = questions.map((q) => q.id);
+    const questionsToDeactivate = existingQuestions
+      .filter((q) => q.is_active && !activeIncomingIds.includes(q.id))
+      .map((q) => q.id);
+
+    const questionsToInsert = [];
+    const questionsToUpdate = [];
+
+    const questionHasChanged = (existing, incoming) => {
+      if (!existing) return true;
+      return (
+        existing.question_text !== incoming.question_text ||
+        existing.type !== incoming.type ||
+        existing.required !== incoming.required ||
+        existing.order_index !== incoming.order_index ||
+        JSON.stringify(existing.options || []) !== JSON.stringify(incoming.options || [])
+      );
+    };
+
+    for (const q of questions) {
+      const existing = existingQuestionMap.get(q.id);
+      const existingCount = responseCountByQuestion.get(q.id) || 0;
+      const changed = questionHasChanged(existing, q);
+
+      if (existing) {
+        if (existingCount > 0 && changed) {
+          questionsToDeactivate.push(existing.id);
+          questionsToInsert.push({
+            id: crypto.randomUUID(),
+            survey_id: surveyId,
+            question_group_id: existing.question_group_id || existing.id,
+            version: (existing.version || 1) + 1,
+            is_active: true,
+            type: q.type,
+            question_text: q.question_text,
+            options: q.type === 'text' ? null : q.options,
+            required: q.required,
+            order_index: q.order_index
+          });
+        } else {
+          questionsToUpdate.push({
+            id: existing.id,
+            question_text: q.question_text,
+            type: q.type,
+            options: q.type === 'text' ? null : q.options,
+            required: q.required,
+            order_index: q.order_index,
+            is_active: true
+          });
+        }
+      } else {
+        questionsToInsert.push({
+          id: q.id,
+          survey_id: surveyId,
+          question_group_id: q.id,
+          version: 1,
+          is_active: true,
+          type: q.type,
+          question_text: q.question_text,
+          options: q.type === 'text' ? null : q.options,
+          required: q.required,
+          order_index: q.order_index
+        });
+      }
+    }
+
+    if (questionsToDeactivate.length > 0) {
+      const { error: deactivateError } = await supabaseAdmin
+        .from('questions')
+        .update({ is_active: false })
+        .in('id', questionsToDeactivate);
+
+      if (deactivateError) {
+        return res.status(500).json({ error: deactivateError.message });
+      }
+    }
+
+    await Promise.all(questionsToUpdate.map((q) =>
+      supabaseAdmin.from('questions').update({
+        question_text: q.question_text,
+        type: q.type,
+        options: q.options,
+        required: q.required,
+        order_index: q.order_index,
+        is_active: q.is_active
+      }).eq('id', q.id)
+    ));
+
+    if (questionsToInsert.length > 0) {
+      const { error: insertError } = await supabaseAdmin
+        .from('questions')
+        .insert(questionsToInsert);
+
+      if (insertError) {
+        return res.status(500).json({ error: insertError.message });
+      }
     }
 
     return res.json({ survey });

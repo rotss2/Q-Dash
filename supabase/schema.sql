@@ -27,6 +27,9 @@ CREATE TABLE surveys (
 CREATE TABLE questions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   survey_id UUID NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
+  question_group_id UUID NOT NULL DEFAULT uuid_generate_v4(),
+  version INTEGER NOT NULL DEFAULT 1,
+  is_active BOOLEAN NOT NULL DEFAULT true,
   type TEXT NOT NULL CHECK (type IN ('text', 'choice', 'likert')),
   question_text TEXT NOT NULL,
   options TEXT[],
@@ -38,7 +41,7 @@ CREATE TABLE questions (
 CREATE TABLE responses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   survey_id UUID NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
   answer TEXT NOT NULL,
   submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

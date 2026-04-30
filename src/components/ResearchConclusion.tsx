@@ -91,15 +91,37 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
 
   // Generate comprehensive conclusion
   const conclusion = useMemo(() => {
+    const textResponseCount = textInsights.reduce((sum, insight) => sum + insight.responseCount, 0);
+
+    if (satisfactionMetrics.length === 0 && textResponseCount > 0) {
+      return {
+        summary: `There are ${textResponseCount} text responses available for review. The current dataset is small, but it still provides directional insight around key themes and sentiment.`,
+        keyFindings: textInsights.map((insight) => `Question "${insight.questionText}" received ${insight.responseCount} responses.`),
+        limitation: 'Likert-scale metrics are not available for this sample. Use these text insights to guide qualitative follow-up.',
+        nextSteps: 'Review the sample responses and refine the survey for broader participation.',
+        overallScore: null,
+        responseRate: textResponseCount,
+        consistencyScore: 0,
+        highest: null,
+        lowest: null,
+        totalResponses: responses.length,
+        likertResponses: 0
+      };
+    }
+
     if (satisfactionMetrics.length === 0) {
       return {
-        summary: 'Insufficient rating data to generate a conclusion.',
+        summary: 'Insufficient data to generate a conclusion.',
         keyFindings: [],
-        limitation: 'No Likert-scale responses available.',
-        nextSteps: 'Collect more responses for automated analysis.',
+        limitation: 'No responses available yet.',
+        nextSteps: 'Collect more responses to enable automated analysis.',
         overallScore: null,
         responseRate: 0,
-        consistencyScore: 0
+        consistencyScore: 0,
+        highest: null,
+        lowest: null,
+        totalResponses: responses.length,
+        likertResponses: 0
       };
     }
 

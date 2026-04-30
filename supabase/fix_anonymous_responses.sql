@@ -16,21 +16,30 @@ BEGIN
   END IF;
 END $$;
 
+-- Add versioning metadata to questions so archived versions persist and historical responses still map to the original question
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_group_id UUID NOT NULL DEFAULT uuid_generate_v4();
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+-- Ensure legacy questions have a stable group id for versioning
+UPDATE questions SET question_group_id = id WHERE question_group_id IS NULL;
+
+-- Add optional email support to survey session records
+ALTER TABLE survey_sessions ADD COLUMN IF NOT EXISTS email TEXT;
+
 -- Update the trigger function to work with TEXT user_id
--- ONLY increment when first response from a user/survey is inserted
+-- ONLY increment when first response from this user/survey is inserted
 CREATE OR REPLACE FUNCTION increment_survey_responses()
 RETURNS TRIGGER AS $$
 DECLARE
   existing_count INTEGER;
 BEGIN
-  -- Count how many responses this user already had for this survey BEFORE this insert
   SELECT COUNT(*) INTO existing_count
   FROM responses
   WHERE survey_id = NEW.survey_id
-  AND user_id = NEW.user_id
-  AND id < NEW.id;  -- Only count responses inserted before this one
-  
-  -- Only increment if this is the FIRST response from this user for this survey
+    AND user_id = NEW.user_id
+    AND id != NEW.id;
+
   IF existing_count = 0 THEN
     UPDATE surveys
     SET total_responses = total_responses + 1

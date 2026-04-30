@@ -18,6 +18,8 @@ export default function SurveyResponse() {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [email, setEmail] = useState('');
+  const [submissionPreview, setSubmissionPreview] = useState<{ email?: string; answers: { questionText: string; answer: string }[] } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -197,6 +199,12 @@ export default function SurveyResponse() {
       submitted_at: now
     }));
 
+    if (email.trim() && !/^[\w.%+-]+@gmail\.com$/i.test(email.trim())) {
+      showToast('Please enter a valid Gmail address or leave the email blank.', 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
     const { error } = await supabase
       .from('responses')
       .insert(responsesToInsert);
@@ -210,7 +218,9 @@ export default function SurveyResponse() {
         .rpc('record_survey_completion', {
           p_survey_id: surveyId!,
           p_user_id: userId,
+          p_email: email.trim() || null,
           p_fingerprint: fingerprint,
+          p_ip_address: typeof window !== 'undefined' ? window.location.hostname : undefined,
           p_user_agent: navigator.userAgent
         });
 
@@ -225,6 +235,14 @@ export default function SurveyResponse() {
       // Layer 1: Save to localStorage to block future attempts
       localStorage.setItem(`survey-completed-${surveyId}`, 'true');
       
+      setSubmissionPreview({
+        email: email.trim() || undefined,
+        answers: questions.map((q) => ({
+          questionText: q.question_text,
+          answer: getAnswer(q.id)
+        }))
+      });
+
       showToast('Response submitted successfully!', 'success');
       setHasSubmitted(true);
     }
@@ -275,15 +293,31 @@ export default function SurveyResponse() {
     );
   }
 
-  if (hasSubmitted) {
+  if (hasSubmitted && submissionPreview) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="card max-w-md w-full text-center">
+        <div className="card max-w-2xl w-full text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Thank You!</h2>
-          <p className="text-gray-600 mb-6">Your response has been recorded.</p>
+          <p className="text-gray-600 mb-4">Your response has been recorded.</p>
+          {submissionPreview.email && (
+            <p className="text-sm text-slate-500 mb-4">
+              A preview summary has been generated for <strong>{submissionPreview.email}</strong>.
+            </p>
+          )}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left">
+            <h3 className="text-lg font-semibold text-slate-900 mb-3">Your Response Preview</h3>
+            <div className="space-y-3">
+              {submissionPreview.answers.map((item, index) => (
+                <div key={index} className="rounded-lg bg-white border border-gray-200 p-3 text-left">
+                  <p className="text-sm text-slate-500 mb-1">{item.questionText}</p>
+                  <p className="text-sm text-slate-800 font-medium">{item.answer || 'No answer provided'}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -335,6 +369,23 @@ export default function SurveyResponse() {
         <div className="w-full max-w-lg">
           {currentQuestion && (
             <div className="card space-y-6">
+              {currentQuestionIndex === 0 && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Gmail (optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-slate-900 focus:border-slate-400 focus:outline-none"
+                    placeholder="Enter your Gmail to receive a preview summary"
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    This field is optional. Leave blank to proceed anonymously.
+                  </p>
+                </div>
+              )}
               {/* Question */}
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold text-slate-900 leading-relaxed">

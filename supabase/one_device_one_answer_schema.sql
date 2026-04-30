@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS survey_sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   survey_id UUID NOT NULL REFERENCES surveys(id) ON DELETE CASCADE,
   user_id TEXT NOT NULL,  -- Device fingerprint (not UUID since fingerprints are strings)
+  email TEXT,
   fingerprint TEXT,        -- Additional fingerprint data
   ip_address TEXT,         -- IP address for extra tracking
   user_agent TEXT,         -- Browser/user agent info
@@ -56,7 +57,8 @@ CREATE OR REPLACE FUNCTION record_survey_completion(
   p_user_id TEXT,
   p_fingerprint TEXT DEFAULT NULL,
   p_ip_address TEXT DEFAULT NULL,
-  p_user_agent TEXT DEFAULT NULL
+  p_user_agent TEXT DEFAULT NULL,
+  p_email TEXT DEFAULT NULL
 ) RETURNS TABLE(success BOOLEAN, error_message TEXT) AS $$
 DECLARE
   lock_id BIGINT;
@@ -87,12 +89,14 @@ BEGIN
     INSERT INTO survey_sessions (
       survey_id, 
       user_id, 
+      email,
       fingerprint, 
       ip_address, 
       user_agent
     ) VALUES (
       p_survey_id, 
       p_user_id, 
+      p_email,
       p_fingerprint, 
       p_ip_address, 
       p_user_agent

@@ -80,7 +80,14 @@ export default function SurveyAnalytics() {
   };
 
   const calculateAggregations = (questions: Question[], responses: Array<Response & { question?: Question; profile?: { email: string } }>): ResponseAggregation[] => {
-    return questions.map(question => {
+    const questionMap = new Map(questions.map(q => [q.id, q]));
+    responses.forEach(r => {
+      if (r.question && !questionMap.has(r.question_id)) {
+        questionMap.set(r.question_id, r.question);
+      }
+    });
+
+    return Array.from(questionMap.values()).map(question => {
       const questionResponses = responses.filter(r => r.question_id === question.id);
       const answers: { [key: string]: number } = {};
       
