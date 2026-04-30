@@ -25,6 +25,49 @@ const cleanQuestionText = (text: string): string => {
     .trim();
 };
 
+// Check if text looks like a valid question
+const isValidQuestion = (text: string): boolean => {
+  const trimmed = text.trim();
+  
+  // Too short
+  if (trimmed.length < 10) return false;
+  
+  // Too long (probably a paragraph)
+  if (trimmed.length > 200) return false;
+  
+  // Just numbers/symbols
+  if (/^[\d\s\W]+$/.test(trimmed)) return false;
+  
+  // Common non-question headers/labels
+  const nonQuestionPatterns = [
+    /^thank/i, /^please/i, /^note:/i, /^important:/i, /^disclaimer/i,
+    /^warning/i, /^section/i, /^part\s+\d/i, /^step\s+\d/i,
+    /^introduction/i, /^conclusion/i, /^summary/i, /^feedback/i,
+    /^comments?/i, /^additional/i, /^optional/i, /^required/i,
+    /^instructions?/i, /^directions?/i, /^guidelines?/i, /^information/i,
+    /^details/i, /^description/i, /^notes/i, /^tips/i, /^hints/i,
+    /^example/i, /^sample/i, /^demo/i, /^test/i,
+    /^click/i, /^press/i, /^enter/i, /^type/i, /^select/i,
+    /^choose/i, /^pick/i, /^fill/i, /^complete/i, /^submit/i,
+    /^save/i, /^next/i, /^previous/i, /^back/i, /^continue/i,
+    /^finish/i, /^done/i, /^start/i, /^begin/i, /^end/i, /^close/i,
+    /^exit/i, /^cancel/i, /^delete/i, /^remove/i, /^add/i, /^edit/i,
+    /^update/i, /^modify/i, /^change/i, /^create/i, /^make/i,
+    /^generate/i, /^produce/i, /^develop/i, /^build/i, /^construct/i,
+    /^design/i, /^form/i, /^shape/i, /^structure/i, /^organize/i,
+    /^arrange/i, /^order/i, /^sort/i, /^group/i, /^classify/i,
+    /^categorize/i, /^label/i, /^tag/i, /^mark/i, /^identify/i,
+    /^recognize/i, /^distinguish/i, /^differentiate/i, /^tell$/i,
+    /^name$/i, /^list$/i, /^describe$/i, /^explain$/i, /^what$/i,
+  ];
+  
+  for (const pattern of nonQuestionPatterns) {
+    if (pattern.test(trimmed)) return false;
+  }
+  
+  return true;
+};
+
 export default function BulkQuestionImporter({
   onImport
 }: {
@@ -32,20 +75,25 @@ export default function BulkQuestionImporter({
 }) {
   const [rawText, setRawText] = useState('');
   const [questions, setQuestions] = useState<ParsedQuestion[]>([]);
+  const [totalLines, setTotalLines] = useState(0);
   const [globalType, setGlobalType] = useState<QuestionType>('text');
 
   const parseText = useCallback((text: string) => {
     const lines = text.split('\n').filter(line => line.trim());
+    setTotalLines(lines.length);
     
-    const parsed = lines.map((line, index) => {
-      const cleaned = cleanQuestionText(line);
-      return {
-        id: `bulk-${index}-${Date.now()}`,
-        text: cleaned,
-        type: detectQuestionType(cleaned),
-        options: ['Option 1', 'Option 2', 'Option 3']
-      };
-    });
+    // Filter valid questions and parse
+    const parsed = lines
+      .map((line, index) => {
+        const cleaned = cleanQuestionText(line);
+        return {
+          id: `bulk-${index}-${Date.now()}`,
+          text: cleaned,
+          type: detectQuestionType(cleaned),
+          options: ['Option 1', 'Option 2', 'Option 3']
+        };
+      })
+      .filter(q => isValidQuestion(q.text)); // Only keep valid questions
     
     setQuestions(parsed);
   }, []);
@@ -140,6 +188,7 @@ export default function BulkQuestionImporter({
         />
         <p className="text-xs text-slate-500">
           {questions.length} question{questions.length !== 1 ? 's' : ''} detected
+          {totalLines > questions.length && ` (${totalLines - questions.length} non-question lines filtered)`}
         </p>
       </div>
 
