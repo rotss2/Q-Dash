@@ -32,9 +32,11 @@ A modern, web-based R&D platform for creating dynamic questionnaires and analyzi
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Go to the SQL Editor and run the schema from `supabase/schema.sql`
-3. Go to Project Settings → API and copy your credentials:
+3. Run the admin user creation script from `supabase/create_admin_user.sql`
+4. Go to Project Settings → API and copy your credentials:
    - Project URL
    - `anon` public API key
+   - `service_role` secret key
 
 ### 3. Local Setup
 

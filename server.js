@@ -89,7 +89,7 @@ function requireAdmin(req, res, next) {
 
 app.use(express.json());
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { passkey } = req.body || {};
 
   if (!passkey) {
@@ -98,6 +98,33 @@ app.post('/api/login', (req, res) => {
 
   if (passkey !== ADMIN_PASSWORD) {
     return res.status(401).json({ error: 'Invalid passkey.' });
+  }
+
+  // Ensure admin user exists in profiles table
+  try {
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', ADMIN_USER_ID)
+      .single();
+
+    if (!existingProfile) {
+      const { error: insertError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: ADMIN_USER_ID,
+          email: ADMIN_EMAIL,
+          role: 'admin'
+        });
+
+      if (insertError) {
+        console.error('Failed to create admin profile:', insertError);
+        // Continue anyway - the profile might not be strictly required
+      }
+    }
+  } catch (error) {
+    console.error('Error checking/creating admin profile:', error);
+    // Continue with login
   }
 
   const user = {
@@ -140,7 +167,6 @@ app.get('/api/admin/surveys', requireAdmin, async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('surveys')
       .select('*')
-      .eq('admin_id', req.adminUser.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -162,7 +188,6 @@ app.get('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
       .from('surveys')
       .select('*')
       .eq('id', surveyId)
-      .eq('admin_id', req.adminUser.id)
       .single();
 
     if (surveyError || !survey) {
@@ -202,7 +227,13 @@ app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
         description,
         admin_id: req.adminUser.id,
         status: 'open',
-        total_responses: 0
+        total_responses: 0,
+        theme_color: req.body.theme_color || null,
+        logo_url: req.body.logo_url || null,
+        default_language: req.body.default_language || null,
+        supported_languages: req.body.supported_languages || null,
+        open_date: req.body.open_date || null,
+        close_date: req.body.close_date || null
       })
       .select()
       .single();
@@ -221,7 +252,9 @@ app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
       question_text: q.question_text,
       options: q.type === 'text' ? null : q.options,
       required: q.required,
-      order_index: q.order_index
+      order_index: q.order_index,
+      show_when_question_id: q.show_when_question_id || null,
+      show_when_answer_value: q.show_when_answer_value || null
     }));
 
     const { error: questionError } = await supabaseAdmin
@@ -251,9 +284,17 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
   try {
     const { data: survey, error: surveyError } = await supabaseAdmin
       .from('surveys')
-      .update({ title, description })
+      .update({
+        title,
+        description,
+        theme_color: req.body.theme_color || null,
+        logo_url: req.body.logo_url || null,
+        default_language: req.body.default_language || null,
+        supported_languages: req.body.supported_languages || null,
+        open_date: req.body.open_date || null,
+        close_date: req.body.close_date || null
+      })
       .eq('id', surveyId)
-      .eq('admin_id', req.adminUser.id)
       .select()
       .single();
 
@@ -301,6 +342,8 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
         existing.type !== incoming.type ||
         existing.required !== incoming.required ||
         existing.order_index !== incoming.order_index ||
+        existing.show_when_question_id !== incoming.show_when_question_id ||
+        existing.show_when_answer_value !== incoming.show_when_answer_value ||
         JSON.stringify(existing.options || []) !== JSON.stringify(incoming.options || [])
       );
     };
@@ -323,7 +366,9 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
             question_text: q.question_text,
             options: q.type === 'text' ? null : q.options,
             required: q.required,
-            order_index: q.order_index
+            order_index: q.order_index,
+            show_when_question_id: q.show_when_question_id || null,
+            show_when_answer_value: q.show_when_answer_value || null
           });
         } else {
           questionsToUpdate.push({
@@ -333,7 +378,9 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
             options: q.type === 'text' ? null : q.options,
             required: q.required,
             order_index: q.order_index,
-            is_active: true
+            is_active: true,
+            show_when_question_id: q.show_when_question_id || null,
+            show_when_answer_value: q.show_when_answer_value || null
           });
         }
       } else {
@@ -347,7 +394,9 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
           question_text: q.question_text,
           options: q.type === 'text' ? null : q.options,
           required: q.required,
-          order_index: q.order_index
+          order_index: q.order_index,
+          show_when_question_id: q.show_when_question_id || null,
+          show_when_answer_value: q.show_when_answer_value || null
         });
       }
     }
@@ -398,8 +447,7 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
     const { error } = await supabaseAdmin
       .from('surveys')
       .delete()
-      .eq('id', surveyId)
-      .eq('admin_id', req.adminUser.id);
+      .eq('id', surveyId);
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -409,6 +457,27 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Admin survey delete failed:', error);
     return res.status(500).json({ error: 'Unable to delete survey.' });
+  }
+});
+
+app.delete('/api/admin/surveys/:surveyId/responses/:responseId', requireAdmin, async (req, res) => {
+  const { surveyId, responseId } = req.params;
+
+  try {
+    const { error } = await supabaseAdmin
+      .from('responses')
+      .delete()
+      .eq('id', responseId)
+      .eq('survey_id', surveyId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Admin response delete failed:', error);
+    return res.status(500).json({ error: 'Unable to delete response.' });
   }
 });
 
@@ -424,8 +493,7 @@ app.post('/api/admin/surveys/:surveyId/status', requireAdmin, async (req, res) =
     const { error } = await supabaseAdmin
       .from('surveys')
       .update({ status })
-      .eq('id', surveyId)
-      .eq('admin_id', req.adminUser.id);
+      .eq('id', surveyId);
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -446,7 +514,6 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
       .from('surveys')
       .select('*')
       .eq('id', surveyId)
-      .eq('admin_id', req.adminUser.id)
       .single();
 
     if (surveyError || !survey) {
