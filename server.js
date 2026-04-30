@@ -245,6 +245,7 @@ app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
         admin_id: req.adminUser.id,
         status: 'open',
         total_responses: 0,
+        theme: req.body.theme || 'default',
         theme_color: req.body.theme_color || null,
         logo_url: req.body.logo_url || null,
         default_language: req.body.default_language || null,
@@ -322,6 +323,7 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
       .update({
         title,
         description,
+        theme: req.body.theme || 'default',
         theme_color: req.body.theme_color || null,
         logo_url: req.body.logo_url || null,
         default_language: req.body.default_language || null,

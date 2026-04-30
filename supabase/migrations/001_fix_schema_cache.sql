@@ -138,6 +138,18 @@ BEGIN
     END IF;
 END $$;
 
+-- Add theme column to surveys table for UI theming
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'surveys' AND column_name = 'theme'
+    ) THEN
+        ALTER TABLE surveys ADD COLUMN theme TEXT DEFAULT 'default';
+        RAISE NOTICE 'Added theme column to surveys table';
+    END IF;
+END $$;
+
 -- Verify all expected columns exist
 SELECT 
     table_name,

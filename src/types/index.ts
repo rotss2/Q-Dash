@@ -17,6 +17,7 @@ export interface Survey {
   status: SurveyStatus;
   admin_id: string;
   total_responses: number;
+  theme?: string | null;
   theme_color?: string | null;
   logo_url?: string | null;
   default_language?: string | null;

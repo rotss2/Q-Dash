@@ -65,6 +65,7 @@ export default function SurveyBuilder() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState<FormQuestion[]>([]);
+  const [theme, setTheme] = useState('default');
   const [themeColor, setThemeColor] = useState('#111827');
   const [logoUrl, setLogoUrl] = useState('');
   const [defaultLanguage, setDefaultLanguage] = useState('en');
@@ -94,6 +95,7 @@ export default function SurveyBuilder() {
 
     setTitle(data.survey.title);
     setDescription(data.survey.description || '');
+    setTheme(data.survey.theme || 'default');
     setThemeColor(data.survey.theme_color || '#111827');
     setLogoUrl(data.survey.logo_url || '');
     setDefaultLanguage(data.survey.default_language || 'en');
@@ -220,6 +222,7 @@ export default function SurveyBuilder() {
       const payload = {
         title,
         description,
+        theme,
         theme_color: themeColor,
         logo_url: logoUrl || null,
         default_language: defaultLanguage || null,
@@ -305,6 +308,20 @@ export default function SurveyBuilder() {
                   onChange={(e) => setThemeColor(e.target.value)}
                   className="w-full h-12 rounded-lg border border-gray-200 p-0"
                 />
+              </div>
+              <div>
+                <label className="label">Theme Style</label>
+                <select
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="default">Default (Modern)</option>
+                  <option value="warm">Warm (Orange/Peach)</option>
+                  <option value="cool">Cool (Purple/Indigo)</option>
+                  <option value="forest">Forest (Green/Earth)</option>
+                  <option value="dark">Dark Mode</option>
+                </select>
               </div>
             </div>
 
