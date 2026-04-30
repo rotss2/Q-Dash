@@ -15,7 +15,7 @@ ALTER TABLE IF EXISTS surveys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS responses ENABLE ROW LEVEL SECURITY;
 
--- Drop conflicting policies
+-- Drop ALL existing policies on all tables
 DROP POLICY IF EXISTS "Admins can create surveys" ON surveys;
 DROP POLICY IF EXISTS "Admins can delete their surveys" ON surveys;
 DROP POLICY IF EXISTS "Admins can update their surveys" ON surveys;
@@ -24,6 +24,14 @@ DROP POLICY IF EXISTS "Allow admin access" ON surveys;
 DROP POLICY IF EXISTS "Allow auto-admin surveys access" ON surveys;
 DROP POLICY IF EXISTS "Anonymous users can view surveys" ON surveys;
 DROP POLICY IF EXISTS "Public can view open surveys" ON surveys;
+DROP POLICY IF EXISTS "Service role bypass for surveys" ON surveys;
+DROP POLICY IF EXISTS "Service role bypass for questions" ON surveys;
+DROP POLICY IF EXISTS "Service role bypass for responses" ON surveys;
+DROP POLICY IF EXISTS "Service role bypass for surveys" ON surveys;
+DROP POLICY IF EXISTS "Service role bypass for questions" ON questions;
+DROP POLICY IF EXISTS "Service role bypass for responses" ON responses;
+DROP POLICY IF EXISTS "Public can view questions of open surveys" ON questions;
+DROP POLICY IF EXISTS "Public can submit responses" ON responses;
 
 -- Service role bypass policies (THE CRITICAL FIX)
 CREATE POLICY "Service role bypass for surveys" 
