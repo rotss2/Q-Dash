@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { supabase } from '../../lib/supabase';
+import { getAnonymousUserId } from '../../lib/fingerprint';
 import { Survey, Question } from '../../types';
-import { ArrowLeft, Send, CheckCircle, AlertCircle, LogIn } from 'lucide-react';
+import { ArrowLeft, Send, CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Fingerprint } from 'lucide-react';
 
 interface Answer {
   question_id: string;
@@ -21,24 +22,24 @@ export default function SurveyResponse() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [userId, setUserId] = useState<string>('');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
+  // Initialize anonymous user ID on mount
   useEffect(() => {
-    checkAuth();
+    initializeUser();
   }, []);
 
   useEffect(() => {
-    if (surveyId && user) {
+    if (surveyId && userId) {
       loadSurvey();
       checkPreviousSubmission();
     }
-  }, [surveyId, user]);
+  }, [surveyId, userId]);
 
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      setUser(session.user);
-    }
+  const initializeUser = async () => {
+    const anonId = await getAnonymousUserId();
+    setUserId(anonId);
     setIsLoading(false);
   };
 
@@ -73,13 +74,13 @@ export default function SurveyResponse() {
   };
 
   const checkPreviousSubmission = async () => {
-    if (!surveyId || !user) return;
+    if (!surveyId || !userId) return;
 
     const { data } = await supabase
       .from('responses')
       .select('id')
       .eq('survey_id', surveyId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .limit(1);
 
     if (data && data.length > 0) {
@@ -101,16 +102,13 @@ export default function SurveyResponse() {
     return answers.find(a => a.question_id === questionId)?.answer || '';
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!user) {
-      showToast('Please sign in to submit your response', 'error');
-      navigate('/login', { state: { from: `/survey/${surveyId}` } });
+  const handleSubmit = async () => {
+    if (!userId) {
+      showToast('Unable to identify user', 'error');
       return;
     }
 
-    // Validate required fields
+    // Validate required fields for current and previous questions
     const missingRequired = questions
       .filter(q => q.required)
       .filter(q => !getAnswer(q.id));
@@ -125,7 +123,7 @@ export default function SurveyResponse() {
     const now = new Date().toISOString();
     const responsesToInsert = answers.map(a => ({
       survey_id: surveyId!,
-      user_id: user.id,
+      user_id: userId,
       question_id: a.question_id,
       answer: a.answer,
       submitted_at: now
@@ -146,6 +144,23 @@ export default function SurveyResponse() {
     setIsSubmitting(false);
   };
 
+  const goToNext = () => {
+    const currentQ = questions[currentQuestionIndex];
+    if (currentQ?.required && !getAnswer(currentQ.id)) {
+      showToast('Please answer this question', 'error');
+      return;
+    }
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    }
+  };
+
+  const goToPrevious = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -154,49 +169,15 @@ export default function SurveyResponse() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="card max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <LogIn className="w-8 h-8 text-primary-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Sign In Required</h2>
-          <p className="text-gray-600 mb-6">Please sign in or create an account to complete this survey</p>
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => navigate('/login', { state: { from: `/survey/${surveyId}` } })}
-              className="btn-primary"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => navigate('/register')}
-              className="btn-secondary"
-            >
-              Register
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (hasSubmitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="card max-w-md w-full text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Thank You!</h2>
-          <p className="text-gray-600 mb-6">You have already submitted your response to this survey.</p>
-          <button
-            onClick={() => navigate(user ? '/user' : '/login')}
-            className="btn-primary"
-          >
-            Go to Dashboard
-          </button>
+          <p className="text-gray-600 mb-6">Your response has been recorded.</p>
         </div>
       </div>
     );
@@ -204,144 +185,174 @@ export default function SurveyResponse() {
 
   if (!survey) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="card max-w-md w-full text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Survey Not Available</h2>
           <p className="text-gray-600 mb-6">This survey may be closed or does not exist.</p>
-          <button
-            onClick={() => navigate('/login')}
-            className="btn-primary"
-          >
-            Go Home
-          </button>
         </div>
       </div>
     );
   }
 
+  const currentQuestion = questions[currentQuestionIndex];
+  const isLastQuestion = currentQuestionIndex === questions.length - 1;
+  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* Header with Progress */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-16">
-            <button
-              onClick={() => navigate(user ? '/user' : '/login')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back
-            </button>
+        <div className="max-w-lg mx-auto px-4">
+          <div className="flex items-center justify-between h-14">
+            <span className="text-sm font-medium text-gray-500">
+              {currentQuestionIndex + 1} of {questions.length}
+            </span>
+            <span className="text-sm font-medium text-slate-900">{survey.title}</span>
+            <span className="text-sm font-medium text-gray-500">
+              {Math.round(progress)}%
+            </span>
+          </div>
+          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-slate-900 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="card mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">{survey.title}</h1>
-          <p className="text-gray-600">{survey.description || 'Please answer the following questions:'}</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {questions.map((question, index) => (
-            <div key={question.id} className="card">
-              <div className="mb-4">
-                <div className="flex items-start gap-2">
-                  <span className="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-medium">
-                    {index + 1}
-                  </span>
-                  <div className="flex-1">
-                    <label className="text-base font-medium text-gray-900">
-                      {question.question_text}
-                      {question.required && (
-                        <span className="text-red-500 ml-1">*</span>
-                      )}
-                    </label>
-                  </div>
-                </div>
+      {/* Main Content - One Question at a Time */}
+      <main className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          {currentQuestion && (
+            <div className="card space-y-6">
+              {/* Question */}
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold text-slate-900 leading-relaxed">
+                  {currentQuestion.question_text}
+                  {currentQuestion.required && (
+                    <span className="text-red-500 ml-1">*</span>
+                  )}
+                </h2>
               </div>
 
-              <div className="ml-10">
-                {question.type === 'text' && (
+              {/* Answer Input */}
+              <div className="space-y-3">
+                {currentQuestion.type === 'text' && (
                   <textarea
-                    value={getAnswer(question.id)}
-                    onChange={(e) => updateAnswer(question.id, e.target.value)}
-                    className="input min-h-[100px]"
-                    placeholder="Enter your answer..."
-                    required={question.required}
+                    value={getAnswer(currentQuestion.id)}
+                    onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
+                    className="w-full p-4 border border-gray-200 rounded-lg text-slate-900 min-h-[120px] focus:outline-none focus:border-slate-400 resize-none"
+                    placeholder="Type your answer here..."
+                    autoFocus
                   />
                 )}
 
-                {question.type === 'choice' && question.options && (
+                {currentQuestion.type === 'choice' && currentQuestion.options && (
                   <div className="space-y-2">
-                    {question.options.map((option, optIndex) => (
-                      <label
-                        key={optIndex}
-                        className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                    {currentQuestion.options.map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => updateAnswer(currentQuestion.id, option)}
+                        className={`w-full p-4 text-left border rounded-lg transition-all ${
+                          getAnswer(currentQuestion.id) === option
+                            ? 'border-slate-900 bg-slate-50 text-slate-900'
+                            : 'border-gray-200 hover:border-slate-300 text-slate-700'
+                        }`}
                       >
-                        <input
-                          type="radio"
-                          name={question.id}
-                          value={option}
-                          checked={getAnswer(question.id) === option}
-                          onChange={(e) => updateAnswer(question.id, e.target.value)}
-                          className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
-                          required={question.required && !getAnswer(question.id)}
-                        />
-                        <span className="text-gray-700">{option}</span>
-                      </label>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            getAnswer(currentQuestion.id) === option
+                              ? 'border-slate-900'
+                              : 'border-gray-300'
+                          }`}>
+                            {getAnswer(currentQuestion.id) === option && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-slate-900" />
+                            )}
+                          </div>
+                          <span className="font-medium">{option}</span>
+                        </div>
+                      </button>
                     ))}
                   </div>
                 )}
 
-                {question.type === 'likert' && (
-                  <div className="flex gap-4 flex-wrap">
+                {currentQuestion.type === 'likert' && (
+                  <div className="flex justify-between gap-2">
                     {[1, 2, 3, 4, 5].map((value) => (
-                      <label
+                      <button
                         key={value}
-                        className="flex flex-col items-center gap-2 cursor-pointer"
+                        onClick={() => updateAnswer(currentQuestion.id, value.toString())}
+                        className={`flex-1 py-4 px-2 border rounded-lg transition-all ${
+                          getAnswer(currentQuestion.id) === value.toString()
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-gray-200 hover:border-slate-300 text-slate-700'
+                        }`}
                       >
-                        <input
-                          type="radio"
-                          name={question.id}
-                          value={value.toString()}
-                          checked={getAnswer(question.id) === value.toString()}
-                          onChange={(e) => updateAnswer(question.id, e.target.value)}
-                          className="w-5 h-5 text-primary-600 border-gray-300 focus:ring-primary-500"
-                          required={question.required && !getAnswer(question.id)}
-                        />
-                        <span className="text-sm text-gray-600">{value}</span>
-                      </label>
+                        <span className="text-xl font-bold">{value}</span>
+                      </button>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
-          ))}
 
-          <div className="card">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <Send className="w-5 h-5" />
-                  Submit Response
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+              {/* Navigation */}
+              <div className="flex gap-3 pt-4">
+                {currentQuestionIndex > 0 && (
+                  <button
+                    onClick={goToPrevious}
+                    className="flex items-center gap-2 px-4 py-3 border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 font-medium"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                    Back
+                  </button>
+                )}
+                
+                {isLastQuestion ? (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || (currentQuestion.required && !getAnswer(currentQuestion.id))}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        Submit
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={goToNext}
+                    disabled={currentQuestion.required && !getAnswer(currentQuestion.id)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 py-4">
+        <div className="max-w-lg mx-auto px-4 text-center">
+          <p className="text-xs text-slate-500">
+            Secured with browser fingerprinting
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

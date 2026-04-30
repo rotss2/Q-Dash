@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../components/Toaster';
 import { supabase } from '../../lib/supabase';
 import { Survey } from '../../types';
-import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText } from 'lucide-react';
+import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, X, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -12,9 +12,28 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [liveFeed, setLiveFeed] = useState<Array<{ id: string; surveyTitle: string; timestamp: string }>>([]);
+  const [showLiveFeed, setShowLiveFeed] = useState(false);
+  const [liveMode, setLiveMode] = useState(false);
 
   useEffect(() => {
     loadSurveys();
+    
+    // Setup realtime subscription for responses
+    const subscription = supabase
+      .channel('responses-channel')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'responses' },
+        (payload) => {
+          handleNewResponse(payload.new);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadSurveys = async () => {
@@ -71,6 +90,27 @@ export default function AdminDashboard() {
     showToast('Survey link copied to clipboard', 'success');
   };
 
+  const handleNewResponse = async (response: any) => {
+    // Find survey title
+    const survey = surveys.find(s => s.id === response.survey_id);
+    const surveyTitle = survey?.title || 'Unknown Survey';
+    
+    // Add to live feed
+    const newEntry = {
+      id: crypto.randomUUID(),
+      surveyTitle,
+      timestamp: new Date().toISOString()
+    };
+    
+    setLiveFeed(prev => [newEntry, ...prev].slice(0, 10));
+    
+    // Show toast notification
+    showToast(`New response: ${surveyTitle}`, 'success');
+    
+    // Refresh survey data to update counts
+    loadSurveys();
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
@@ -79,8 +119,17 @@ export default function AdminDashboard() {
   const totalResponses = surveys.reduce((sum, s) => sum + s.total_responses, 0);
   const openSurveys = surveys.filter(s => s.status === 'open').length;
 
+  const toggleLiveMode = () => {
+    setLiveMode(!liveMode);
+    if (!liveMode) {
+      document.documentElement.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen bg-gray-50 ${liveMode ? 'fixed inset-0 z-50 overflow-auto' : ''}`}>
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -90,19 +139,52 @@ export default function AdminDashboard() {
                 <FileText className="w-5 h-5 text-white" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">Creator Studio</h1>
+              {liveMode && (
+                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded animate-pulse">
+                  LIVE MODE
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">{user?.email}</span>
-              <button onClick={handleSignOut} className="btn-secondary flex items-center gap-2">
-                <LogOut className="w-4 h-4" />
-                Sign Out
+              <button
+                onClick={() => setShowLiveFeed(!showLiveFeed)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showLiveFeed ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <Radio className="w-4 h-4" />
+                Live Feed
+                {liveFeed.length > 0 && (
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                )}
               </button>
+              <button
+                onClick={toggleLiveMode}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  liveMode ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {liveMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                {liveMode ? 'Exit Live' : 'Live Mode'}
+              </button>
+              {!liveMode && (
+                <>
+                  <span className="text-sm text-gray-600">{user?.email}</span>
+                  <button onClick={handleSignOut} className="btn-secondary flex items-center gap-2">
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`${liveMode ? 'max-w-full p-8' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
+        <div className="flex gap-6">
+          {/* Main Content */}
+          <div className="flex-1">
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="card">
@@ -142,14 +224,18 @@ export default function AdminDashboard() {
 
         {/* Actions */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Your Surveys</h2>
-          <button
-            onClick={() => navigate('/admin/surveys/new')}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            New Survey
-          </button>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {liveMode ? 'Live Dashboard' : 'Your Surveys'}
+          </h2>
+          {!liveMode && (
+            <button
+              onClick={() => navigate('/admin/surveys/new')}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              New Survey
+            </button>
+          )}
         </div>
 
         {/* Surveys List */}
@@ -240,6 +326,44 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
+          </div>
+
+          {/* Live Feed Sidebar */}
+          {showLiveFeed && (
+            <div className="w-80 bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="p-4 border-b border-gray-200 bg-slate-900 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-red-400" />
+                  <span className="font-medium">Live Feed</span>
+                </div>
+                <button 
+                  onClick={() => setShowLiveFeed(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                {liveFeed.length === 0 ? (
+                  <p className="p-4 text-sm text-gray-500 text-center">
+                    Waiting for responses...
+                  </p>
+                ) : (
+                  liveFeed.map((entry) => (
+                    <div key={entry.id} className="p-3 border-b border-gray-100 hover:bg-gray-50">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {entry.surveyTitle}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
