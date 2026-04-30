@@ -23,14 +23,19 @@ export default function AdminDashboard() {
   }, []);
 
   const loadSurveys = async () => {
+    console.log('Dashboard: Loading surveys...');
     const response = await apiGet<{ surveys: Survey[] }>('/api/admin/surveys');
+    console.log('Dashboard: API response:', response);
 
     if (response.error) {
+      console.error('Dashboard: Error loading surveys:', response.error);
       showToast(response.error, 'error');
       setIsLoading(false);
       return;
     }
 
+    const surveyCount = response.data?.surveys?.length || 0;
+    console.log(`Dashboard: Loaded ${surveyCount} surveys`);
     setSurveys(response.data?.surveys || []);
     setIsLoading(false);
   };
