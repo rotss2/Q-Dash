@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: q-dash
+    env: static
+    buildCommand: npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /survey/*
+        destination: /index.html
+      - type: rewrite
+        source: /admin/*
+        destination: /index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
