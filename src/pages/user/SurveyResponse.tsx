@@ -21,13 +21,29 @@ export default function SurveyResponse() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
+  const [fingerprint, setFingerprint] = useState<string>('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   // Initialize anonymous user ID on mount
   useEffect(() => {
     initializeUser();
   }, []);
+
+  // Check localStorage for previous submission (Frontend Layer 1)
+  useEffect(() => {
+    if (!surveyId) return;
+    
+    const storageKey = `survey-completed-${surveyId}`;
+    const hasCompleted = localStorage.getItem(storageKey);
+    
+    if (hasCompleted === 'true') {
+      setIsBlocked(true);
+      setBlockReason('You have already completed this survey on this device.');
+    }
+  }, [surveyId]);
 
   // Track presence (active users) when taking survey
   useEffect(() => {
@@ -71,6 +87,7 @@ export default function SurveyResponse() {
   const initializeUser = async () => {
     const anonId = await getAnonymousUserId();
     setUserId(anonId);
+    setFingerprint(anonId);
     setIsLoading(false);
   };
 
@@ -107,15 +124,35 @@ export default function SurveyResponse() {
   const checkPreviousSubmission = async () => {
     if (!surveyId || !userId) return;
 
-    const { data } = await supabase
-      .from('responses')
-      .select('id')
-      .eq('survey_id', surveyId)
-      .eq('user_id', userId)
-      .limit(1);
+    // Layer 2: Check database via RPC function
+    const { data: hasCompleted, error: rpcError } = await supabase
+      .rpc('has_user_completed_survey', {
+        p_survey_id: surveyId!,
+        p_user_id: userId
+      });
 
-    if (data && data.length > 0) {
-      setHasSubmitted(true);
+    if (rpcError) {
+      console.error('Error checking completion status:', rpcError);
+      // Fallback: check responses table directly
+      const { data } = await supabase
+        .from('responses')
+        .select('id')
+        .eq('survey_id', surveyId)
+        .eq('user_id', userId)
+        .limit(1);
+
+      if (data && data.length > 0) {
+        setIsBlocked(true);
+        setBlockReason('You have already completed this survey.');
+        localStorage.setItem(`survey-completed-${surveyId}`, 'true');
+      }
+      return;
+    }
+
+    if (hasCompleted) {
+      setIsBlocked(true);
+      setBlockReason('You have already completed this survey.');
+      localStorage.setItem(`survey-completed-${surveyId}`, 'true');
     }
   };
 
@@ -168,6 +205,23 @@ export default function SurveyResponse() {
       showToast('Failed to submit response', 'error');
       console.error(error);
     } else {
+      // Layer 3: Record completion in survey_sessions table
+      const { error: completionError } = await supabase
+        .rpc('record_survey_completion', {
+          p_survey_id: surveyId!,
+          p_user_id: userId,
+          p_fingerprint: fingerprint,
+          p_user_agent: navigator.userAgent
+        });
+
+      if (completionError) {
+        console.error('Error recording completion:', completionError);
+        // Still mark as submitted since responses were saved
+      }
+
+      // Layer 1: Save to localStorage to block future attempts
+      localStorage.setItem(`survey-completed-${surveyId}`, 'true');
+      
       showToast('Response submitted successfully!', 'success');
       setHasSubmitted(true);
     }
@@ -196,6 +250,24 @@ export default function SurveyResponse() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  // Layer 1 & 2: Block if already submitted
+  if (isBlocked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="card max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Survey Completed</h2>
+          <p className="text-gray-600 mb-2">{blockReason}</p>
+          <p className="text-sm text-gray-500">Each device may only submit one response.</p>
+        </div>
       </div>
     );
   }

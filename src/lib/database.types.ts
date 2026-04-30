@@ -153,12 +153,46 @@ export interface Database {
             isOneToOne: false
             referencedRelation: "surveys"
             referencedColumns: ["id"]
-          },
+          }
+        ]
+      }
+      survey_sessions: {
+        Row: {
+          id: string
+          survey_id: string
+          user_id: string
+          fingerprint: string | null
+          ip_address: string | null
+          user_agent: string | null
+          completed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          survey_id: string
+          user_id: string
+          fingerprint?: string | null
+          ip_address?: string | null
+          user_agent?: string | null
+          completed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          survey_id?: string
+          user_id?: string
+          fingerprint?: string | null
+          ip_address?: string | null
+          user_agent?: string | null
+          completed_at?: string
+          created_at?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "responses_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "survey_sessions_survey_id_fkey"
+            columns: ["survey_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "surveys"
             referencedColumns: ["id"]
           }
         ]
@@ -168,7 +202,26 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_user_completed_survey: {
+        Args: {
+          p_survey_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      record_survey_completion: {
+        Args: {
+          p_survey_id: string
+          p_user_id: string
+          p_fingerprint?: string
+          p_ip_address?: string
+          p_user_agent?: string
+        }
+        Returns: {
+          success: boolean
+          error_message: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
