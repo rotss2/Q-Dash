@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
 import { Profile, UserRole } from '../types';
 
 interface AuthContextType {
@@ -12,93 +11,36 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Auto-login admin user
+const AUTO_ADMIN: Profile = {
+  id: '00000000-0000-0000-0000-000000000001',
+  email: 'admin@qdash.app',
+  role: 'admin',
+  created_at: new Date().toISOString()
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<Profile | null>(AUTO_ADMIN);
+  const [loading] = useState(false);
 
+  // Auto-login as admin - no actual auth needed
   useEffect(() => {
-    // Check for existing session
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        setUser(profile);
-      }
-      setLoading(false);
-    };
-
-    checkSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('Auth state changed:', _event, 'Session:', !!session);
-      if (session?.user) {
-        console.log('Fetching profile for user:', session.user.id);
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        console.log('Profile fetch result:', { profile, error });
-        if (error) {
-          console.error('Profile fetch error:', error);
-        }
-        setUser(profile);
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    setUser(AUTO_ADMIN);
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    try {
-      console.log('Attempting sign in...');
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      console.log('Sign in response:', { data, error });
-      if (error) throw error;
-      return { error: null };
-    } catch (err) {
-      console.error('Sign in error:', err);
-      return { error: err as Error };
-    }
+  const signIn = async () => {
+    setUser(AUTO_ADMIN);
+    return { error: null };
   };
 
-  const signUp = async (email: string, password: string, role: UserRole) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    
-    if (error) {
-      return { error };
-    }
-
-    if (data.user) {
-      // Create profile with role
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email: email,
-          role: role
-        });
-
-      if (profileError) {
-        return { error: new Error(profileError.message) };
-      }
-    }
-
+  const signUp = async () => {
+    setUser(AUTO_ADMIN);
     return { error: null };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    // Do nothing - always stay logged in as admin
+    setUser(AUTO_ADMIN);
   };
 
   return (
