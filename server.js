@@ -164,13 +164,21 @@ app.get('/api/me', (req, res) => {
 
 app.get('/api/admin/surveys', requireAdmin, async (req, res) => {
   try {
+    console.log('Loading surveys for admin:', req.adminUser.id, req.adminUser.email);
+    
     const { data, error } = await supabaseAdmin
       .from('surveys')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Supabase error loading surveys:', error);
       return res.status(500).json({ error: error.message });
+    }
+
+    console.log('Surveys loaded:', data?.length || 0, 'surveys found');
+    if (data && data.length > 0) {
+      console.log('First survey:', { id: data[0].id, title: data[0].title, admin_id: data[0].admin_id });
     }
 
     return res.json({ surveys: data || [] });
@@ -214,6 +222,8 @@ app.get('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
   const { title, description, questions } = req.body || {};
+
+  console.log('Creating survey:', { title, adminId: req.adminUser.id, questionCount: questions?.length });
 
   if (!title || !Array.isArray(questions) || questions.length === 0) {
     return res.status(400).json({ error: 'Survey title and questions are required.' });
@@ -262,10 +272,12 @@ app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
       .insert(questionRows);
 
     if (questionError) {
+      console.error('Question insert failed:', questionError);
       await supabaseAdmin.from('surveys').delete().eq('id', survey.id);
       return res.status(500).json({ error: questionError.message });
     }
 
+    console.log('Survey created successfully:', survey.id);
     return res.json({ survey });
   } catch (error) {
     console.error('Admin survey create failed:', error);
