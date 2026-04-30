@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiDelete, apiPost } from '../../lib/api';
-import { Survey } from '../../types';
+import { supabase } from '../../lib/supabase';
+import { Survey, Response } from '../../types';
 import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, X, Maximize2, Minimize2 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -12,11 +13,12 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [liveFeed] = useState<Array<{ id: string; surveyTitle: string; timestamp: string; userId: string }>>([]);
+  const [liveFeed, setLiveFeed] = useState<Array<{ id: string; surveyTitle: string; timestamp: string; userId: string; progress?: number; totalQuestions?: number }>>([]);
   const [showLiveFeed, setShowLiveFeed] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
   const activeUsers = 0;
   const activeUsersBySurvey: Record<string, number> = {};
+  const subscriptionRef = useRef<any>(null);
 
   useEffect(() => {
     loadSurveys();
@@ -40,6 +42,62 @@ export default function AdminDashboard() {
       clearInterval(pollInterval);
     };
   }, []);
+
+  // Real-time subscription for live feed
+  useEffect(() => {
+    if (!showLiveFeed) return;
+
+    console.log('Setting up real-time subscription for responses...');
+
+    // Subscribe to responses table changes
+    const subscription = supabase
+      .channel('responses-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'responses'
+        },
+        (payload) => {
+          console.log('New response received:', payload);
+          const newResponse = payload.new as Response;
+
+          // Get survey info
+          const survey = surveys.find(s => s.id === newResponse.survey_id);
+          if (!survey) return;
+
+          // Count user's responses for this survey to estimate progress
+          const userResponsesForSurvey = liveFeed.filter(
+            entry => entry.userId === newResponse.user_id && entry.surveyTitle === survey.title
+          ).length;
+
+          const entry = {
+            id: newResponse.id,
+            surveyTitle: survey.title,
+            timestamp: newResponse.submitted_at || new Date().toISOString(),
+            userId: newResponse.user_id,
+            progress: Math.min((userResponsesForSurvey + 1) * 20, 100), // Rough estimate based on 5 questions avg
+            totalQuestions: survey.total_responses || 5
+          };
+
+          setLiveFeed(prev => [entry, ...prev].slice(0, 50)); // Keep last 50 entries
+
+          // Also refresh survey counts
+          loadSurveys();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
+
+    subscriptionRef.current = subscription;
+
+    return () => {
+      console.log('Cleaning up subscription...');
+      subscription.unsubscribe();
+    };
+  }, [showLiveFeed, surveys]);
 
   const loadSurveys = async () => {
     console.log('Dashboard: Loading surveys...');
