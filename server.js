@@ -642,6 +642,7 @@ app.post('/api/admin/surveys/:surveyId/status', requireAdmin, async (req, res) =
 
 app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res) => {
   const surveyId = req.params.surveyId;
+  console.log('Analytics request for survey:', surveyId);
 
   try {
     const { data: survey, error: surveyError } = await supabaseAdmin
@@ -651,8 +652,10 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
       .single();
 
     if (surveyError || !survey) {
+      console.error('Survey not found:', surveyError);
       return res.status(404).json({ error: 'Survey not found.' });
     }
+    console.log('Found survey:', survey.title);
 
     const { data: questions, error: questionError } = await supabaseAdmin
       .from('questions')
@@ -661,18 +664,31 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
       .order('order_index', { ascending: true });
 
     if (questionError) {
+      console.error('Questions error:', questionError);
       return res.status(500).json({ error: questionError.message });
     }
+    console.log('Found questions:', questions?.length || 0);
 
+    // First, just count responses to verify they exist
+    const { count: responseCount, error: countError } = await supabaseAdmin
+      .from('responses')
+      .select('*', { count: 'exact', head: true })
+      .eq('survey_id', surveyId);
+
+    console.log('Response count:', responseCount, 'Count error:', countError);
+
+    // Now fetch the actual responses
     const { data: responses, error: responsesError } = await supabaseAdmin
       .from('responses')
-      .select('*, question:questions(*)')
+      .select('*')
       .eq('survey_id', surveyId)
       .order('submitted_at', { ascending: false });
 
     if (responsesError) {
+      console.error('Responses error:', responsesError);
       return res.status(500).json({ error: responsesError.message });
     }
+    console.log('Found responses:', responses?.length || 0);
 
     return res.json({ survey, questions: questions || [], responses: responses || [] });
   } catch (error) {

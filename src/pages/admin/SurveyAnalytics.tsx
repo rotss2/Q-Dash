@@ -52,6 +52,7 @@ export default function SurveyAnalytics() {
   const loadData = async () => {
     if (!surveyId) return;
     setIsLoading(true);
+    console.log('Analytics: Loading data for survey:', surveyId);
 
     const { data, error } = await apiGet<{
       survey: Survey;
@@ -60,10 +61,16 @@ export default function SurveyAnalytics() {
     }>(`/api/admin/surveys/${surveyId}/analytics`);
 
     if (error || !data?.survey) {
+      console.error('Analytics: Failed to load survey:', error);
       showToast(error || 'Failed to load survey', 'error');
       navigate('/admin');
       return;
     }
+
+    console.log('Analytics: Loaded survey:', data.survey.title);
+    console.log('Analytics: Questions count:', data.questions?.length || 0);
+    console.log('Analytics: Responses count:', data.responses?.length || 0);
+    console.log('Analytics: Response sample:', data.responses?.slice(0, 2));
 
     setSurvey(data.survey);
     setQuestions(data.questions || []);

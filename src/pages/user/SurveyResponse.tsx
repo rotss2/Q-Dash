@@ -304,8 +304,23 @@ function SurveyContent() {
   };
 
   const handleSubmit = async () => {
+    console.log('Submit attempt - userId:', userId, 'survey:', survey?.title, 'status:', survey?.status);
+    
     if (!userId) {
+      console.error('Cannot submit: userId is null');
       showToast(t('error'), 'error');
+      return;
+    }
+
+    if (!survey) {
+      console.error('Cannot submit: survey is null');
+      showToast(t('errorLoadingSurvey'), 'error');
+      return;
+    }
+
+    if (survey.status !== 'open') {
+      console.error('Cannot submit: survey is not open, status:', survey.status);
+      showToast('This survey is closed and not accepting responses', 'error');
       return;
     }
 
@@ -357,6 +372,12 @@ function SurveyContent() {
       showToast(`${t('errorSubmitting')}: ${error.message}`, 'error');
     } else {
       console.log('Responses inserted successfully:', insertedData);
+      console.log('Response insert details:', {
+        message: 'Success',
+        code: '200',
+        details: 'Responses inserted successfully',
+        hint: 'No issues found'
+      });
       // Layer 3: Record completion in survey_sessions table
       const { error: completionError } = await supabase
         .rpc('record_survey_completion', {
