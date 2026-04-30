@@ -92,100 +92,140 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
   // Generate comprehensive conclusion
   const conclusion = useMemo(() => {
     const textResponseCount = textInsights.reduce((sum, insight) => sum + insight.responseCount, 0);
-
-    if (satisfactionMetrics.length === 0 && textResponseCount > 0) {
-      return {
-        summary: `There are ${textResponseCount} text responses available for review. The current dataset is small, but it still provides directional insight around key themes and sentiment.`,
-        keyFindings: textInsights.map((insight) => `Question "${insight.questionText}" received ${insight.responseCount} responses.`),
-        limitation: 'Likert-scale metrics are not available for this sample. Use these text insights to guide qualitative follow-up.',
-        nextSteps: 'Review the sample responses and refine the survey for broader participation.',
-        overallScore: null,
-        responseRate: textResponseCount,
-        consistencyScore: 0,
-        highest: null,
-        lowest: null,
-        totalResponses: responses.length,
-        likertResponses: 0
-      };
+    const uniqueRespondents = new Set(responses.map(r => r.user_id)).size;
+    
+    // Count responses for non-likert questions (multiple_choice, text, etc.)
+    const nonLikertResponses = responses.filter(r => {
+      const q = questions.find(q => q.id === r.question_id);
+      return q && q.type !== 'likert';
+    });
+    
+    // Calculate total meaningful responses (any question type)
+    const totalMeaningfulResponses = responses.length;
+    
+    // Generate conclusion with 2+ responses of any type
+    if (totalMeaningfulResponses >= 2 || uniqueRespondents >= 1) {
+      // If we have satisfaction metrics (likert), use them
+      if (satisfactionMetrics.length > 0) {
+        const overallAverage = satisfactionMetrics.reduce((sum, m) => sum + m.average, 0) / satisfactionMetrics.length;
+        const roundedScore = overallAverage.toFixed(1);
+        const avgStdDev = satisfactionMetrics.reduce((sum, m) => sum + m.stdDev, 0) / satisfactionMetrics.length;
+        const consistencyScore = Math.max(0, 100 - (avgStdDev * 20));
+        const highest = satisfactionMetrics[0];
+        const lowest = satisfactionMetrics[satisfactionMetrics.length - 1];
+        
+        const keyFindings: string[] = [];
+        if (overallAverage >= 4.0) {
+          keyFindings.push(`Strong overall satisfaction with average score of ${roundedScore}/5`);
+          keyFindings.push(`Best performing area: "${highest.questionText}" (${highest.average.toFixed(2)}/5)`);
+        } else if (overallAverage >= 3.0) {
+          keyFindings.push(`Moderate satisfaction with average score of ${roundedScore}/5`);
+          keyFindings.push(`Improvement opportunity: "${lowest.questionText}" (${lowest.average.toFixed(2)}/5)`);
+        } else {
+          keyFindings.push(`Low satisfaction levels with average score of ${roundedScore}/5`);
+          keyFindings.push(`Critical area needing attention: "${lowest.questionText}" (${lowest.average.toFixed(2)}/5)`);
+        }
+        
+        // Add text response insights if available
+        if (textResponseCount > 0) {
+          keyFindings.push(`${textResponseCount} qualitative text responses collected for deeper insights`);
+        }
+        
+        let summary = '';
+        let nextSteps = '';
+        
+        if (uniqueRespondents === 1) {
+          summary = `Initial data from ${uniqueRespondents} respondent shows an average satisfaction score of ${roundedScore}/5. While the sample size is small, early indicators suggest ${overallAverage >= 4.0 ? 'positive sentiment' : overallAverage >= 3.0 ? 'mixed sentiment' : 'areas for improvement'}.`;
+          nextSteps = 'Collect more responses for statistically significant conclusions. Share survey with broader audience.';
+        } else if (uniqueRespondents < 5) {
+          summary = `Preliminary analysis from ${uniqueRespondents} respondents indicates an average satisfaction score of ${roundedScore}/5. Early trends are emerging but more data is needed for definitive conclusions.`;
+          nextSteps = 'Continue collecting responses to reach minimum threshold of 5+ respondents for reliable insights.';
+        } else {
+          summary = `Analysis of ${uniqueRespondents} respondents reveals an average satisfaction score of ${roundedScore}/5 with ${consistencyScore.toFixed(0)}% consistency across metrics.`;
+          nextSteps = `Focus on improving "${lowest.questionText}" while maintaining strengths in "${highest.questionText}".`;
+        }
+        
+        return {
+          summary,
+          keyFindings,
+          nextSteps,
+          overallScore: roundedScore,
+          highest,
+          lowest,
+          consistencyScore: consistencyScore.toFixed(0),
+          totalResponses: responses.length,
+          likertResponses: satisfactionMetrics.reduce((sum, m) => sum + m.count, 0)
+        };
+      }
+      
+      // No likert questions, but have text/other responses
+      if (textResponseCount > 0 || nonLikertResponses.length > 0) {
+        const hasText = textResponseCount > 0;
+        const hasChoice = nonLikertResponses.some(r => {
+          const q = questions.find(q => q.id === r.question_id);
+          return q && q.type === 'choice';
+        });
+        
+        const keyFindings: string[] = [];
+        
+        if (hasText) {
+          keyFindings.push(`${textResponseCount} qualitative text responses available for thematic analysis`);
+          textInsights.slice(0, 3).forEach(insight => {
+            if (insight.responseCount > 0) {
+              keyFindings.push(`"${insight.questionText}" - ${insight.responseCount} responses`);
+            }
+          });
+        }
+        
+        if (hasChoice) {
+          // Count choice responses by question
+          const choiceQuestions = questions.filter(q => q.type === 'choice');
+          choiceQuestions.forEach(q => {
+            const count = responses.filter(r => r.question_id === q.id).length;
+            if (count > 0) {
+              keyFindings.push(`"${q.question_text}" - ${count} responses`);
+            }
+          });
+        }
+        
+        let summary = '';
+        if (uniqueRespondents === 1) {
+          summary = `Initial data collected from ${uniqueRespondents} respondent across ${questions.length} questions. ${hasText ? 'Qualitative feedback captured for thematic analysis.' : 'Response patterns are being established.'}`;
+        } else if (uniqueRespondents < 5) {
+          summary = `Preliminary insights from ${uniqueRespondents} respondents showing engagement across ${questions.length} survey questions. Data collection in progress.`;
+        } else {
+          summary = `Analysis of ${uniqueRespondents} respondents across ${questions.length} questions reveals meaningful engagement. ${hasText ? 'Rich qualitative data available for deeper insights.' : 'Response distribution patterns emerging.'}`;
+        }
+        
+        return {
+          summary,
+          keyFindings,
+          nextSteps: `Continue collecting responses to strengthen data reliability. ${hasText ? 'Begin thematic analysis of text responses.' : 'Monitor for emerging patterns in choice questions.'}`,
+          overallScore: null,
+          highest: null,
+          lowest: null,
+          consistencyScore: '0',
+          totalResponses: responses.length,
+          likertResponses: 0
+        };
+      }
     }
-
-    if (satisfactionMetrics.length === 0) {
-      return {
-        summary: 'Insufficient data to generate a conclusion.',
-        keyFindings: [],
-        limitation: 'No responses available yet.',
-        nextSteps: 'Collect more responses to enable automated analysis.',
-        overallScore: null,
-        responseRate: 0,
-        consistencyScore: 0,
-        highest: null,
-        lowest: null,
-        totalResponses: responses.length,
-        likertResponses: 0
-      };
-    }
-
-    const overallAverage = satisfactionMetrics.reduce((sum, m) => sum + m.average, 0) / satisfactionMetrics.length;
-    const roundedScore = overallAverage.toFixed(1);
     
-    // Calculate consistency (inverse of average std dev)
-    const avgStdDev = satisfactionMetrics.reduce((sum, m) => sum + m.stdDev, 0) / satisfactionMetrics.length;
-    const consistencyScore = Math.max(0, 100 - (avgStdDev * 20));
-    
-    const highest = satisfactionMetrics[0];
-    const lowest = satisfactionMetrics[satisfactionMetrics.length - 1];
-    
-    // Key findings
-    const keyFindings: string[] = [];
-    
-    if (overallAverage >= 4.5) {
-      keyFindings.push(`Exceptional user satisfaction with average score of ${roundedScore}/5`);
-      keyFindings.push(`Strong consensus across metrics (${consistencyScore.toFixed(0)}% consistency)`);
-      keyFindings.push(`Highest performing dimension: "${highest.questionText}" (${highest.average.toFixed(2)}/5)`);
-    } else if (overallAverage >= 4.0) {
-      keyFindings.push(`Strong overall satisfaction with average score of ${roundedScore}/5`);
-      keyFindings.push(`Moderate consistency across dimensions (${consistencyScore.toFixed(0)}%)`);
-      keyFindings.push(`Best performing area: "${highest.questionText}" (${highest.average.toFixed(2)}/5)`);
-      keyFindings.push(`Opportunity for improvement: "${lowest.questionText}" (${lowest.average.toFixed(2)}/5)`);
-    } else if (overallAverage >= 3.0) {
-      keyFindings.push(`Mixed user sentiment with average score of ${roundedScore}/5`);
-      keyFindings.push(`Variable responses across dimensions (${consistencyScore.toFixed(0)}% consistency)`);
-      keyFindings.push(`Significant improvement potential in "${lowest.questionText}" (${lowest.average.toFixed(2)}/5)`);
-    } else {
-      keyFindings.push(`Low satisfaction levels with average score of ${roundedScore}/5`);
-      keyFindings.push(`Substantial inconsistency in responses (${consistencyScore.toFixed(0)}% consistency)`);
-      keyFindings.push(`Critical areas requiring attention: "${lowest.questionText}" (${lowest.average.toFixed(2)}/5)`);
-    }
-    
-    let summary = '';
-    let nextSteps = '';
-    
-    if (overallAverage >= 4.5) {
-      summary = `This comprehensive survey analysis reveals exceptional satisfaction levels across all measured dimensions. With an average satisfaction score of ${roundedScore}/5 and high response consistency, the data suggests strong user approval and positive sentiment.`;
-      nextSteps = `Maintain current standards and practices. Consider leveraging strengths in "${highest.questionText}" as best practices. Address "${lowest.questionText}" as a strategic improvement initiative.`;
-    } else if (overallAverage >= 4.0) {
-      summary = `The analysis indicates strong overall satisfaction (${roundedScore}/5) with reasonable consistency across metrics. Users demonstrate clear preferences, with "${highest.questionText}" emerging as a strength and "${lowest.questionText}" as a development area.`;
-      nextSteps = `Focus improvement efforts on "${lowest.questionText}" to push overall satisfaction above 4.5. Conduct deeper analysis through text responses and follow-up interviews.`;
-    } else if (overallAverage >= 3.0) {
-      summary = `This survey reveals moderate satisfaction levels (${roundedScore}/5) with variable response patterns. While "${highest.questionText}" shows promise, significant improvement opportunities exist across multiple dimensions.`;
-      nextSteps = `Prioritize addressing "${lowest.questionText}" through targeted interventions. Conduct root cause analysis and develop remediation strategies. Plan follow-up survey to measure improvement.`;
-    } else {
-      summary = `The data indicates critical challenges across dimensions, with an average score of ${roundedScore}/5. Immediate comprehensive review and intervention are warranted.`;
-      nextSteps = `Launch immediate improvement initiative focused on "${lowest.questionText}". Conduct qualitative research to understand underlying issues. Establish metrics and timeline for improvement targets.`;
-    }
-
+    // Less than 2 responses or no meaningful data
     return {
-      summary,
-      keyFindings,
-      nextSteps,
-      overallScore: roundedScore,
-      highest,
-      lowest,
-      consistencyScore: consistencyScore.toFixed(0),
+      summary: 'Insufficient data to generate a conclusion.',
+      keyFindings: [],
+      limitation: `Only ${responses.length} response(s) received. Need at least 2 responses for analysis.`,
+      nextSteps: 'Collect more responses to enable automated analysis. Share survey link with participants.',
+      overallScore: null,
+      responseRate: responses.length,
+      consistencyScore: 0,
+      highest: null,
+      lowest: null,
       totalResponses: responses.length,
-      likertResponses: satisfactionMetrics.reduce((sum, m) => sum + m.count, 0)
+      likertResponses: 0
     };
-  }, [satisfactionMetrics, responses]);
+  }, [satisfactionMetrics, textInsights, responses, questions]);
 
   // Count unique respondents
   const uniqueRespondents = useMemo(() => {
