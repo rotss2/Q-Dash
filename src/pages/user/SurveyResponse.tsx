@@ -38,6 +38,58 @@ function SurveyContent() {
     [answers]
   );
 
+  // Theme styles based on survey.theme
+  const themeClasses = useMemo(() => {
+    const theme = survey?.theme || 'default';
+    switch (theme) {
+      case 'warm':
+        return {
+          bg: 'bg-orange-50',
+          card: 'bg-white border-orange-200',
+          button: 'bg-orange-600 hover:bg-orange-700',
+          accent: 'text-orange-600',
+          progress: 'bg-orange-200',
+          progressFill: 'bg-orange-500'
+        };
+      case 'cool':
+        return {
+          bg: 'bg-indigo-50',
+          card: 'bg-white border-indigo-200',
+          button: 'bg-indigo-600 hover:bg-indigo-700',
+          accent: 'text-indigo-600',
+          progress: 'bg-indigo-200',
+          progressFill: 'bg-indigo-500'
+        };
+      case 'forest':
+        return {
+          bg: 'bg-green-50',
+          card: 'bg-white border-green-200',
+          button: 'bg-green-600 hover:bg-green-700',
+          accent: 'text-green-600',
+          progress: 'bg-green-200',
+          progressFill: 'bg-green-500'
+        };
+      case 'dark':
+        return {
+          bg: 'bg-gray-900',
+          card: 'bg-gray-800 border-gray-700',
+          button: 'bg-slate-600 hover:bg-slate-500',
+          accent: 'text-slate-400',
+          progress: 'bg-gray-700',
+          progressFill: 'bg-slate-400'
+        };
+      default:
+        return {
+          bg: 'bg-gray-50',
+          card: 'bg-white border-gray-200',
+          button: 'bg-slate-900 hover:bg-slate-800',
+          accent: 'text-slate-900',
+          progress: 'bg-gray-200',
+          progressFill: 'bg-slate-900'
+        };
+    }
+  }, [survey?.theme]);
+
   const shouldShowQuestion = (question: Question, answerValues: Record<string, string>) => {
     if (!question.show_when_question_id) return true;
     return answerValues[question.show_when_question_id] === question.show_when_answer_value;
@@ -405,12 +457,12 @@ function SurveyContent() {
 
   if (visibleQuestions.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className={`min-h-screen ${themeClasses.bg} flex items-center justify-center p-4`}>
         <div className="card max-w-md w-full text-center">
           <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-yellow-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('surveyTitle')}</h2>
+          <h1 className={`text-lg font-semibold ${themeClasses.accent}`}>{survey?.title}</h1>
           <p className="text-gray-600 mb-6">{t('errorLoadingSurvey')}</p>
         </div>
       </div>
@@ -422,9 +474,9 @@ function SurveyContent() {
   const progress = visibleQuestions.length > 0 ? ((currentQuestionIndex + 1) / visibleQuestions.length) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className={`min-h-screen ${themeClasses.bg} flex flex-col`}>
       {/* Header with Progress */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className={`${themeClasses.card} border-b sticky top-0 z-10`}>
         <div className="max-w-lg mx-auto px-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between h-auto sm:h-14 min-w-0">
             <span className="text-sm font-medium text-gray-500 break-words">
@@ -437,9 +489,9 @@ function SurveyContent() {
               {Math.round(progress)}%
             </span>
           </div>
-          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+          <div className={`h-2 ${themeClasses.progress} rounded-full overflow-hidden`}>
             <div 
-              className="h-full bg-slate-900 transition-all duration-300"
+              className={`h-full ${themeClasses.progressFill} transition-all duration-300`}
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -511,7 +563,7 @@ function SurveyContent() {
                               : 'border-gray-300'
                           }`}>
                             {getAnswer(currentQuestion.id) === option && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-slate-900" />
+                              <div className={`w-2.5 h-2.5 rounded-full ${themeClasses.progressFill}`} />
                             )}
                           </div>
                           <span className="font-medium break-words">{option}</span>
@@ -529,7 +581,7 @@ function SurveyContent() {
                         onClick={() => updateAnswer(currentQuestion.id, value.toString())}
                         className={`flex-1 py-4 px-2 border rounded-lg transition-all ${
                           getAnswer(currentQuestion.id) === value.toString()
-                            ? 'border-slate-900 bg-slate-900 text-white'
+                            ? `border-transparent ${themeClasses.button} text-white`
                             : 'border-gray-200 hover:border-slate-300 text-slate-700'
                         }`}
                       >
@@ -556,7 +608,7 @@ function SurveyContent() {
                   <button
                     onClick={handleSubmit}
                     disabled={isSubmitting || (currentQuestion.required && !getAnswer(currentQuestion.id))}
-                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`flex-1 flex items-center justify-center gap-2 ${themeClasses.button} text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {isSubmitting ? (
                       <>
@@ -574,7 +626,7 @@ function SurveyContent() {
                   <button
                     onClick={goToNext}
                     disabled={currentQuestion.required && !getAnswer(currentQuestion.id)}
-                    className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`flex-1 flex items-center justify-center gap-2 ${themeClasses.button} text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {t('next')}
                     <ChevronRight className="w-5 h-5" />
