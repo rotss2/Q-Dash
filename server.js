@@ -484,31 +484,29 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
     console.log('Found survey to delete:', survey);
 
     // Delete related responses first (cascade)
-    const { error: responsesError, count: responsesDeleted } = await supabaseAdmin
+    const { error: responsesError } = await supabaseAdmin
       .from('responses')
       .delete()
-      .eq('survey_id', surveyId)
-      .select('count');
+      .eq('survey_id', surveyId);
 
     if (responsesError) {
       console.error('Failed to delete responses:', responsesError);
     } else {
-      console.log('Deleted responses:', responsesDeleted);
+      console.log('Deleted responses for survey:', surveyId);
     }
 
     // Delete related questions
-    const { error: questionsError, count: questionsDeleted } = await supabaseAdmin
+    const { error: questionsError } = await supabaseAdmin
       .from('questions')
       .delete()
-      .eq('survey_id', surveyId)
-      .select('count');
+      .eq('survey_id', surveyId);
 
     if (questionsError) {
       console.error('Failed to delete questions:', questionsError);
       return res.status(500).json({ error: 'Failed to delete questions: ' + questionsError.message });
     }
 
-    console.log('Deleted questions:', questionsDeleted);
+    console.log('Deleted questions for survey:', surveyId);
 
     // Finally delete the survey using RPC for guaranteed execution
     console.log('Executing survey delete for:', surveyId);
