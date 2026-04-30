@@ -4,8 +4,17 @@
 -- Change responses.user_id from UUID to TEXT to support anonymous fingerprints
 ALTER TABLE responses ALTER COLUMN user_id TYPE TEXT;
 
--- Drop the foreign key constraint to profiles
-ALTER TABLE responses DROP CONSTRAINT responses_user_id_fkey;
+-- Drop the foreign key constraint to profiles (if it exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'responses_user_id_fkey'
+    AND table_name = 'responses'
+  ) THEN
+    ALTER TABLE responses DROP CONSTRAINT responses_user_id_fkey;
+  END IF;
+END $$;
 
 -- Update the trigger function to work with TEXT user_id
 CREATE OR REPLACE FUNCTION increment_survey_responses()
