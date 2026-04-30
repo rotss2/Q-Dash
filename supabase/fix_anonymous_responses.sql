@@ -59,12 +59,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Update RLS policies for responses to allow anonymous inserts
 DROP POLICY IF EXISTS "Users can insert responses" ON responses;
+DROP POLICY IF EXISTS "Anonymous users can insert responses" ON responses;
 CREATE POLICY "Anonymous users can insert responses"
   ON responses FOR INSERT
   TO anon, authenticated
   WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Users can view responses" ON responses;
+DROP POLICY IF EXISTS "Admins can view responses" ON responses;
 CREATE POLICY "Admins can view responses"
   ON responses FOR SELECT
   TO authenticated
