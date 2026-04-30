@@ -18,6 +18,7 @@ export interface Survey {
   admin_id: string;
   total_responses: number;
   theme?: string | null;
+  background_theme?: string | null;
   font_family?: string | null;
   theme_color?: string | null;
   logo_url?: string | null;

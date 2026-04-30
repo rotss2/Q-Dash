@@ -7,6 +7,8 @@ import { Survey, Question } from '../../types';
 import { LanguageProvider, useLanguage } from '../../hooks/useLanguage';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
 import { Send, CheckCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ThemedBackground } from '../../components/ThemedBackground';
+import { AvatarMascot } from '../../components/AvatarMascot';
 
 interface Answer {
   question_id: string;
@@ -524,7 +526,10 @@ function SurveyContent() {
   const progress = visibleQuestions.length > 0 ? ((currentQuestionIndex + 1) / visibleQuestions.length) * 100 : 0;
 
   return (
-    <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass}`}>
+    <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass} relative`}>
+      {/* Animated Background Theme */}
+      <ThemedBackground theme={survey?.background_theme || 'default'} />
+      
       {/* Header with Progress */}
       <header className={`${themeClasses.card} border-b sticky top-0 z-10`}>
         <div className="max-w-lg mx-auto px-4">
@@ -697,6 +702,13 @@ function SurveyContent() {
           </p>
         </div>
       </footer>
+      
+      {/* Avatar Mascot */}
+      <AvatarMascot 
+        progress={progress} 
+        currentQuestion={currentQuestionIndex + 1} 
+        totalQuestions={visibleQuestions.length} 
+      />
     </div>
   );
 }

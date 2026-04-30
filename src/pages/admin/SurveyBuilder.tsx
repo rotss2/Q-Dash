@@ -67,6 +67,7 @@ export default function SurveyBuilder() {
   const [questions, setQuestions] = useState<FormQuestion[]>([]);
   const [theme, setTheme] = useState('default');
   const [fontFamily, setFontFamily] = useState('default');
+  const [backgroundTheme, setBackgroundTheme] = useState('default');
   const [themeColor, setThemeColor] = useState('#111827');
   const [logoUrl, setLogoUrl] = useState('');
   const [defaultLanguage, setDefaultLanguage] = useState('en');
@@ -96,8 +97,9 @@ export default function SurveyBuilder() {
 
     setTitle(data.survey.title);
     setDescription(data.survey.description || '');
-    setTheme(data.survey.theme || 'default');
-    setFontFamily(data.survey.font_family || 'default');
+    if (data.survey.theme) setTheme(data.survey.theme);
+    if (data.survey.font_family) setFontFamily(data.survey.font_family);
+    if (data.survey.background_theme) setBackgroundTheme(data.survey.background_theme);
     setThemeColor(data.survey.theme_color || '#111827');
     setLogoUrl(data.survey.logo_url || '');
     setDefaultLanguage(data.survey.default_language || 'en');
@@ -225,6 +227,7 @@ export default function SurveyBuilder() {
         title,
         description,
         theme,
+        background_theme: backgroundTheme,
         font_family: fontFamily,
         theme_color: themeColor,
         logo_url: logoUrl || null,
@@ -339,6 +342,21 @@ export default function SurveyBuilder() {
                   <option value="mono">Monospace (Code)</option>
                   <option value="rounded">Rounded (Friendly)</option>
                   <option value="elegant">Elegant (Playfair)</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Background Theme</label>
+                <select
+                  value={backgroundTheme}
+                  onChange={(e) => setBackgroundTheme(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="default">Default (Plain)</option>
+                  <option value="ocean">🌊 Ocean (Waves)</option>
+                  <option value="sunset">🌅 Sunset (Warm)</option>
+                  <option value="forest">🌲 Forest (Nature)</option>
+                  <option value="galaxy">🌌 Galaxy (Cosmic)</option>
+                  <option value="minimal">✨ Minimal (Clean)</option>
                 </select>
               </div>
             </div>
