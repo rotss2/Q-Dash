@@ -80,6 +80,7 @@ CREATE POLICY "Admins can view responses"
 
 -- Allow anonymous users to view survey questions (for taking surveys)
 DROP POLICY IF EXISTS "Public can view questions" ON questions;
+DROP POLICY IF EXISTS "Anyone can view questions" ON questions;
 CREATE POLICY "Public can view questions"
   ON questions FOR SELECT
   TO anon, authenticated
@@ -87,6 +88,8 @@ CREATE POLICY "Public can view questions"
 
 -- Allow anonymous users to view open surveys
 DROP POLICY IF EXISTS "Public can view surveys" ON surveys;
+DROP POLICY IF EXISTS "Public can view open surveys" ON surveys;
+DROP POLICY IF EXISTS "Admins can view own surveys" ON surveys;
 CREATE POLICY "Public can view open surveys"
   ON surveys FOR SELECT
   TO anon, authenticated
