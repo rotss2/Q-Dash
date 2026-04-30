@@ -17,16 +17,21 @@ BEGIN
 END $$;
 
 -- Update the trigger function to work with TEXT user_id
+-- ONLY increment when first response from a user/survey is inserted
 CREATE OR REPLACE FUNCTION increment_survey_responses()
 RETURNS TRIGGER AS $$
+DECLARE
+  existing_count INTEGER;
 BEGIN
-  -- Only increment if this is the first response from this user for this survey
-  IF NOT EXISTS (
-    SELECT 1 FROM responses
-    WHERE survey_id = NEW.survey_id
-    AND user_id = NEW.user_id
-    AND id != NEW.id
-  ) THEN
+  -- Count how many responses this user already had for this survey BEFORE this insert
+  SELECT COUNT(*) INTO existing_count
+  FROM responses
+  WHERE survey_id = NEW.survey_id
+  AND user_id = NEW.user_id
+  AND id < NEW.id;  -- Only count responses inserted before this one
+  
+  -- Only increment if this is the FIRST response from this user for this survey
+  IF existing_count = 0 THEN
     UPDATE surveys
     SET total_responses = total_responses + 1
     WHERE id = NEW.survey_id;
@@ -84,3 +89,12 @@ CREATE POLICY "Public can view open surveys"
   ON surveys FOR SELECT
   TO anon, authenticated
   USING (status = 'open');
+
+-- CRITICAL: Fix existing response counts (if they were overcounted)
+-- This recalculates total_responses as the count of distinct users per survey
+UPDATE surveys s
+SET total_responses = (
+  SELECT COUNT(DISTINCT user_id)
+  FROM responses r
+  WHERE r.survey_id = s.id
+);
