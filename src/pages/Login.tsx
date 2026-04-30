@@ -1,123 +1,74 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/Toaster';
-import { supabase } from '../lib/supabase';
 import { ClipboardList } from 'lucide-react';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [passkey, setPasskey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
   const { signIn, user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  // Test Supabase connection on load
   useEffect(() => {
-    const testConnection = async () => {
-      try {
-        const { error } = await supabase.from('surveys').select('count', { count: 'exact', head: true });
-        if (error) {
-          console.error('Connection test failed:', error);
-          setConnectionError('Cannot connect to Supabase. Check console.');
-        } else {
-          console.log('Supabase connected!');
-        }
-      } catch (err) {
-        console.error('Connection test error:', err);
-        setConnectionError('Supabase connection failed');
-      }
-    };
-    testConnection();
-  }, []);
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) {
-      navigate(user.role === 'admin' ? '/admin' : '/user', { replace: true });
+    if (user?.role === 'admin') {
+      navigate('/admin', { replace: true });
     }
   }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    console.log('Signing in with:', email);
 
-    const { error } = await signIn(email, password);
-    console.log('Sign in result:', { error });
+    const { error } = await signIn(passkey.trim());
 
     if (error) {
       showToast(error.message, 'error');
       setIsLoading(false);
-    } else {
-      showToast('Login successful!', 'success');
-      // Wait for auth state to update user
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 1000);
+      return;
     }
+
+    showToast('Login successful', 'success');
+    navigate('/admin', { replace: true });
+    setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
-      <div className="card w-full max-w-md">
-        {connectionError && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg text-sm">
-            <strong>Connection Error:</strong> {connectionError}
-            <p className="mt-1">Check browser console (F12) for details.</p>
-          </div>
-        )}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-xl mb-4">
-            <ClipboardList className="w-8 h-8 text-white" />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white">
+            <ClipboardList className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome to Q-Dash</h1>
-          <p className="text-gray-600 mt-2">Sign in to continue</p>
+          <h1 className="mt-4 text-2xl font-semibold text-slate-900">Admin passkey</h1>
+          <p className="mt-2 text-sm text-slate-500">Enter the admin passkey to access the dashboard.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="label">Email</label>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">Passkey</span>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="label">Password</label>
-            <input
-              id="password"
+              value={passkey}
+              onChange={(e) => setPasskey(e.target.value)}
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input"
-              placeholder="Enter your password"
+              autoComplete="current-password"
               required
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
             />
-          </div>
+          </label>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Signing in...' : 'Sign In'}
+            {isLoading ? 'Checking passkey…' : 'Enter'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-600 mt-6">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-primary-600 hover:text-primary-700 font-medium">
-            Register
-          </Link>
+        <p className="mt-6 text-center text-sm text-slate-500">
+          This page is only for admin access.
         </p>
       </div>
     </div>

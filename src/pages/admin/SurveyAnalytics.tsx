@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
-import { supabase } from '../../lib/supabase';
+import { apiGet } from '../../lib/api';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
 import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb } from 'lucide-react';
 import IntelligenceDashboard from '../../components/IntelligenceDashboard';
@@ -45,106 +45,37 @@ export default function SurveyAnalytics() {
   useEffect(() => {
     if (surveyId) {
       loadData();
-      setupRealtimeSubscription();
     }
-    
-    return () => {
-      // Cleanup subscription on unmount
-      supabase.removeAllChannels();
-    };
   }, [surveyId]);
-
-  const setupRealtimeSubscription = () => {
-    console.log('Setting up analytics realtime subscription...');
-    
-    const subscription = supabase
-      .channel(`analytics-${surveyId}`)
-      .on(
-        'postgres_changes',
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'responses',
-          filter: `survey_id=eq.${surveyId}`
-        },
-        (payload) => {
-          console.log('New response received:', payload);
-          // Refresh data when new response arrives
-          loadData();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Analytics subscription status:', status);
-      });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  };
 
   const loadData = async () => {
     if (!surveyId) return;
     setIsLoading(true);
-    
-    // Load survey
-    const { data: surveyData, error: surveyError } = await supabase
-      .from('surveys')
-      .select('*')
-      .eq('id', surveyId)
-      .single();
 
-    if (surveyError || !surveyData) {
-      showToast('Failed to load survey', 'error');
+    const { data, error } = await apiGet<{
+      survey: Survey;
+      questions: Question[];
+      responses: Array<Response & { question?: Question; profile?: { email: string } }>;
+    }>(`/api/admin/surveys/${surveyId}/analytics`);
+
+    if (error || !data?.survey) {
+      showToast(error || 'Failed to load survey', 'error');
       navigate('/admin');
       return;
     }
-    setSurvey(surveyData);
 
-    // Load questions
-    const { data: questionsData, error: questionsError } = await supabase
-      .from('questions')
-      .select('*')
-      .eq('survey_id', surveyId)
-      .order('order_index', { ascending: true });
+    setSurvey(data.survey);
+    setQuestions(data.questions || []);
 
-    if (questionsError) {
-      showToast('Failed to load questions', 'error');
-    } else {
-      setQuestions(questionsData || []);
-    }
+    const typedResponses = (data.responses || []).map((r: any) => ({
+      ...r,
+      question: r.question as Question,
+      userLabel: r.user_id ? `User-${r.user_id.slice(0, 8)}` : 'Anonymous'
+    }));
 
-    // Load responses - handle anonymous users (profiles may be null)
-    const { data: responsesData, error: responsesError } = await supabase
-      .from('responses')
-      .select(`
-        *,
-        question:questions(*)
-      `)
-      .eq('survey_id', surveyId)
-      .order('submitted_at', { ascending: false });
-
-    if (responsesError) {
-      console.error('Error loading responses:', responsesError);
-      showToast('Failed to load responses', 'error');
-    } else {
-      // Map responses with safe typing for anonymous users
-      const typedResponses = (responsesData || []).map((r: any) => ({
-        ...r,
-        question: r.question as Question,
-        // Anonymous users have no profile - show fingerprint ID or 'Anonymous'
-        userLabel: r.user_id 
-          ? `User-${r.user_id.slice(0, 8)}` 
-          : 'Anonymous'
-      }));
-      setResponses(typedResponses);
-      
-      // Calculate aggregations
-      const aggs = calculateAggregations(questionsData || [], typedResponses);
-      setAggregations(aggs);
-      
-      console.log(`Loaded ${typedResponses.length} responses`);
-    }
-
+    setResponses(typedResponses);
+    const aggs = calculateAggregations(data.questions || [], typedResponses);
+    setAggregations(aggs);
     setIsLoading(false);
   };
 

@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../components/Toaster';
-import { supabase } from '../../lib/supabase';
+import { apiGet, apiDelete, apiPost } from '../../lib/api';
 import { Survey } from '../../types';
 import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, X, Maximize2, Minimize2 } from 'lucide-react';
 
@@ -12,89 +12,26 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [liveFeed, setLiveFeed] = useState<Array<{ id: string; surveyTitle: string; timestamp: string; userId: string }>>([]);
+  const [liveFeed] = useState<Array<{ id: string; surveyTitle: string; timestamp: string; userId: string }>>([]);
   const [showLiveFeed, setShowLiveFeed] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
-  const [activeUsers, setActiveUsers] = useState(0);
-  const [activeUsersBySurvey, setActiveUsersBySurvey] = useState<Record<string, number>>({});
-  // Track processed sessions to prevent spam (user_id + survey_id + submitted_at)
-  const processedSessions = useRef<Set<string>>(new Set());
+  const activeUsers = 0;
+  const activeUsersBySurvey: Record<string, number> = {};
 
   useEffect(() => {
     loadSurveys();
-    setupRealtimeSubscription();
-    setupPresenceTracking();
   }, []);
 
-  const setupRealtimeSubscription = () => {
-    console.log('Setting up realtime subscription...');
-    
-    const subscription = supabase
-      .channel('responses-channel')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'responses' },
-        (payload) => {
-          console.log('Realtime event received:', payload);
-          handleNewResponse(payload.new);
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          showToast('Live updates connected', 'success');
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          showToast('Live updates disconnected', 'error');
-        }
-      });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  };
-
-  const setupPresenceTracking = () => {
-    // Track active users via presence channel
-    const presenceChannel = supabase.channel('survey-presence');
-    
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const users = Object.values(state).flat() as any[];
-        
-        // Total active users
-        setActiveUsers(users.length);
-        
-        // Per-survey active users
-        const bySurvey: Record<string, number> = {};
-        users.forEach((user) => {
-          const sid = user.survey_id as string;
-          if (sid) {
-            bySurvey[sid] = (bySurvey[sid] || 0) + 1;
-          }
-        });
-        setActiveUsersBySurvey(bySurvey);
-      })
-      .subscribe();
-
-    return () => {
-      presenceChannel.unsubscribe();
-    };
-  };
-
   const loadSurveys = async () => {
-    const { data, error } = await supabase
-      .from('surveys')
-      .select('*')
-      .eq('admin_id', user!.id)
-      .order('created_at', { ascending: false });
+    const response = await apiGet<{ surveys: Survey[] }>('/api/admin/surveys');
 
-    if (error) {
-      showToast('Failed to load surveys', 'error');
-    } else {
-      setSurveys(data || []);
+    if (response.error) {
+      showToast(response.error, 'error');
+      setIsLoading(false);
+      return;
     }
+
+    setSurveys(response.data?.surveys || []);
     setIsLoading(false);
   };
 
@@ -103,13 +40,10 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { error } = await supabase
-      .from('surveys')
-      .delete()
-      .eq('id', surveyId);
+    const response = await apiDelete<{ success: boolean }>(`/api/admin/surveys/${surveyId}`);
 
-    if (error) {
-      showToast('Failed to delete survey', 'error');
+    if (response.error) {
+      showToast(response.error, 'error');
     } else {
       showToast('Survey deleted successfully', 'success');
       loadSurveys();
@@ -118,13 +52,10 @@ export default function AdminDashboard() {
 
   const toggleStatus = async (survey: Survey) => {
     const newStatus = survey.status === 'open' ? 'closed' : 'open';
-    const { error } = await supabase
-      .from('surveys')
-      .update({ status: newStatus })
-      .eq('id', survey.id);
+    const response = await apiPost<{ success: boolean }>(`/api/admin/surveys/${survey.id}/status`, { status: newStatus });
 
-    if (error) {
-      showToast('Failed to update status', 'error');
+    if (response.error) {
+      showToast(response.error, 'error');
     } else {
       showToast(`Survey ${newStatus === 'open' ? 'opened' : 'closed'}`, 'success');
       loadSurveys();
@@ -135,50 +66,6 @@ export default function AdminDashboard() {
     const link = `${window.location.origin}/survey/${surveyId}`;
     navigator.clipboard.writeText(link);
     showToast('Survey link copied to clipboard', 'success');
-  };
-
-  const handleNewResponse = async (response: any) => {
-    // Create unique session key (user + survey + timestamp to nearest second)
-    // This prevents spam when user submits multiple questions at once
-    const sessionKey = `${response.user_id}_${response.survey_id}_${response.submitted_at?.slice(0, 19)}`;
-    
-    // Skip if we've already processed this session
-    if (processedSessions.current.has(sessionKey)) {
-      console.log('Duplicate session detected, skipping:', sessionKey);
-      return;
-    }
-    
-    // Mark session as processed
-    processedSessions.current.add(sessionKey);
-    
-    // Limit set size to prevent memory leaks
-    if (processedSessions.current.size > 100) {
-      const iterator = processedSessions.current.values();
-      const firstItem = iterator.next().value;
-      if (firstItem) {
-        processedSessions.current.delete(firstItem);
-      }
-    }
-    
-    // Find survey title
-    const survey = surveys.find(s => s.id === response.survey_id);
-    const surveyTitle = survey?.title || 'Unknown Survey';
-    
-    // Add to live feed with userId
-    const newEntry = {
-      id: crypto.randomUUID(),
-      surveyTitle,
-      timestamp: new Date().toISOString(),
-      userId: response.user_id?.slice(0, 8) || 'unknown'
-    };
-    
-    setLiveFeed(prev => [newEntry, ...prev].slice(0, 10));
-    
-    // Show toast notification (only once per session)
-    showToast(`New response: ${surveyTitle}`, 'success');
-    
-    // Refresh survey data to update counts
-    loadSurveys();
   };
 
   const handleSignOut = async () => {

@@ -5,6 +5,9 @@ import AdminDashboard from './pages/admin/Dashboard';
 import SurveyBuilder from './pages/admin/SurveyBuilder';
 import SurveyAnalytics from './pages/admin/SurveyAnalytics';
 import SurveyResponse from './pages/user/SurveyResponse';
+import Login from './pages/Login';
+import Forbidden from './pages/Forbidden';
+import RequireAdmin from './components/RequireAdmin';
 
 function App() {
   return (
@@ -14,18 +17,46 @@ function App() {
           <Routes>
             {/* Survey Response (Public) */}
             <Route path="/survey/:surveyId" element={<SurveyResponse />} />
-            
-            {/* Admin Routes (Auto-logged in) */}
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
-            <Route path="/admin/surveys/:surveyId/edit" element={<SurveyBuilder />} />
-            <Route path="/admin/surveys/:surveyId/analytics" element={<SurveyAnalytics />} />
-            
-            {/* Default redirect to admin */}
-            <Route path="/" element={<Navigate to="/admin" replace />} />
-            <Route path="/login" element={<Navigate to="/admin" replace />} />
-            <Route path="/register" element={<Navigate to="/admin" replace />} />
-            <Route path="*" element={<Navigate to="/admin" replace />} />
+
+            {/* Admin Routes (Protected) */}
+            <Route
+              path="/admin"
+              element={
+                <RequireAdmin>
+                  <AdminDashboard />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/surveys/new"
+              element={
+                <RequireAdmin>
+                  <SurveyBuilder />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/surveys/:surveyId/edit"
+              element={
+                <RequireAdmin>
+                  <SurveyBuilder />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/surveys/:surveyId/analytics"
+              element={
+                <RequireAdmin>
+                  <SurveyAnalytics />
+                </RequireAdmin>
+              }
+            />
+
+            <Route path="/login" element={<Login />} />
+            <Route path="/forbidden" element={<Forbidden />} />
+            <Route path="/register" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </div>
       </ToasterProvider>

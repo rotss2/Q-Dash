@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../components/Toaster';
-import { supabase } from '../../lib/supabase';
+import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
 import { ArrowLeft, Plus, Trash2, X, Save, FileText } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
@@ -17,7 +16,6 @@ interface FormQuestion {
 }
 
 export default function SurveyBuilder() {
-  const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { surveyId } = useParams<{ surveyId?: string }>();
@@ -38,38 +36,18 @@ export default function SurveyBuilder() {
 
   const loadSurvey = async (id: string) => {
     setIsLoading(true);
-    
-    const { data: survey, error: surveyError } = await supabase
-      .from('surveys')
-      .select('*')
-      .eq('id', id)
-      .single();
 
-    if (surveyError || !survey) {
-      showToast('Failed to load survey', 'error');
+    const { data, error } = await apiGet<{ survey: Survey; questions: FormQuestion[] }>(`/api/admin/surveys/${id}`);
+
+    if (error || !data?.survey) {
+      showToast(error || 'Failed to load survey', 'error');
       navigate('/admin');
       return;
     }
 
-    setTitle(survey.title);
-    setDescription(survey.description || '');
-
-    const { data: questions, error: questionsError } = await supabase
-      .from('questions')
-      .select('*')
-      .eq('survey_id', id)
-      .order('order_index', { ascending: true });
-
-    if (questionsError) {
-      showToast('Failed to load questions', 'error');
-    } else {
-      const loadedQuestions = (questions || []).map(q => ({
-        ...q,
-        options: q.options || []
-      })) as FormQuestion[];
-      setQuestions(loadedQuestions);
-    }
-
+    setTitle(data.survey.title);
+    setDescription(data.survey.description || '');
+    setQuestions(data.questions || []);
     setIsLoading(false);
   };
 
@@ -154,74 +132,25 @@ export default function SurveyBuilder() {
     setIsSaving(true);
 
     try {
-      // Ensure admin profile exists (for auto-login scenario)
-      if (!isEditing) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: user!.id,
-            email: user!.email,
-            role: 'admin'
-          }, { onConflict: 'id' });
-        
-        if (profileError) {
-          console.log('Profile upsert error (may already exist):', profileError);
-        }
+      const payload = {
+        title,
+        description,
+        questions
+      };
+
+      const response = isEditing && surveyId
+        ? await apiPut<{ survey: Survey }>(`/api/admin/surveys/${surveyId}`, payload)
+        : await apiPost<{ survey: Survey }>('/api/admin/surveys', payload);
+
+      if (response.error) {
+        throw new Error(response.error);
       }
-
-      let survey: Survey;
-
-      if (isEditing && surveyId) {
-        const { data, error } = await supabase
-          .from('surveys')
-          .update({ title, description, status: 'open' as const })
-          .eq('id', surveyId)
-          .select()
-          .single();
-
-        if (error) throw error;
-        survey = data;
-
-        // Delete existing questions
-        await supabase.from('questions').delete().eq('survey_id', surveyId);
-      } else {
-        const { data, error } = await supabase
-          .from('surveys')
-          .insert({
-            title,
-            description,
-            admin_id: user!.id,
-            status: 'open',
-            total_responses: 0
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        survey = data;
-      }
-
-      // Insert questions
-      const questionsToInsert = questions.map(q => ({
-        survey_id: survey.id,
-        type: q.type,
-        question_text: q.question_text,
-        options: q.type === 'text' ? null : q.options,
-        required: q.required,
-        order_index: q.order_index
-      }));
-
-      const { error: questionsError } = await supabase
-        .from('questions')
-        .insert(questionsToInsert);
-
-      if (questionsError) throw questionsError;
 
       showToast(isEditing ? 'Survey updated successfully' : 'Survey created successfully', 'success');
       navigate('/admin');
     } catch (error: any) {
       console.error('Survey save error:', error);
-      const errorMessage = error?.message || error?.error?.message || 'Unknown error';
+      const errorMessage = error?.message || 'Unknown error';
       showToast(`Failed to save survey: ${errorMessage}`, 'error');
     }
 

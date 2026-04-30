@@ -4,43 +4,80 @@ import { Profile, UserRole } from '../types';
 interface AuthContextType {
   user: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (passkey: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, role: UserRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Auto-login admin user (real Supabase user)
-const AUTO_ADMIN: Profile = {
-  id: 'c6ae1256-0bda-4a98-8fcc-8765446f9d32',
-  email: 'admin@qdash.app',
-  role: 'admin',
-  created_at: new Date().toISOString()
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<Profile | null>(AUTO_ADMIN);
-  const [loading] = useState(false);
+  const [user, setUser] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Auto-login as admin - no actual auth needed
   useEffect(() => {
-    setUser(AUTO_ADMIN);
+    const loadUser = async () => {
+      try {
+        const response = await fetch('/api/me', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const body = await response.json();
+          setUser(body.user ?? null);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
   }, []);
 
-  const signIn = async () => {
-    setUser(AUTO_ADMIN);
-    return { error: null };
+  const signIn = async (passkey: string) => {
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ passkey })
+      });
+
+      if (!response.ok) {
+        const body = await response.json();
+        return { error: new Error(body?.error || 'Invalid passkey') };
+      }
+
+      const body = await response.json();
+      setUser(body.user);
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Login failed') };
+    }
   };
 
   const signUp = async () => {
-    setUser(AUTO_ADMIN);
-    return { error: null };
+    return { error: new Error('Registration is disabled. Use the admin login.') };
   };
 
   const signOut = async () => {
-    // Do nothing - always stay logged in as admin
-    setUser(AUTO_ADMIN);
+    try {
+      await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setUser(null);
+    }
   };
 
   return (

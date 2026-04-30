@@ -45,9 +45,14 @@ npm install
 # Copy environment variables
 cp .env.example .env
 
-# Edit .env with your Supabase credentials
+# Edit .env with your Supabase credentials and admin login values
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=strong-password
+ADMIN_USER_ID=c6ae1256-0bda-4a98-8fcc-8765446f9d32
+SESSION_SECRET=replace-with-a-strong-secret
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Start development server
 npm run dev
@@ -118,6 +123,10 @@ src/
 
 ## Security
 
+- Admin routes require a valid server-side admin session before rendering any admin pages
+- Admin credentials are validated using environment variables, not stored in the client
+- Admin analytics and raw survey data are loaded through protected server endpoints
+- Supabase service role key is only used on the server, not in the browser
 - Row-Level Security (RLS) ensures users can only access their own data
 - Admins can only manage their own surveys
 - Users can only INSERT responses, not read others' responses
