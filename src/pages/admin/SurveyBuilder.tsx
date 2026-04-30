@@ -51,9 +51,16 @@ export default function SurveyBuilder() {
     setIsLoading(false);
   };
 
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  };
+
   const addQuestion = (type: QuestionType) => {
     const newQuestion: FormQuestion = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       type,
       question_text: '',
       options: type === 'choice' ? ['Option 1', 'Option 2'] : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
@@ -397,7 +404,7 @@ export default function SurveyBuilder() {
                     else if (q.type === 'rating' || q.type === 'boolean') type = 'likert';
                     
                     return {
-                      id: crypto.randomUUID(),
+                      id: generateId(),
                       type,
                       question_text: q.text,
                       options: type === 'choice' ? q.options : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
