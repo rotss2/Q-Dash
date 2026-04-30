@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { supabase } from '../../lib/supabase';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
-import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb } from 'lucide-react';
+import IntelligenceDashboard from '../../components/IntelligenceDashboard';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -38,7 +39,7 @@ export default function SurveyAnalytics() {
   const [responses, setResponses] = useState<Array<Response & { question?: Question; profile?: { email: string } }>>([]);
   const [aggregations, setAggregations] = useState<ResponseAggregation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [rawDataView, setRawDataView] = useState(false);
+  const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'raw'>('analytics');
 
   useEffect(() => {
     if (surveyId) {
@@ -267,22 +268,36 @@ export default function SurveyAnalytics() {
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-6 border-b border-gray-200">
           <button
-            onClick={() => setRawDataView(false)}
-            className={`px-4 py-2 font-medium ${!rawDataView ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
+            onClick={() => setActiveView('analytics')}
+            className={`px-4 py-2 font-medium ${activeView === 'analytics' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
           >
             Analytics
           </button>
           <button
-            onClick={() => setRawDataView(true)}
-            className={`px-4 py-2 font-medium ${rawDataView ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
+            onClick={() => setActiveView('intelligence')}
+            className={`px-4 py-2 font-medium flex items-center gap-2 ${activeView === 'intelligence' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
+          >
+            <Lightbulb className="w-4 h-4" />
+            Intelligence
+          </button>
+          <button
+            onClick={() => setActiveView('raw')}
+            className={`px-4 py-2 font-medium ${activeView === 'raw' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
           >
             Raw Data
           </button>
         </div>
 
-        {rawDataView ? (
+        {activeView === 'intelligence' ? (
+          /* Intelligence Dashboard */
+          <IntelligenceDashboard
+            questions={questions}
+            responses={responses}
+            surveyTitle={survey?.title || 'Survey'}
+          />
+        ) : activeView === 'raw' ? (
           /* Raw Data View */
           <div className="card overflow-hidden">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Response Data</h2>
