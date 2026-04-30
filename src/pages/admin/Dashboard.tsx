@@ -20,11 +20,22 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadSurveys();
+    
+    // Refresh when window regains focus (user returns from create page)
+    const handleFocus = () => {
+      console.log('Dashboard: Window focused, refreshing surveys...');
+      loadSurveys();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const loadSurveys = async () => {
     console.log('Dashboard: Loading surveys...');
-    const response = await apiGet<{ surveys: Survey[] }>('/api/admin/surveys');
+    // Add cache-busting timestamp to force fresh data
+    const timestamp = new Date().getTime();
+    const response = await apiGet<{ surveys: Survey[] }>(`/api/admin/surveys?_t=${timestamp}`);
     console.log('Dashboard: API response:', response);
 
     if (response.error) {
@@ -45,24 +56,25 @@ export default function AdminDashboard() {
       return;
     }
 
-    // Optimistically remove from UI first
-    const previousSurveys = [...surveys];
-    setSurveys(surveys.filter(s => s.id !== surveyId));
+    console.log('Dashboard: Deleting survey', surveyId);
+    
+    // Optimistically remove from UI immediately
+    setSurveys(prev => prev.filter(s => s.id !== surveyId));
 
     const response = await apiDelete<{ success: boolean }>(`/api/admin/surveys/${surveyId}`);
+    console.log('Dashboard: Delete response', response);
 
     if (response.error) {
-      // Revert on error
-      setSurveys(previousSurveys);
-      showToast(response.error, 'error');
+      showToast('Failed to delete: ' + response.error, 'error');
+      // Re-fetch to restore correct state
+      await loadSurveys();
     } else if (response.data?.success) {
       showToast('Survey deleted successfully', 'success');
-      // Re-fetch to ensure sync
-      await loadSurveys();
+      // UI already updated, just verify with server
+      setTimeout(() => loadSurveys(), 500);
     } else {
-      // Unexpected response - re-fetch to be safe
       showToast('Survey deleted', 'success');
-      await loadSurveys();
+      setTimeout(() => loadSurveys(), 500);
     }
   };
 
@@ -70,19 +82,16 @@ export default function AdminDashboard() {
     const newStatus = survey.status === 'open' ? 'closed' : 'open';
 
     // Optimistically update UI
-    const previousSurveys = [...surveys];
-    setSurveys(surveys.map(s => s.id === survey.id ? { ...s, status: newStatus } : s));
+    setSurveys(prev => prev.map(s => s.id === survey.id ? { ...s, status: newStatus } : s));
 
     const response = await apiPost<{ success: boolean }>(`/api/admin/surveys/${survey.id}/status`, { status: newStatus });
 
     if (response.error) {
-      // Revert on error
-      setSurveys(previousSurveys);
       showToast(response.error, 'error');
+      await loadSurveys();
     } else {
       showToast(`Survey ${newStatus === 'open' ? 'opened' : 'closed'}`, 'success');
-      // Re-fetch to ensure sync
-      await loadSurveys();
+      setTimeout(() => loadSurveys(), 500);
     }
   };
 
@@ -214,13 +223,26 @@ export default function AdminDashboard() {
             {liveMode ? 'Live Dashboard' : 'Your Surveys'}
           </h2>
           {!liveMode && (
-            <button
-              onClick={() => navigate('/admin/surveys/new')}
-              className="btn-primary flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              New Survey
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => loadSurveys()}
+                disabled={isLoading}
+                className="btn-secondary flex items-center gap-2"
+                title="Refresh survey list"
+              >
+                <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+              <button
+                onClick={() => navigate('/admin/surveys/new')}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                New Survey
+              </button>
+            </div>
           )}
         </div>
 
