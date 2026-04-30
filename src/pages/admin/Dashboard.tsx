@@ -13,7 +13,17 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [liveFeed, setLiveFeed] = useState<Array<{ id: string; surveyTitle: string; timestamp: string; userId: string; progress?: number; totalQuestions?: number }>>([]);
+  const [liveFeed, setLiveFeed] = useState<Array<{ 
+    id: string; 
+    surveyTitle: string; 
+    timestamp: string; 
+    userId: string; 
+    userLabel: string;
+    currentQuestion: number;
+    totalQuestions: number;
+    progress: number;
+    isComplete: boolean;
+  }>>([]);
   const [showLiveFeed, setShowLiveFeed] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
   const activeUsers = 0;
@@ -49,6 +59,9 @@ export default function AdminDashboard() {
 
     console.log('Setting up real-time subscription for responses...');
 
+    // Track user response counts
+    const userResponseCounts = new Map<string, number>(); // key: userId_surveyId
+
     // Subscribe to responses table changes
     const subscription = supabase
       .channel('responses-channel')
@@ -67,21 +80,37 @@ export default function AdminDashboard() {
           const survey = surveys.find(s => s.id === newResponse.survey_id);
           if (!survey) return;
 
-          // Count user's responses for this survey to estimate progress
-          const userResponsesForSurvey = liveFeed.filter(
-            entry => entry.userId === newResponse.user_id && entry.surveyTitle === survey.title
-          ).length;
+          const userKey = `${newResponse.user_id}_${newResponse.survey_id}`;
+          
+          // Increment user's response count for this survey
+          const currentCount = userResponseCounts.get(userKey) || 0;
+          const newCount = currentCount + 1;
+          userResponseCounts.set(userKey, newCount);
+
+          // Estimate total questions (use max of 5 or cached count)
+          const totalQuestions = Math.max(survey.total_responses || 0, 5);
+          const progress = Math.min((newCount / totalQuestions) * 100, 100);
 
           const entry = {
             id: newResponse.id,
             surveyTitle: survey.title,
             timestamp: newResponse.submitted_at || new Date().toISOString(),
             userId: newResponse.user_id,
-            progress: Math.min((userResponsesForSurvey + 1) * 20, 100), // Rough estimate based on 5 questions avg
-            totalQuestions: survey.total_responses || 5
+            userLabel: `User-${newResponse.user_id?.slice(0, 8) || 'Anonymous'}`,
+            currentQuestion: newCount,
+            totalQuestions: totalQuestions,
+            progress: Math.round(progress),
+            isComplete: newCount >= totalQuestions
           };
 
-          setLiveFeed(prev => [entry, ...prev].slice(0, 50)); // Keep last 50 entries
+          setLiveFeed(prev => {
+            // Remove any existing entry for this user+survey
+            const filtered = prev.filter(e => 
+              !(e.userId === newResponse.user_id && e.surveyTitle === survey.title)
+            );
+            // Add new entry at the top
+            return [entry, ...filtered].slice(0, 50);
+          });
 
           // Also refresh survey counts
           loadSurveys();
@@ -433,11 +462,32 @@ export default function AdminDashboard() {
                 ) : (
                   liveFeed.map((entry) => (
                     <div key={entry.id} className="p-3 border-b border-gray-100 hover:bg-gray-50">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-medium text-slate-900 truncate">
+                          {entry.userLabel}
+                        </p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          entry.isComplete 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {entry.isComplete ? 'Complete' : `Q${entry.currentQuestion}`}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-2">
                         {entry.surveyTitle}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      {/* Progress bar */}
+                      <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
+                        <div 
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            entry.isComplete ? 'bg-green-500' : 'bg-blue-500'
+                          }`}
+                          style={{ width: `${entry.progress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {entry.progress}% • {new Date(entry.timestamp).toLocaleTimeString()}
                       </p>
                     </div>
                   ))
