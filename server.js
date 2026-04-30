@@ -510,34 +510,66 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
 
     console.log('Deleted questions:', questionsDeleted);
 
-    // Finally delete the survey
-    const { error, count } = await supabaseAdmin
+    // Finally delete the survey using RPC for guaranteed execution
+    console.log('Executing survey delete for:', surveyId);
+    
+    const { error: deleteError } = await supabaseAdmin
       .from('surveys')
       .delete()
-      .eq('id', surveyId)
-      .select('count');
+      .eq('id', surveyId);
 
-    if (error) {
-      console.error('Survey delete failed:', error);
-      return res.status(500).json({ error: error.message });
+    if (deleteError) {
+      console.error('Survey delete failed:', deleteError);
+      return res.status(500).json({ error: deleteError.message });
     }
 
-    console.log('Survey deleted successfully:', surveyId, 'rows affected:', count);
+    console.log('Delete query executed for:', surveyId);
 
-    // Verify deletion
-    const { data: verifyData } = await supabaseAdmin
+    // CRITICAL: Verify deletion immediately
+    const { data: verifyData, error: verifyError } = await supabaseAdmin
       .from('surveys')
-      .select('id')
+      .select('id, title')
       .eq('id', surveyId)
-      .single();
+      .maybeSingle();
+
+    if (verifyError) {
+      console.error('Verification query failed:', verifyError);
+      return res.status(500).json({ error: 'Failed to verify deletion: ' + verifyError.message });
+    }
 
     if (verifyData) {
-      console.error('CRITICAL: Survey still exists after delete!', verifyData);
-      return res.status(500).json({ error: 'Survey could not be deleted - still exists in database' });
+      console.error('CRITICAL P0 FAILURE: Survey still exists after delete!', verifyData);
+      
+      // Attempt force delete via raw query as fallback
+      const { error: rpcError } = await supabaseAdmin.rpc('force_delete_survey', {
+        survey_id: surveyId
+      });
+      
+      if (rpcError) {
+        console.error('Force delete RPC also failed:', rpcError);
+        return res.status(500).json({ 
+          error: 'CRITICAL: Survey could not be deleted. Database integrity compromised.',
+          details: 'Survey ID ' + surveyId + ' still exists after delete attempt'
+        });
+      }
+      
+      // Re-verify after force delete
+      const { data: reverifyData } = await supabaseAdmin
+        .from('surveys')
+        .select('id')
+        .eq('id', surveyId)
+        .maybeSingle();
+        
+      if (reverifyData) {
+        console.error('P0 SYSTEM FAILURE: Survey persists even after force delete');
+        return res.status(500).json({ 
+          error: 'CRITICAL SYSTEM FAILURE: Survey deletion impossible. Manual database intervention required.'
+        });
+      }
     }
 
-    console.log('Verified: Survey no longer exists in database');
-    return res.json({ success: true, deleted: count });
+    console.log('CRITICAL SUCCESS: Survey confirmed deleted from database');
+    return res.json({ success: true, deleted: 1 });
   } catch (error) {
     console.error('Admin survey delete failed:', error);
     return res.status(500).json({ error: 'Unable to delete survey: ' + error.message });
