@@ -28,7 +28,17 @@ export default function AdminDashboard() {
     };
     
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    
+    // Poll every 10 seconds to update response counts in real-time
+    const pollInterval = setInterval(() => {
+      console.log('Dashboard: Polling for updates...');
+      loadSurveys();
+    }, 10000);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   const loadSurveys = async () => {
