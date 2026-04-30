@@ -154,6 +154,21 @@ export default function SurveyBuilder() {
     setIsSaving(true);
 
     try {
+      // Ensure admin profile exists (for auto-login scenario)
+      if (!isEditing) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user!.id,
+            email: user!.email,
+            role: 'admin'
+          }, { onConflict: 'id' });
+        
+        if (profileError) {
+          console.log('Profile upsert error (may already exist):', profileError);
+        }
+      }
+
       let survey: Survey;
 
       if (isEditing && surveyId) {
@@ -204,9 +219,10 @@ export default function SurveyBuilder() {
 
       showToast(isEditing ? 'Survey updated successfully' : 'Survey created successfully', 'success');
       navigate('/admin');
-    } catch (error) {
-      showToast('Failed to save survey', 'error');
-      console.error(error);
+    } catch (error: any) {
+      console.error('Survey save error:', error);
+      const errorMessage = error?.message || error?.error?.message || 'Unknown error';
+      showToast(`Failed to save survey: ${errorMessage}`, 'error');
     }
 
     setIsSaving(false);
