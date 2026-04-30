@@ -29,6 +29,38 @@ export default function SurveyResponse() {
     initializeUser();
   }, []);
 
+  // Track presence (active users) when taking survey
+  useEffect(() => {
+    if (!surveyId || !userId || hasSubmitted) return;
+
+    const presenceChannel = supabase.channel('survey-presence');
+    
+    presenceChannel
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            user_id: userId,
+            survey_id: surveyId,
+            online_at: new Date().toISOString()
+          });
+        }
+      });
+
+    // Heartbeat every 30 seconds to keep presence alive
+    const heartbeat = setInterval(async () => {
+      await presenceChannel.track({
+        user_id: userId,
+        survey_id: surveyId,
+        online_at: new Date().toISOString()
+      });
+    }, 30000);
+
+    return () => {
+      clearInterval(heartbeat);
+      presenceChannel.unsubscribe();
+    };
+  }, [surveyId, userId, hasSubmitted]);
+
   useEffect(() => {
     if (surveyId && userId) {
       loadSurvey();

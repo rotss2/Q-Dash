@@ -78,29 +78,36 @@ export default function SurveyAnalytics() {
       setQuestions(questionsData || []);
     }
 
-    // Load responses with user info
+    // Load responses - handle anonymous users (profiles may be null)
     const { data: responsesData, error: responsesError } = await supabase
       .from('responses')
       .select(`
         *,
-        question:questions(*),
-        profile:profiles(email)
+        question:questions(*)
       `)
-      .eq('survey_id', surveyId);
+      .eq('survey_id', surveyId)
+      .order('submitted_at', { ascending: false });
 
     if (responsesError) {
+      console.error('Error loading responses:', responsesError);
       showToast('Failed to load responses', 'error');
     } else {
-      const typedResponses = (responsesData || []).map((r: Response & { question: unknown; profile: unknown }) => ({
+      // Map responses with safe typing for anonymous users
+      const typedResponses = (responsesData || []).map((r: any) => ({
         ...r,
         question: r.question as Question,
-        profile: r.profile as { email: string }
+        // Anonymous users have no profile - show fingerprint ID or 'Anonymous'
+        userLabel: r.user_id 
+          ? `User-${r.user_id.slice(0, 8)}` 
+          : 'Anonymous'
       }));
       setResponses(typedResponses);
       
       // Calculate aggregations
       const aggs = calculateAggregations(questionsData || [], typedResponses);
       setAggregations(aggs);
+      
+      console.log(`Loaded ${typedResponses.length} responses`);
     }
 
     setIsLoading(false);
