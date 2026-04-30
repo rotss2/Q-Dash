@@ -461,21 +461,86 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
   const surveyId = req.params.surveyId;
+  console.log('Deleting survey:', surveyId, 'by admin:', req.adminUser.id);
 
   try {
-    const { error } = await supabaseAdmin
+    // First check if survey exists and belongs to this admin
+    const { data: survey, error: checkError } = await supabaseAdmin
+      .from('surveys')
+      .select('id, title, admin_id')
+      .eq('id', surveyId)
+      .single();
+
+    if (checkError) {
+      console.error('Survey lookup failed:', checkError);
+      return res.status(500).json({ error: checkError.message });
+    }
+
+    if (!survey) {
+      console.log('Survey not found:', surveyId);
+      return res.status(404).json({ error: 'Survey not found' });
+    }
+
+    console.log('Found survey to delete:', survey);
+
+    // Delete related responses first (cascade)
+    const { error: responsesError, count: responsesDeleted } = await supabaseAdmin
+      .from('responses')
+      .delete()
+      .eq('survey_id', surveyId)
+      .select('count');
+
+    if (responsesError) {
+      console.error('Failed to delete responses:', responsesError);
+    } else {
+      console.log('Deleted responses:', responsesDeleted);
+    }
+
+    // Delete related questions
+    const { error: questionsError, count: questionsDeleted } = await supabaseAdmin
+      .from('questions')
+      .delete()
+      .eq('survey_id', surveyId)
+      .select('count');
+
+    if (questionsError) {
+      console.error('Failed to delete questions:', questionsError);
+      return res.status(500).json({ error: 'Failed to delete questions: ' + questionsError.message });
+    }
+
+    console.log('Deleted questions:', questionsDeleted);
+
+    // Finally delete the survey
+    const { error, count } = await supabaseAdmin
       .from('surveys')
       .delete()
-      .eq('id', surveyId);
+      .eq('id', surveyId)
+      .select('count');
 
     if (error) {
+      console.error('Survey delete failed:', error);
       return res.status(500).json({ error: error.message });
     }
 
-    return res.json({ success: true });
+    console.log('Survey deleted successfully:', surveyId, 'rows affected:', count);
+
+    // Verify deletion
+    const { data: verifyData } = await supabaseAdmin
+      .from('surveys')
+      .select('id')
+      .eq('id', surveyId)
+      .single();
+
+    if (verifyData) {
+      console.error('CRITICAL: Survey still exists after delete!', verifyData);
+      return res.status(500).json({ error: 'Survey could not be deleted - still exists in database' });
+    }
+
+    console.log('Verified: Survey no longer exists in database');
+    return res.json({ success: true, deleted: count });
   } catch (error) {
     console.error('Admin survey delete failed:', error);
-    return res.status(500).json({ error: 'Unable to delete survey.' });
+    return res.status(500).json({ error: 'Unable to delete survey: ' + error.message });
   }
 });
 
