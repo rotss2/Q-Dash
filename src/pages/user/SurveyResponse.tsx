@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { supabase } from '../../lib/supabase';
 import { getAnonymousUserId } from '../../lib/fingerprint';
 import { Survey, Question } from '../../types';
-import { ArrowLeft, Send, CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Fingerprint } from 'lucide-react';
+import { Send, CheckCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface Answer {
   question_id: string;
@@ -14,7 +14,6 @@ interface Answer {
 export default function SurveyResponse() {
   const { surveyId } = useParams<{ surveyId: string }>();
   const { showToast } = useToast();
-  const navigate = useNavigate();
   
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
