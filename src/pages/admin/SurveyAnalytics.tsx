@@ -123,6 +123,56 @@ export default function SurveyAnalytics() {
 
   const surveyUrl = surveyId ? `${window.location.origin}/survey/${surveyId}` : '';
 
+  // Helper function to extract user name/email from their responses
+  const getUserIdentifier = (submission: any) => {
+    const userId = submission.user_id?.slice(0, 8) || 'Unknown';
+    let identifier = `User-${userId}`;
+    
+    // Look for name/email in responses
+    const nameResponses: string[] = [];
+    const emailResponses: string[] = [];
+    
+    // Get all responses for this user from the submission
+    const submissionResponses = filteredResponses.filter(r => 
+      r.user_id === submission.user_id && 
+      r.submitted_at === submission.submitted_at
+    );
+    
+    submissionResponses.forEach(r => {
+      const question = questions.find(q => q.id === r.question_id);
+      if (question && r.answer && r.answer.trim()) {
+        const questionText = question.question_text.toLowerCase();
+        
+        // Check if this is a name question
+        if (questionText.includes('name') && 
+            !questionText.includes('username') && 
+            !questionText.includes('surname')) {
+          nameResponses.push(r.answer.trim());
+        }
+        
+        // Check if this is an email question
+        if (questionText.includes('email') || questionText.includes('gmail') || questionText.includes('mail')) {
+          emailResponses.push(r.answer.trim());
+        }
+      }
+    });
+    
+    // Build identifier string
+    const parts: string[] = [];
+    if (nameResponses.length > 0) {
+      parts.push(nameResponses[0]); // Use first name found
+    }
+    if (emailResponses.length > 0) {
+      parts.push(emailResponses[0]); // Use first email found
+    }
+    
+    if (parts.length > 0) {
+      identifier += ` (${parts.join(' / ')})`;
+    }
+    
+    return identifier;
+  };
+
   const deleteSubmission = async (responseIds: string[]) => {
     if (!surveyId || responseIds.length === 0) return;
     if (!confirm('Delete this full submission? This cannot be undone.')) return;
@@ -408,7 +458,7 @@ export default function SurveyAnalytics() {
                       }, {} as { [key: string]: { user_id: string; submitted_at: string; responseIds: string[]; userLabel: string; answers: { [qid: string]: string } } })
                     ).map(([key, submission]) => (
                       <tr key={key}>
-                        <td className="px-4 py-3 text-sm text-gray-900">{submission.userLabel}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{getUserIdentifier(submission)}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{new Date(submission.submitted_at).toLocaleString()}</td>
                         {questions.map((q) => (
                           <td key={q.id} className="px-4 py-3 text-sm text-gray-900">{submission.answers[q.id] || '-'}</td>
