@@ -115,11 +115,13 @@ function SurveyContent() {
     const anonId = await getAnonymousUserId();
     setUserId(anonId);
     setFingerprint(anonId);
-    setIsLoading(false);
+    // Don't set isLoading false here - let loadSurvey handle it
   };
 
   const loadSurvey = async () => {
     if (!surveyId) return;
+    
+    setIsLoading(true); // Ensure loading state during fetch
 
     const { data: surveyData, error: surveyError } = await supabase
       .from('surveys')
@@ -129,6 +131,7 @@ function SurveyContent() {
 
     if (surveyError || !surveyData) {
       showToast(t('errorLoadingSurvey'), 'error');
+      setSurvey(null);
       setIsLoading(false);
       return;
     }
