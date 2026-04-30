@@ -150,6 +150,18 @@ BEGIN
     END IF;
 END $$;
 
+-- Add font column to surveys table for font family selection
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'surveys' AND column_name = 'font_family'
+    ) THEN
+        ALTER TABLE surveys ADD COLUMN font_family TEXT DEFAULT 'default';
+        RAISE NOTICE 'Added font_family column to surveys table';
+    END IF;
+END $$;
+
 -- Verify all expected columns exist
 SELECT 
     table_name,

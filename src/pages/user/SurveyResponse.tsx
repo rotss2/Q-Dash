@@ -38,6 +38,25 @@ function SurveyContent() {
     [answers]
   );
 
+  // Font classes based on survey.font_family
+  const fontClass = useMemo(() => {
+    const font = survey?.font_family || 'default';
+    switch (font) {
+      case 'serif':
+        return 'font-serif';
+      case 'sans':
+        return 'font-sans';
+      case 'mono':
+        return 'font-mono';
+      case 'rounded':
+        return 'font-rounded';
+      case 'elegant':
+        return 'font-elegant';
+      default:
+        return '';
+    }
+  }, [survey?.font_family]);
+
   // Theme styles based on survey.theme
   const themeClasses = useMemo(() => {
     const theme = survey?.theme || 'default';
@@ -320,14 +339,24 @@ function SurveyContent() {
       return;
     }
 
-    const { error } = await supabase
+    console.log('Submitting responses:', responsesToInsert);
+    
+    const { error, data: insertedData } = await supabase
       .from('responses')
-      .insert(responsesToInsert);
+      .insert(responsesToInsert)
+      .select();
 
     if (error) {
-      showToast(t('errorSubmitting'), 'error');
-      console.error(error);
+      console.error('Response insert error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      showToast(`${t('errorSubmitting')}: ${error.message}`, 'error');
     } else {
+      console.log('Responses inserted successfully:', insertedData);
       // Layer 3: Record completion in survey_sessions table
       const { error: completionError } = await supabase
         .rpc('record_survey_completion', {
@@ -474,7 +503,7 @@ function SurveyContent() {
   const progress = visibleQuestions.length > 0 ? ((currentQuestionIndex + 1) / visibleQuestions.length) * 100 : 0;
 
   return (
-    <div className={`min-h-screen ${themeClasses.bg} flex flex-col`}>
+    <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass}`}>
       {/* Header with Progress */}
       <header className={`${themeClasses.card} border-b sticky top-0 z-10`}>
         <div className="max-w-lg mx-auto px-4">

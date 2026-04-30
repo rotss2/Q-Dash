@@ -66,6 +66,7 @@ export default function SurveyBuilder() {
   const [description, setDescription] = useState('');
   const [questions, setQuestions] = useState<FormQuestion[]>([]);
   const [theme, setTheme] = useState('default');
+  const [fontFamily, setFontFamily] = useState('default');
   const [themeColor, setThemeColor] = useState('#111827');
   const [logoUrl, setLogoUrl] = useState('');
   const [defaultLanguage, setDefaultLanguage] = useState('en');
@@ -96,6 +97,7 @@ export default function SurveyBuilder() {
     setTitle(data.survey.title);
     setDescription(data.survey.description || '');
     setTheme(data.survey.theme || 'default');
+    setFontFamily(data.survey.font_family || 'default');
     setThemeColor(data.survey.theme_color || '#111827');
     setLogoUrl(data.survey.logo_url || '');
     setDefaultLanguage(data.survey.default_language || 'en');
@@ -223,6 +225,7 @@ export default function SurveyBuilder() {
         title,
         description,
         theme,
+        font_family: fontFamily,
         theme_color: themeColor,
         logo_url: logoUrl || null,
         default_language: defaultLanguage || null,
@@ -321,6 +324,21 @@ export default function SurveyBuilder() {
                   <option value="cool">Cool (Purple/Indigo)</option>
                   <option value="forest">Forest (Green/Earth)</option>
                   <option value="dark">Dark Mode</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Font Family</label>
+                <select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="default">Default (System)</option>
+                  <option value="serif">Serif (Times New Roman)</option>
+                  <option value="sans">Sans-serif (Clean)</option>
+                  <option value="mono">Monospace (Code)</option>
+                  <option value="rounded">Rounded (Friendly)</option>
+                  <option value="elegant">Elegant (Playfair)</option>
                 </select>
               </div>
             </div>
