@@ -114,6 +114,30 @@ BEGIN
     END IF;
 END $$;
 
+-- Add show_when_question_id column for conditional logic
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'questions' AND column_name = 'show_when_question_id'
+    ) THEN
+        ALTER TABLE questions ADD COLUMN show_when_question_id UUID REFERENCES questions(id) ON DELETE SET NULL;
+        RAISE NOTICE 'Added show_when_question_id column to questions table';
+    END IF;
+END $$;
+
+-- Add show_when_answer_value column for conditional logic
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'questions' AND column_name = 'show_when_answer_value'
+    ) THEN
+        ALTER TABLE questions ADD COLUMN show_when_answer_value TEXT;
+        RAISE NOTICE 'Added show_when_answer_value column to questions table';
+    END IF;
+END $$;
+
 -- Verify all expected columns exist
 SELECT 
     table_name,
