@@ -63,14 +63,14 @@ export default function UserDashboard() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
                 <ClipboardList className="w-5 h-5 text-white" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">Respondent Portal</h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-3 items-start sm:flex-row sm:items-center">
               <span className="text-sm text-gray-600">{user?.email}</span>
               <button onClick={handleSignOut} className="btn-secondary flex items-center gap-2">
                 <LogOut className="w-4 h-4" />

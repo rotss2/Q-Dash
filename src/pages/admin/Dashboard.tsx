@@ -90,8 +90,8 @@ export default function AdminDashboard() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
                 <FileText className="w-5 h-5 text-white" />
               </div>
@@ -107,10 +107,10 @@ export default function AdminDashboard() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-3 items-start sm:flex-row sm:items-center sm:gap-4 flex-wrap">
               <button
                 onClick={() => setShowLiveFeed(!showLiveFeed)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   showLiveFeed ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
       </header>
 
       <main className={`${liveMode ? 'max-w-full p-8' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
-        <div className="flex gap-6">
+        <div className="flex flex-col gap-6 lg:flex-row">
           {/* Main Content */}
           <div className="flex-1">
         {/* Stats */}
@@ -185,7 +185,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center mb-6">
           <h2 className="text-lg font-semibold text-gray-900">
             {liveMode ? 'Live Dashboard' : 'Your Surveys'}
           </h2>

@@ -346,12 +346,14 @@ export default function SurveyResponse() {
       {/* Header with Progress */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-lg mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
-            <span className="text-sm font-medium text-gray-500">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between h-auto sm:h-14 min-w-0">
+            <span className="text-sm font-medium text-gray-500 break-words">
               {currentQuestionIndex + 1} of {questions.length}
             </span>
-            <span className="text-sm font-medium text-slate-900">{survey.title}</span>
-            <span className="text-sm font-medium text-gray-500">
+            <span className="text-sm font-medium text-slate-900 break-words text-center sm:text-left max-w-full">
+              {survey.title}
+            </span>
+            <span className="text-sm font-medium text-gray-500 break-words">
               {Math.round(progress)}%
             </span>
           </div>
@@ -388,7 +390,7 @@ export default function SurveyResponse() {
               )}
               {/* Question */}
               <div className="space-y-2">
-                <h2 className="text-xl font-semibold text-slate-900 leading-relaxed">
+                <h2 className="text-xl font-semibold text-slate-900 leading-relaxed break-words">
                   {currentQuestion.question_text}
                   {currentQuestion.required && (
                     <span className="text-red-500 ml-1">*</span>
@@ -420,7 +422,7 @@ export default function SurveyResponse() {
                             : 'border-gray-200 hover:border-slate-300 text-slate-700'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0">
                           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                             getAnswer(currentQuestion.id) === option
                               ? 'border-slate-900'
@@ -430,7 +432,7 @@ export default function SurveyResponse() {
                               <div className="w-2.5 h-2.5 rounded-full bg-slate-900" />
                             )}
                           </div>
-                          <span className="font-medium">{option}</span>
+                          <span className="font-medium break-words">{option}</span>
                         </div>
                       </button>
                     ))}
@@ -457,7 +459,7 @@ export default function SurveyResponse() {
               </div>
 
               {/* Navigation */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center">
                 {currentQuestionIndex > 0 && (
                   <button
                     onClick={goToPrevious}

@@ -200,7 +200,7 @@ export default function SurveyAnalytics() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
             <button
               onClick={() => navigate('/admin')}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
@@ -208,11 +208,11 @@ export default function SurveyAnalytics() {
               <ArrowLeft className="w-5 h-5" />
               Back to Dashboard
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={exportToCSV}
                 disabled={!responses.length}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+                className="btn-secondary flex flex-wrap items-center gap-2 disabled:opacity-50"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 Export CSV
@@ -251,7 +251,7 @@ export default function SurveyAnalytics() {
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center gap-4 mb-6 border-b border-gray-200">
+        <div className="flex flex-wrap items-center gap-2 mb-6 border-b border-gray-200">
           <button
             onClick={() => setActiveView('analytics')}
             className={`px-4 py-2 font-medium ${activeView === 'analytics' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
@@ -307,7 +307,7 @@ export default function SurveyAnalytics() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
                       {questions.map(q => (
-                        <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase break-words max-w-[14rem]">
                           {q.question_text}
                         </th>
                       ))}

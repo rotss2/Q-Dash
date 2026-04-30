@@ -170,7 +170,7 @@ export default function SurveyBuilder() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
             <button
               onClick={() => navigate('/admin')}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
@@ -219,9 +219,9 @@ export default function SurveyBuilder() {
 
         {/* Questions */}
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center">
             <h2 className="text-lg font-semibold text-gray-900">Questions ({questions.length})</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowBulkImporter(true)}
                 className="btn-secondary text-sm flex items-center gap-1"
@@ -275,8 +275,8 @@ export default function SurveyBuilder() {
                 </div>
 
                 <div className="flex-1 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded break-words">
                       {question.type === 'text' ? 'Text' : question.type === 'choice' ? 'Multiple Choice' : 'Likert Scale'}
                     </span>
                     <label className="flex items-center gap-2 text-sm">
@@ -294,7 +294,7 @@ export default function SurveyBuilder() {
                     type="text"
                     value={question.question_text}
                     onChange={(e) => updateQuestion(question.id, { question_text: e.target.value })}
-                    className="input"
+                    className="input min-w-0"
                     placeholder="Enter your question"
                   />
 
@@ -302,12 +302,12 @@ export default function SurveyBuilder() {
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-700">Options</p>
                       {question.options.map((option, optIndex) => (
-                        <div key={optIndex} className="flex items-center gap-2">
+                        <div key={optIndex} className="flex flex-col gap-2 sm:flex-row sm:items-center w-full">
                           <input
                             type="text"
                             value={option}
                             onChange={(e) => updateOption(question.id, optIndex, e.target.value)}
-                            className="input flex-1"
+                            className="input flex-1 min-w-0"
                             placeholder={`Option ${optIndex + 1}`}
                           />
                           {question.options.length > 2 && (
