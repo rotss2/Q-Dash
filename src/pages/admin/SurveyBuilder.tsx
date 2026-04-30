@@ -4,7 +4,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../components/Toaster';
 import { supabase } from '../../lib/supabase';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText } from 'lucide-react';
+import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 
 interface FormQuestion {
   id: string;
@@ -27,6 +28,7 @@ export default function SurveyBuilder() {
   const [questions, setQuestions] = useState<FormQuestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showBulkImporter, setShowBulkImporter] = useState(false);
 
   useEffect(() => {
     if (isEditing && surveyId) {
@@ -276,6 +278,13 @@ export default function SurveyBuilder() {
             <h2 className="text-lg font-semibold text-gray-900">Questions ({questions.length})</h2>
             <div className="flex gap-2">
               <button
+                onClick={() => setShowBulkImporter(true)}
+                className="btn-secondary text-sm flex items-center gap-1"
+              >
+                <FileText className="w-4 h-4" />
+                Bulk Import
+              </button>
+              <button
                 onClick={() => addQuestion('text')}
                 className="btn-secondary text-sm flex items-center gap-1"
               >
@@ -402,10 +411,17 @@ export default function SurveyBuilder() {
             </div>
           ))}
 
-          {questions.length === 0 && (
+          {questions.length === 0 && !showBulkImporter && (
             <div className="card text-center py-12">
               <p className="text-gray-500 mb-4">No questions yet. Add your first question above.</p>
               <div className="flex justify-center gap-2">
+                <button
+                  onClick={() => setShowBulkImporter(true)}
+                  className="btn-secondary"
+                >
+                  <FileText className="w-4 h-4 inline mr-2" />
+                  Bulk Import Questions
+                </button>
                 <button
                   onClick={() => addQuestion('text')}
                   className="btn-secondary"
@@ -413,6 +429,42 @@ export default function SurveyBuilder() {
                   Add Text Question
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Bulk Question Importer */}
+          {showBulkImporter && (
+            <div className="card">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Bulk Import Questions</h3>
+                <button
+                  onClick={() => setShowBulkImporter(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <BulkQuestionImporter
+                onImport={(importedQuestions) => {
+                  const newQuestions: FormQuestion[] = importedQuestions.map((q, index) => {
+                    let type: QuestionType = 'text';
+                    if (q.type === 'choice') type = 'choice';
+                    else if (q.type === 'rating' || q.type === 'boolean') type = 'likert';
+                    
+                    return {
+                      id: crypto.randomUUID(),
+                      type,
+                      question_text: q.text,
+                      options: type === 'choice' ? q.options : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
+                      required: true,
+                      order_index: questions.length + index
+                    };
+                  });
+                  setQuestions([...questions, ...newQuestions]);
+                  setShowBulkImporter(false);
+                  showToast(`${newQuestions.length} questions imported`, 'success');
+                }}
+              />
             </div>
           )}
         </div>

@@ -1,0 +1,265 @@
+import { useState, useCallback } from 'react';
+import { Plus, X, Check, FileText } from 'lucide-react';
+
+type QuestionType = 'text' | 'choice' | 'rating' | 'boolean';
+
+interface ParsedQuestion {
+  id: string;
+  text: string;
+  type: QuestionType;
+  options: string[];
+}
+
+const detectQuestionType = (text: string): QuestionType => {
+  const lower = text.toLowerCase();
+  
+  if (text.trim().endsWith('?')) return 'boolean';
+  if (lower.includes('rate') || lower.includes('scale') || lower.includes('level')) return 'rating';
+  return 'text';
+};
+
+const cleanQuestionText = (text: string): string => {
+  return text
+    .replace(/^(\s*[\d]+[\.\)\-]\s*)/, '')
+    .replace(/^(\s*[-•*]\s*)/, '')
+    .trim();
+};
+
+export default function BulkQuestionImporter({
+  onImport
+}: {
+  onImport: (questions: ParsedQuestion[]) => void;
+}) {
+  const [rawText, setRawText] = useState('');
+  const [questions, setQuestions] = useState<ParsedQuestion[]>([]);
+  const [globalType, setGlobalType] = useState<QuestionType>('text');
+
+  const parseText = useCallback((text: string) => {
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    const parsed = lines.map((line, index) => {
+      const cleaned = cleanQuestionText(line);
+      return {
+        id: `bulk-${index}-${Date.now()}`,
+        text: cleaned,
+        type: detectQuestionType(cleaned),
+        options: ['Option 1', 'Option 2', 'Option 3']
+      };
+    });
+    
+    setQuestions(parsed);
+  }, []);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    setRawText(text);
+    parseText(text);
+  };
+
+  const updateQuestionType = (id: string, type: QuestionType) => {
+    setQuestions(prev => prev.map(q => 
+      q.id === id ? { ...q, type } : q
+    ));
+  };
+
+  const updateQuestionText = (id: string, text: string) => {
+    setQuestions(prev => prev.map(q => 
+      q.id === id ? { ...q, text } : q
+    ));
+  };
+
+  const updateOption = (questionId: string, optionIndex: number, value: string) => {
+    setQuestions(prev => prev.map(q => 
+      q.id === questionId 
+        ? { ...q, options: q.options.map((opt, i) => i === optionIndex ? value : opt) }
+        : q
+    ));
+  };
+
+  const addOption = (questionId: string) => {
+    setQuestions(prev => prev.map(q => 
+      q.id === questionId 
+        ? { ...q, options: [...q.options, `Option ${q.options.length + 1}`] }
+        : q
+    ));
+  };
+
+  const removeOption = (questionId: string, optionIndex: number) => {
+    setQuestions(prev => prev.map(q => 
+      q.id === questionId && q.options.length > 2
+        ? { ...q, options: q.options.filter((_, i) => i !== optionIndex) }
+        : q
+    ));
+  };
+
+  const removeQuestion = (id: string) => {
+    setQuestions(prev => prev.filter(q => q.id !== id));
+  };
+
+  const applyGlobalType = () => {
+    setQuestions(prev => prev.map(q => ({ ...q, type: globalType })));
+  };
+
+  const handleImport = () => {
+    if (questions.length === 0) return;
+    onImport(questions);
+    setRawText('');
+    setQuestions([]);
+  };
+
+  const getTypeLabel = (type: QuestionType) => {
+    switch (type) {
+      case 'text': return 'Short Text';
+      case 'choice': return 'Multiple Choice';
+      case 'rating': return 'Star Rating';
+      case 'boolean': return 'Boolean (Yes/No)';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="border-b border-gray-200 pb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <FileText className="w-5 h-5 text-slate-700" />
+          <h2 className="text-lg font-semibold text-slate-900">Bulk Question Importer</h2>
+        </div>
+        <p className="text-sm text-slate-600">
+          Paste multiple questions (one per line). Leading numbers and bullets will be auto-removed.
+        </p>
+      </div>
+
+      {/* Input Area */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-slate-900">Paste Questions</label>
+        <textarea
+          value={rawText}
+          onChange={handleTextChange}
+          placeholder="1. How satisfied are you with our service?&#10;2. Rate the quality of support&#10;3. Would you recommend us?&#10;- Any additional comments?"
+          className="w-full h-40 p-3 border border-gray-200 rounded text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-400 resize-none"
+        />
+        <p className="text-xs text-slate-500">
+          {questions.length} question{questions.length !== 1 ? 's' : ''} detected
+        </p>
+      </div>
+
+      {/* Global Method */}
+      {questions.length > 0 && (
+        <div className="flex items-center gap-4 p-4 bg-gray-50 border border-gray-200">
+          <span className="text-sm font-medium text-slate-900">Set All To:</span>
+          <select
+            value={globalType}
+            onChange={(e) => setGlobalType(e.target.value as QuestionType)}
+            className="px-3 py-1.5 border border-gray-200 rounded text-sm text-slate-900 bg-white focus:outline-none focus:border-slate-400"
+          >
+            <option value="text">Short Text</option>
+            <option value="choice">Multiple Choice</option>
+            <option value="rating">Star Rating</option>
+            <option value="boolean">Boolean (Yes/No)</option>
+          </select>
+          <button
+            onClick={applyGlobalType}
+            className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-gray-200 hover:bg-gray-50"
+          >
+            Apply
+          </button>
+        </div>
+      )}
+
+      {/* Question Cards */}
+      <div className="space-y-3">
+        {questions.map((q, index) => (
+          <div key={q.id} className="border border-gray-200 bg-white">
+            {/* Card Header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <span className="text-sm font-medium text-slate-500 w-8">#{index + 1}</span>
+              
+              <select
+                value={q.type}
+                onChange={(e) => updateQuestionType(q.id, e.target.value as QuestionType)}
+                className="flex-1 px-3 py-1.5 border border-gray-200 rounded text-sm text-slate-900 bg-white focus:outline-none focus:border-slate-400"
+              >
+                <option value="text">Short Text</option>
+                <option value="choice">Multiple Choice</option>
+                <option value="rating">Star Rating</option>
+                <option value="boolean">Boolean (Yes/No)</option>
+              </select>
+              
+              <button
+                onClick={() => removeQuestion(q.id)}
+                className="p-1.5 text-slate-400 hover:text-red-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {/* Card Body */}
+            <div className="p-4 space-y-4">
+              {/* Question Text */}
+              <div>
+                <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">Question</label>
+                <input
+                  type="text"
+                  value={q.text}
+                  onChange={(e) => updateQuestionText(q.id, e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-gray-200 rounded text-slate-900 focus:outline-none focus:border-slate-400"
+                />
+              </div>
+              
+              {/* Options for Multiple Choice */}
+              {q.type === 'choice' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">Options</label>
+                  {q.options.map((opt, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={opt}
+                        onChange={(e) => updateOption(q.id, i, e.target.value)}
+                        className="flex-1 px-3 py-1.5 border border-gray-200 rounded text-sm text-slate-900 focus:outline-none focus:border-slate-400"
+                      />
+                      <button
+                        onClick={() => removeOption(q.id, i)}
+                        disabled={q.options.length <= 2}
+                        className="p-1 text-slate-400 hover:text-red-600 disabled:opacity-30"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => addOption(q.id)}
+                    className="flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Option
+                  </button>
+                </div>
+              )}
+              
+              {/* Type Preview */}
+              <div className="pt-2 border-t border-gray-100">
+                <span className="text-xs text-slate-500">
+                  Type: <span className="font-medium text-slate-700">{getTypeLabel(q.type)}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Import Button */}
+      {questions.length > 0 && (
+        <div className="flex justify-end pt-4 border-t border-gray-200">
+          <button
+            onClick={handleImport}
+            className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-sm font-medium hover:bg-slate-800"
+          >
+            <Check className="w-4 h-4" />
+            Import {questions.length} Question{questions.length !== 1 ? 's' : ''}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
