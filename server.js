@@ -284,7 +284,23 @@ app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
       return res.status(500).json({ error: questionError.message });
     }
 
-    console.log('Survey created successfully:', survey.id);
+    console.log('Survey created successfully:', survey.id, 'admin_id:', survey.admin_id, 'status:', survey.status);
+    
+    // Verify it can be loaded immediately
+    const { data: verifySurvey, error: verifyError } = await supabaseAdmin
+      .from('surveys')
+      .select('id, title, admin_id, status')
+      .eq('id', survey.id)
+      .maybeSingle();
+    
+    if (verifyError) {
+      console.error('Verification load FAILED:', verifyError);
+    } else if (verifySurvey) {
+      console.log('Verification load SUCCESS:', verifySurvey);
+    } else {
+      console.error('CRITICAL: Survey created but cannot be verified - may be invisible!');
+    }
+    
     return res.json({ survey });
   } catch (error) {
     console.error('Admin survey create failed:', error);
