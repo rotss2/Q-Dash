@@ -724,7 +724,7 @@ function SurveyContent() {
 
               <button
                 onClick={() => setShowWelcome(false)}
-                className={`w-full flex items-center justify-center gap-2 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02]`}
+                className={`w-full flex items-center justify-center gap-2 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] touch-manipulation`}
               >
                 Get Started
                 <ChevronRight className="w-5 h-5" />
@@ -864,7 +864,7 @@ function SurveyContent() {
                 {currentQuestionIndex > 0 && (
                   <button
                     onClick={goToPrevious}
-                    className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02]"
+                    className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02] touch-manipulation"
                   >
                     <ChevronLeft className="w-5 h-5" />
                     {t('back')}
@@ -875,7 +875,7 @@ function SurveyContent() {
                   <button
                     onClick={handleSubmit}
                     disabled={isSubmitting || (currentQuestion.required && !getAnswer(currentQuestion.id))}
-                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg`}
+                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
                   >
                     {isSubmitting ? (
                       <>
@@ -893,7 +893,7 @@ function SurveyContent() {
                   <button
                     onClick={goToNext}
                     disabled={currentQuestion.required && !getAnswer(currentQuestion.id)}
-                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg`}
+                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
                   >
                     {t('next')}
                     <ChevronRight className="w-6 h-6" />

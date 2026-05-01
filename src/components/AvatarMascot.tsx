@@ -103,10 +103,10 @@ export const AvatarMascot = ({ progress, currentQuestion, totalQuestions }: Avat
 
   if (progress === 100) {
     return (
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
+      <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start pointer-events-none">
         {/* Speech bubble */}
         <div 
-          className={`mb-3 bg-white px-4 py-3 rounded-2xl rounded-br-md shadow-lg max-w-xs transition-all duration-500 transform ${
+          className={`mb-3 bg-white px-4 py-3 rounded-2xl rounded-bl-md shadow-lg max-w-xs transition-all duration-500 transform pointer-events-auto ${
             showMessage ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
           }`}
         >
@@ -114,7 +114,7 @@ export const AvatarMascot = ({ progress, currentQuestion, totalQuestions }: Avat
         </div>
         
         {/* Mascot */}
-        <div className="relative">
+        <div className="relative pointer-events-auto">
           {getMoodEmoji()}
         </div>
         
@@ -129,11 +129,11 @@ export const AvatarMascot = ({ progress, currentQuestion, totalQuestions }: Avat
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
+    <div className="fixed bottom-4 left-4 z-40 flex flex-col items-start pointer-events-none">
       {/* Speech bubble */}
       <div 
-        className={`mb-3 bg-white px-4 py-3 rounded-2xl rounded-br-md shadow-lg max-w-xs transition-all duration-500 transform ${
-          showMessage ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+        className={`mb-3 bg-white px-4 py-3 rounded-2xl rounded-bl-md shadow-lg max-w-xs transition-all duration-500 transform pointer-events-auto ${
+          showMessage ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
         }`}
       >
         <p className="text-sm font-medium text-gray-800">{message}</p>
@@ -143,7 +143,7 @@ export const AvatarMascot = ({ progress, currentQuestion, totalQuestions }: Avat
       </div>
       
       {/* Mascot */}
-      <div className="relative group cursor-pointer" onClick={() => setShowMessage(!showMessage)}>
+      <div className="relative group cursor-pointer pointer-events-auto" onClick={() => setShowMessage(!showMessage)}>
         {getMoodEmoji()}
         
         {/* Click hint */}
