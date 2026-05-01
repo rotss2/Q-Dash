@@ -861,27 +861,32 @@ function SurveyContent() {
             // Questions
             currentQuestion && (
               <div className="card space-y-6">
-              {/* Logo Header - Visible on every question */}
-              <div className="flex flex-col items-center gap-2 pb-4 border-b border-gray-100">
-                <img 
-                  src="/logo.png" 
-                  alt="SurveyTest" 
-                  className="h-12 sm:h-16 w-auto object-contain"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-                <p className="text-xs text-gray-400 font-medium">SurveyTest</p>
+              {/* Logo Header - PROMINENT Branding */}
+              <div className="flex flex-col items-center gap-3 pb-6 border-b-2 border-gray-100">
+                <div className="relative">
+                  <img 
+                    src="/logo.png" 
+                    alt="SurveyTest" 
+                    className="h-20 sm:h-24 md:h-28 w-auto object-contain drop-shadow-lg"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-gray-800 tracking-wide">SurveyTest</p>
+                  <p className="text-xs text-gray-500">Smart Data Insights</p>
+                </div>
               </div>
               
-              {/* Question */}
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold ${themeClasses.button}`}>
+              {/* Question - BIGGER & BOLDER */}
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md ${themeClasses.button}`}>
                     {currentQuestionIndex + 1}
                   </div>
-                  <div className="flex-1">
-                    <h2 className="text-xl font-semibold text-slate-900 leading-relaxed break-words">
+                  <div className="flex-1 pt-1">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-snug break-words">
                       {currentQuestion.question_text}
                       {currentQuestion.required && (
                         <span className="text-red-500 ml-2" title={t('required')}>*</span>
@@ -925,39 +930,39 @@ function SurveyContent() {
                 )}
 
                 {currentQuestion.type === 'choice' && currentQuestion.options && (
-                  <div className="space-y-3" role="radiogroup" aria-label={currentQuestion.question_text}>
+                  <div className="space-y-4" role="radiogroup" aria-label={currentQuestion.question_text}>
                     {currentQuestion.options.map((option) => {
                       const isSelected = getAnswer(currentQuestion.id) === option;
                       return (
                         <button
                           key={option}
                           onClick={() => updateAnswer(currentQuestion.id, option)}
-                          className={`w-full p-4 text-left border-2 rounded-xl transition-all group ${
+                          className={`w-full p-5 sm:p-6 text-left border-2 rounded-2xl transition-all group ${
                             isSelected
-                              ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm'
-                              : 'border-gray-200 hover:border-gray-300 text-slate-700 hover:bg-gray-50'
+                              ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-lg transform scale-[1.02]'
+                              : 'border-gray-200 hover:border-blue-300 text-slate-700 hover:bg-gray-50 hover:shadow-md'
                           }`}
                           role="radio"
                           aria-checked={isSelected}
                         >
                           <div className="flex items-center gap-4">
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-all ${
                               isSelected
                                 ? 'border-blue-500 bg-blue-500'
-                                : 'border-gray-300 group-hover:border-gray-400'
+                                : 'border-gray-300 group-hover:border-blue-400'
                             }`}>
                               {isSelected && (
-                                <div className="w-2 h-2 rounded-full bg-white" />
+                                <div className="w-3 h-3 rounded-full bg-white" />
                               )}
                             </div>
                             <div className="flex-1">
-                              <span className="font-medium break-words">{option}</span>
+                              <span className="text-lg sm:text-xl font-semibold break-words">{option}</span>
                               {isSelected && (
-                                <span className="ml-2 text-xs text-blue-600 font-medium">Selected</span>
+                                <span className="ml-3 text-sm text-blue-600 font-medium bg-blue-100 px-2 py-1 rounded-full">Selected</span>
                               )}
                             </div>
                             {isSelected && (
-                              <CheckCircle className="w-5 h-5 text-blue-500" />
+                              <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-blue-500" />
                             )}
                           </div>
                         </button>
