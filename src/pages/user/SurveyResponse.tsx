@@ -755,7 +755,7 @@ function SurveyContent() {
                 <img 
                   src="/logo.png" 
                   alt="SurveyTest" 
-                  className="h-12 sm:h-16 w-auto object-contain mx-auto"
+                  className="h-16 sm:h-20 md:h-24 w-auto object-contain mx-auto"
                   onError={(e) => {
                     // Fallback to emoji if logo not found
                     e.currentTarget.style.display = 'none';

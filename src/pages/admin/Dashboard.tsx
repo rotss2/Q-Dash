@@ -227,7 +227,7 @@ export default function AdminDashboard() {
                 <img 
                   src="/logo.png" 
                   alt="SurveyTest" 
-                  className="h-8 sm:h-10 w-auto object-contain"
+                  className="h-12 sm:h-14 md:h-16 w-auto object-contain"
                   onError={(e) => {
                     // Fallback if logo.png doesn't exist
                     e.currentTarget.style.display = 'none';

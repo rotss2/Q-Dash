@@ -42,7 +42,7 @@ export default function Login() {
             <img 
               src="/logo.png" 
               alt="SurveyTest" 
-              className="h-12 sm:h-14 w-auto object-contain"
+              className="h-16 sm:h-20 w-auto object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}
