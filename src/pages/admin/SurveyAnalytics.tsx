@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiDelete } from '../../lib/api';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
-import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Download, Table, FileCode, BarChart3 } from 'lucide-react';
 import IntelligenceDashboard from '../../components/IntelligenceDashboard';
 import ResearchConclusion from '../../components/ResearchConclusion';
 import {
@@ -39,7 +39,7 @@ export default function SurveyAnalytics() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [responses, setResponses] = useState<Array<Response & { question?: Question; profile?: { email: string } }>>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'conclusion' | 'raw'>('analytics');
+  const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'conclusion' | 'raw' | 'statistics'>('analytics');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
 
@@ -252,6 +252,280 @@ export default function SurveyAnalytics() {
     showToast('JSON exported successfully', 'success');
   };
 
+  // Statistical Analysis Functions
+  const calculateMean = (values: number[]): number => {
+    if (values.length === 0) return 0;
+    return values.reduce((a, b) => a + b, 0) / values.length;
+  };
+
+  const calculateMedian = (values: number[]): number => {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  };
+
+  const calculateMode = (values: number[]): number | null => {
+    if (values.length === 0) return null;
+    const frequency: { [key: number]: number } = {};
+    values.forEach(v => { frequency[v] = (frequency[v] || 0) + 1; });
+    let mode = values[0];
+    let maxFreq = 0;
+    Object.entries(frequency).forEach(([value, freq]) => {
+      if (freq > maxFreq) {
+        maxFreq = freq;
+        mode = Number(value);
+      }
+    });
+    return maxFreq > 1 ? mode : null;
+  };
+
+  const calculateStdDev = (values: number[]): number => {
+    if (values.length < 2) return 0;
+    const mean = calculateMean(values);
+    const squaredDiffs = values.map(v => Math.pow(v - mean, 2));
+    const variance = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
+    return Math.sqrt(variance);
+  };
+
+  const getNumericResponses = (questionId: string): number[] => {
+    return filteredResponses
+      .filter(r => r.question_id === questionId)
+      .map(r => {
+        const num = parseFloat(r.answer);
+        return isNaN(num) ? null : num;
+      })
+      .filter((n): n is number => n !== null);
+  };
+
+  const getLikertResponses = (questionId: string): number[] => {
+    const likertMap: { [key: string]: number } = {
+      'strongly disagree': 1, 'disagree': 2, 'neutral': 3, 'agree': 4, 'strongly agree': 5,
+      '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+      'very dissatisfied': 1, 'dissatisfied': 2, 'somewhat dissatisfied': 2, 'somewhat satisfied': 4, 'satisfied': 4, 'very satisfied': 5
+    };
+    return filteredResponses
+      .filter(r => r.question_id === questionId)
+      .map(r => likertMap[r.answer.toLowerCase().trim()] || parseFloat(r.answer))
+      .filter((n): n is number => !isNaN(n));
+  };
+
+  const calculateQuestionStats = (questionId: string, questionType: string) => {
+    const values = questionType === 'likert' ? getLikertResponses(questionId) : getNumericResponses(questionId);
+    if (values.length === 0) return null;
+    return {
+      n: values.length,
+      mean: calculateMean(values),
+      median: calculateMedian(values),
+      mode: calculateMode(values),
+      stdDev: calculateStdDev(values),
+      min: Math.min(...values),
+      max: Math.max(...values)
+    };
+  };
+
+  // Cross-tabulation Analysis
+  const calculateCrossTab = (q1Id: string, q2Id: string) => {
+    const matrix: { [key: string]: { [key: string]: number } } = {};
+    const responses1 = filteredResponses.filter(r => r.question_id === q1Id);
+    
+    responses1.forEach(r1 => {
+      const matching = filteredResponses.find(r2 => 
+        r2.user_id === r1.user_id && r2.submitted_at === r1.submitted_at && r2.question_id === q2Id
+      );
+      if (matching) {
+        const val1 = r1.answer;
+        const val2 = matching.answer;
+        if (!matrix[val1]) matrix[val1] = {};
+        matrix[val1][val2] = (matrix[val1][val2] || 0) + 1;
+      }
+    });
+    return matrix;
+  };
+
+  // Correlation Analysis (Pearson)
+  const calculateCorrelation = (q1Id: string, q2Id: string): number | null => {
+    const x = getLikertResponses(q1Id);
+    const y = getLikertResponses(q2Id);
+    if (x.length !== y.length || x.length < 2) return null;
+    
+    const n = x.length;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((total, xi, i) => total + xi * y[i], 0);
+    const sumX2 = x.reduce((total, xi) => total + xi * xi, 0);
+    const sumY2 = y.reduce((total, yi) => total + yi * yi, 0);
+    
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+    
+    return denominator === 0 ? null : numerator / denominator;
+  };
+
+  // Export to Excel (CSV with multiple sheets simulated)
+  const exportToExcel = () => {
+    if (!questions.length || !responses.length) return;
+    
+    // Sheet 1: Raw Data
+    const rawHeaders = ['User ID', 'Submitted At', ...questions.map(q => q.question_text)];
+    const grouped: any = {};
+    filteredResponses.forEach(r => {
+      const key = `${r.user_id}_${r.submitted_at}`;
+      if (!grouped[key]) {
+        grouped[key] = { userId: r.user_id, submittedAt: r.submitted_at, answers: {} };
+      }
+      grouped[key].answers[r.question_id] = r.answer;
+    });
+    const rawRows = Object.values(grouped).map((g: any) => [
+      g.userId,
+      new Date(g.submittedAt).toLocaleString(),
+      ...questions.map(q => g.answers[q.id] || '')
+    ]);
+
+    // Sheet 2: Statistics Summary
+    const statsRows = questions
+      .filter(q => q.type === 'likert')
+      .map(q => {
+        const stats = calculateQuestionStats(q.id, q.type);
+        return stats ? [
+          q.question_text,
+          stats.n,
+          stats.mean.toFixed(2),
+          stats.median.toFixed(2),
+          stats.mode?.toFixed(2) || 'N/A',
+          stats.stdDev.toFixed(2),
+          stats.min,
+          stats.max
+        ] : [q.question_text, 'No numeric data', '', '', '', '', '', ''];
+      });
+
+    const csv = [
+      '=== RAW DATA ===',
+      rawHeaders.join(','),
+      ...rawRows.map(r => r.map(c => `"${c}"`).join(',')),
+      '',
+      '=== STATISTICS SUMMARY ===',
+      'Question,N,Mean,Median,Mode,Std Dev,Min,Max',
+      ...statsRows.map(r => r.map(c => `"${c}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${survey?.title.replace(/\s+/g, '_')}_analysis.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    showToast('Excel-compatible CSV exported', 'success');
+  };
+
+  // Export SPSS-compatible CSV
+  const exportToSPSS = () => {
+    if (!questions.length || !responses.length) return;
+    
+    // SPSS requires numeric codes for categorical data
+    const questionCodes: { [key: string]: { [key: string]: number } } = {};
+    questions.forEach(q => {
+      const uniqueAnswers = [...new Set(filteredResponses.filter(r => r.question_id === q.id).map(r => r.answer))];
+      questionCodes[q.id] = {};
+      uniqueAnswers.forEach((ans, idx) => {
+        questionCodes[q.id][ans] = idx + 1;
+      });
+    });
+
+    const headers = ['user_id', 'submitted_at', ...questions.map(q => `Q${q.id.slice(0, 6)}`)];
+    const valueLabels = questions.map(q => {
+      const codes = questionCodes[q.id];
+      return `${q.question_text}: ${Object.entries(codes).map(([ans, code]) => `${code}=${ans}`).join(', ')}`;
+    });
+
+    const grouped: any = {};
+    filteredResponses.forEach(r => {
+      const key = `${r.user_id}_${r.submitted_at}`;
+      if (!grouped[key]) {
+        grouped[key] = { userId: r.user_id, submittedAt: r.submitted_at, answers: {} };
+      }
+      grouped[key].answers[r.question_id] = questionCodes[r.question_id][r.answer];
+    });
+
+    const rows = Object.values(grouped).map((g: any) => [
+      g.userId,
+      new Date(g.submittedAt).toISOString(),
+      ...questions.map(q => g.answers[q.id] || '')
+    ]);
+
+    const csv = [
+      '* VALUE LABELS INFO (for SPSS):',
+      ...valueLabels.map(vl => `* ${vl}`),
+      '*',
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${survey?.title.replace(/\s+/g, '_')}_spss.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    showToast('SPSS-compatible CSV exported with value labels', 'success');
+  };
+
+  // Export LaTeX Table
+  const exportToLaTeX = () => {
+    if (!questions.length || !responses.length) return;
+    
+    const aggregations = calculateAggregations();
+    
+    let latex = `\\begin{table}[h]\n`;
+    latex += `\\centering\n`;
+    latex += `\\caption{${survey?.title} - Response Summary}\n`;
+    latex += `\\begin{tabular}{|l|c|c|}\n`;
+    latex += `\\hline\n`;
+    latex += `\\textbf{Question} & \\textbf{Response} & \\textbf{Count} \\\\\n`;
+    latex += `\\hline\n`;
+    
+    aggregations.forEach(agg => {
+      agg.answers.forEach((ans, idx) => {
+        const question = idx === 0 ? agg.question_text.replace(/&/g, '\\&') : '';
+        latex += `${question} & ${ans.value.replace(/&/g, '\\&')} & ${ans.count} \\\\\n`;
+      });
+      latex += `\\hline\n`;
+    });
+    
+    latex += `\\end{tabular}\n`;
+    latex += `\\label{tab:survey_${survey?.id?.slice(0, 8)}}\n`;
+    latex += `\\end{table}`;
+
+    const blob = new Blob([latex], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${survey?.title.replace(/\s+/g, '_')}_table.tex`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    showToast('LaTeX table exported', 'success');
+  };
+
+  // Export Charts as PNG
+  const exportChartsPNG = () => {
+    const canvases = document.querySelectorAll('canvas');
+    if (canvases.length === 0) {
+      showToast('No charts available to export', 'error');
+      return;
+    }
+    
+    canvases.forEach((canvas, index) => {
+      const link = document.createElement('a');
+      link.download = `${survey?.title.replace(/\s+/g, '_')}_chart_${index + 1}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+    
+    showToast(`${canvases.length} chart(s) exported as PNG`, 'success');
+  };
+
   const getChartData = (aggregation: ResponseAggregation): ChartData<'bar' | 'pie'> => {
     const colors = [
       'rgba(59, 130, 246, 0.8)',
@@ -311,6 +585,45 @@ export default function SurveyAnalytics() {
                 <FileJson className="w-4 h-4" />
                 Export JSON
               </button>
+              <div className="relative group">
+                <button
+                  disabled={!responses.length}
+                  className="btn-secondary flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                  Research Export
+                </button>
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                  <button
+                    onClick={exportToExcel}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center gap-2"
+                  >
+                    <Table className="w-4 h-4" />
+                    Excel + Stats
+                  </button>
+                  <button
+                    onClick={exportToSPSS}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center gap-2"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    SPSS CSV
+                  </button>
+                  <button
+                    onClick={exportToLaTeX}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center gap-2"
+                  >
+                    <FileCode className="w-4 h-4" />
+                    LaTeX Table
+                  </button>
+                  <button
+                    onClick={exportChartsPNG}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center gap-2"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Charts PNG
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -403,6 +716,13 @@ export default function SurveyAnalytics() {
           >
             Raw Data
           </button>
+          <button
+            onClick={() => setActiveView('statistics')}
+            className={`px-4 py-2 font-medium flex items-center gap-2 ${activeView === 'statistics' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
+          >
+            <Calculator className="w-4 h-4" />
+            Statistics
+          </button>
         </div>
 
         {activeView === 'intelligence' ? (
@@ -412,6 +732,115 @@ export default function SurveyAnalytics() {
             responses={responses}
             surveyTitle={survey?.title || 'Survey'}
           />
+        ) : activeView === 'statistics' ? (
+          /* Statistics View */
+          <div className="space-y-6">
+            {/* Descriptive Statistics */}
+            <div className="card">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-blue-600" />
+                Descriptive Statistics (Likert Scale Questions)
+              </h2>
+              {questions.filter(q => q.type === 'likert').length === 0 ? (
+                <p className="text-gray-500">No Likert scale questions available for statistical analysis</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Question</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">N</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Mean</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Median</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Mode</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Std Dev</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Min</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Max</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {questions.filter(q => q.type === 'likert').map(q => {
+                        const stats = calculateQuestionStats(q.id, q.type);
+                        return stats ? (
+                          <tr key={q.id}>
+                            <td className="px-4 py-3 text-sm text-gray-900 max-w-md truncate">{q.question_text}</td>
+                            <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.n}</td>
+                            <td className="px-4 py-3 text-sm text-center font-semibold text-blue-600">{stats.mean.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.median.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.mode?.toFixed(2) || 'N/A'}</td>
+                            <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.stdDev.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.min}</td>
+                            <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.max}</td>
+                          </tr>
+                        ) : null;
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Correlation Matrix */}
+            {questions.filter(q => q.type === 'likert').length >= 2 && (
+              <div className="card">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-green-600" />
+                  Correlation Analysis (Pearson r)
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Questions</th>
+                        {questions.filter(q => q.type === 'likert').map(q => (
+                          <th key={q.id} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase max-w-[8rem] truncate">
+                            Q{questions.filter(q2 => q2.type === 'likert').indexOf(q) + 1}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {questions.filter(q => q.type === 'likert').map((q1, i) => (
+                        <tr key={q1.id}>
+                          <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
+                            Q{i + 1}: {q1.question_text}
+                          </td>
+                          {questions.filter(q => q.type === 'likert').map((q2, j) => {
+                            if (i === j) {
+                              return <td key={q2.id} className="px-4 py-3 text-center text-sm text-gray-400 bg-gray-50">—</td>;
+                            }
+                            const corr = calculateCorrelation(q1.id, q2.id);
+                            const color = corr === null ? 'text-gray-400' : 
+                              Math.abs(corr) >= 0.7 ? 'text-green-600 font-bold' :
+                              Math.abs(corr) >= 0.4 ? 'text-blue-600' : 'text-gray-600';
+                            return (
+                              <td key={q2.id} className={`px-4 py-3 text-center text-sm ${color}`}>
+                                {corr !== null ? corr.toFixed(3) : 'N/A'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4 text-sm text-gray-500">
+                  <p className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                    <strong>Strong correlation</strong> (|r| ≥ 0.7)
+                  </p>
+                  <p className="flex items-center gap-2 mt-1">
+                    <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                    <strong>Moderate correlation</strong> (0.4 {'≤'} |r| {'<'} 0.7)
+                  </p>
+                  <p className="flex items-center gap-2 mt-1">
+                    <span className="w-3 h-3 rounded-full bg-gray-400"></span>
+                    <strong>Weak/No correlation</strong> (|r| {'<'} 0.4)
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         ) : activeView === 'conclusion' ? (
           /* Research Conclusion */
           <ResearchConclusion
