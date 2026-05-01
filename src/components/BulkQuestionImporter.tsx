@@ -21,16 +21,6 @@ interface ValidationIssue {
   suggestion?: string;
 }
 
-const detectQuestionType = (text: string): QuestionType => {
-  const lower = text.toLowerCase();
-
-  const booleanTriggers = [/^(do you\b)/i, /^(would you\b)/i, /^(have you\b)/i, /^(is it\b)/i, /^(are you\b)/i, /^(should you\b)/i, /^(can you\b)/i, /^(will you\b)/i];
-  if (booleanTriggers.some((pattern) => pattern.test(text.trim())) || text.trim().endsWith('?')) {
-    return 'choice';
-  }
-  if (lower.includes('rate') || lower.includes('scale') || lower.includes('level')) return 'likert';
-  return 'text';
-};
 
 const defaultOptionsForType = (type: QuestionType) => {
   if (type === 'choice') return ['Option 1', 'Option 2'];
@@ -195,29 +185,80 @@ export default function BulkQuestionImporter({
   // Validation state
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
 
-  // Parse text into questions
+  // Parse text into questions using regex-based block grouping
   const parseText = useCallback((text: string) => {
     const lines = text.split('\n').filter(line => line.trim());
     setTotalLines(lines.length);
     
-    // Filter valid questions and parse
-    const parsed = lines
-      .map((line, index) => {
-        const cleaned = cleanQuestionText(line);
-        const type = detectQuestionType(cleaned);
-        const options = defaultOptionsForType(type);
-        if (type === 'choice' && /^(do you\b|would you\b|have you\b|is it\b|are you\b|should you\b|can you\b|will you\b)/i.test(cleaned.trim())) {
-          options.splice(0, options.length, 'Yes', 'No');
-        }
-        return {
-          id: `bulk-${index}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
-          text: cleaned,
-          type,
-          options,
-          required: false
-        };
-      })
-      .filter(q => isValidQuestion(q.text));
+    // Group lines into question blocks using regex patterns
+    const questionBlocks: string[] = [];
+    let currentBlock = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Check if this line starts a new question block
+      const isQuestionStart = /^(Question:|Boolean|Multiple Choice|Yes\/No|Options:|Expected Answer:|Correct Answer:)/i.test(line);
+      
+      if (isQuestionStart && currentBlock) {
+        // Save previous block and start new one
+        questionBlocks.push(currentBlock.trim());
+        currentBlock = line;
+      } else {
+        // Add to current block
+        currentBlock += (currentBlock ? '\n' : '') + line;
+      }
+    }
+    
+    // Don't forget the last block
+    if (currentBlock) {
+      questionBlocks.push(currentBlock.trim());
+    }
+    
+    // Parse each question block
+    const parsed = questionBlocks.map((block, index) => {
+      // Extract question text
+      const questionMatch = block.match(/Question:\s*(.+?)(?=\n(?:Options:|Expected Answer:|Correct Answer:)|$)/i);
+      let questionText = questionMatch ? questionMatch[1].trim() : block;
+      
+      // Strip category labels like "Boolean (Technical):"
+      questionText = questionText.replace(/^(Boolean|Multiple Choice|Yes\/No|Options|Technical|Contextual|Theoretical|Security|Logic)\s*\(?\w*\)?:\s*/i, '').trim();
+      
+      // Extract options
+      let options: string[] = [];
+      const optionsMatch = block.match(/Options:\s*\[(.+?)\]/i);
+      if (optionsMatch) {
+        // Parse [A] Option1, [B] Option2 format
+        const optionsText = optionsMatch[1];
+        options = optionsText.split(/\s*,\s*\[?\w*\]?\s*/).filter(opt => opt.trim());
+      }
+      
+      // Extract expected/correct answer (for reference, not used in current implementation)
+      // Note: Could extract answer here for future features like validation
+      
+      // Determine question type
+      let type: QuestionType = 'text';
+      if (options.length > 0) {
+        type = 'choice';
+      } else if (/^(do you|would you|have you|is it|are you|should you|can you|will you|does the|are the|is the)/i.test(questionText)) {
+        type = 'choice';
+        options = ['Yes', 'No'];
+      } else if (questionText.toLowerCase().includes('rate') || questionText.toLowerCase().includes('scale')) {
+        type = 'likert';
+        options = ['1', '2', '3', '4', '5'];
+      }
+      
+      // Clean question text
+      questionText = cleanQuestionText(questionText);
+      
+      return {
+        id: `bulk-${index}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+        text: questionText,
+        type,
+        options,
+        required: false
+      };
+    }).filter(q => isValidQuestion(q.text));
     
     setQuestions(parsed);
     setSelectedQuestions(new Set()); // Clear selection on new parse
