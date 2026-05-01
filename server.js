@@ -689,10 +689,10 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
 
     console.log('Response count:', responseCount, 'Count error:', countError);
 
-    // Now fetch the actual responses with user profile and question data
+    // Now fetch the actual responses
     const { data: responses, error: responsesError } = await supabaseAdmin
       .from('responses')
-      .select('*, profile:profiles(email), question:questions(question_text)')
+      .select('*')
       .eq('survey_id', surveyId)
       .order('submitted_at', { ascending: false });
 
@@ -702,7 +702,33 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
     }
     console.log('Found responses:', responses?.length || 0);
 
-    return res.json({ survey, questions: questions || [], responses: responses || [] });
+    // Get unique user_ids that look like UUIDs (for profile lookup)
+    const userIds = [...new Set((responses || []).map(r => r.user_id).filter(id => 
+      id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    ))];
+    
+    // Fetch profiles for registered users
+    let profilesMap = new Map();
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email')
+        .in('id', userIds);
+      
+      (profiles || []).forEach(p => profilesMap.set(p.id, p.email));
+    }
+
+    // Enrich responses with profile email and question text
+    const enrichedResponses = (responses || []).map(r => {
+      const question = questions?.find(q => q.id === r.question_id);
+      return {
+        ...r,
+        profile: { email: profilesMap.get(r.user_id) || null },
+        question: question ? { question_text: question.question_text } : null
+      };
+    });
+
+    return res.json({ survey, questions: questions || [], responses: enrichedResponses });
   } catch (error) {
     console.error('Admin analytics load failed:', error);
     return res.status(500).json({ error: 'Unable to load analytics.' });
