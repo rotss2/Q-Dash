@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle, HelpCircle, Globe, Calendar } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle, HelpCircle, Globe, Calendar, GripVertical, Type, Info, Star, ToggleRight } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 
 interface SurveyTemplate {
@@ -77,6 +77,8 @@ export default function SurveyBuilder() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showBulkImporter, setShowBulkImporter] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (isEditing && surveyId) {
@@ -146,6 +148,55 @@ export default function SurveyBuilder() {
     setQuestions([...questions, newQuestion]);
   };
 
+  // Add a section header
+  const addSectionHeader = () => {
+    const newQuestion: FormQuestion = {
+      id: generateId(),
+      type: 'text',
+      question_text: 'PART X: SECTION TITLE',
+      options: [],
+      required: false,
+      order_index: questions?.length || 0
+    };
+    setQuestions([...questions, newQuestion]);
+    showToast('Section header added! Edit the text to your section title.', 'success');
+  };
+
+  // Add a legend/instruction
+  const addLegend = () => {
+    const newQuestion: FormQuestion = {
+      id: generateId(),
+      type: 'text',
+      question_text: 'Instructions: 1 = Strongly Disagree, 2 = Disagree, 3 = Neutral, 4 = Agree, 5 = Strongly Agree',
+      options: [],
+      required: false,
+      order_index: questions?.length || 0
+    };
+    setQuestions([...questions, newQuestion]);
+    showToast('Legend added! Edit the text to customize instructions.', 'success');
+  };
+
+  // Add a 1-5 rating scale question
+  const addRatingScale = () => {
+    const newQuestion: FormQuestion = {
+      id: generateId(),
+      type: 'likert',
+      question_text: 'Enter your rating scale question here',
+      options: ['1', '2', '3', '4', '5'],
+      required: true,
+      order_index: questions?.length || 0
+    };
+    setQuestions([...questions, newQuestion]);
+    showToast('Rating scale (1-5) question added!', 'success');
+  };
+
+  // Toggle all questions required
+  const toggleAllRequired = () => {
+    const allRequired = questions.every(q => q.required);
+    setQuestions(questions.map(q => ({ ...q, required: !allRequired })));
+    showToast(allRequired ? 'All questions set to optional' : 'All questions set to required', 'success');
+  };
+
   /**
    * Boolean questions are stored as 'choice' type with ['Yes', 'No'] options.
    * The database schema only supports: 'text' | 'choice' | 'likert' (see schema.sql line 39)
@@ -198,6 +249,34 @@ export default function SurveyBuilder() {
       [newQuestions[index], newQuestions[index + 1]] = [newQuestions[index + 1], newQuestions[index]];
       setQuestions(newQuestions.map((q, i) => ({ ...q, order_index: i })));
     }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+    const newQuestions = [...questions];
+    const [removed] = newQuestions.splice(draggedIndex, 1);
+    newQuestions.splice(dropIndex, 0, removed);
+    
+    setQuestions(newQuestions.map((q, i) => ({ ...q, order_index: i })));
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    showToast('Question moved successfully!', 'success');
   };
 
   const saveSurvey = async () => {
@@ -411,16 +490,6 @@ export default function SurveyBuilder() {
                     <option value="elegant">Elegant (Playfair)</option>
                   </select>
                 </div>
-              </div>
-            </div>
-
-            {/* Settings */}
-            <div className="card">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-6 bg-green-500 rounded-full"></div>
-                <h2 className="text-lg font-semibold text-gray-900">Settings & Scheduling</h2>
-              </div>
-              <div className="space-y-4">
                 <div>
                   <label className="label flex items-center gap-2">
                     <Globe className="w-4 h-4 text-gray-500" />
@@ -567,40 +636,44 @@ export default function SurveyBuilder() {
           <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 bg-indigo-600 rounded"></div>
-              <span className="text-sm font-bold text-indigo-900 uppercase tracking-wide">Editor Tools</span>
+              <span className="text-sm font-bold text-indigo-900 uppercase tracking-wide">Quick Add Tools</span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <button
-                onClick={() => addQuestion('text')}
+                onClick={addSectionHeader}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+                title="Add a section title like 'PART A: EASE OF USE'"
               >
-                <span className="w-4 h-4 bg-indigo-100 text-indigo-700 rounded flex items-center justify-center text-xs font-bold">H</span>
+                <Type className="w-4 h-4 text-indigo-600" />
                 <span className="font-medium text-indigo-900">Section Header</span>
               </button>
               <button
-                onClick={() => addQuestion('text')}
+                onClick={addLegend}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+                title="Add instructions like '1 = Strongly Disagree...'"
               >
-                <span className="w-4 h-4 bg-purple-100 text-purple-700 rounded flex items-center justify-center text-xs font-bold">L</span>
+                <Info className="w-4 h-4 text-purple-600" />
                 <span className="font-medium text-indigo-900">Legend/Notes</span>
               </button>
               <button
-                onClick={() => addQuestion('text')}
+                onClick={addRatingScale}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+                title="Add a 1-5 rating scale question"
               >
-                <span className="w-4 h-4 bg-blue-100 text-blue-700 rounded flex items-center justify-center text-xs font-bold">1-5</span>
+                <Star className="w-4 h-4 text-blue-600" />
                 <span className="font-medium text-indigo-900">Rating Scale</span>
               </button>
               <button
-                onClick={() => addQuestion('text')}
+                onClick={toggleAllRequired}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+                title="Toggle all questions between required and optional"
               >
-                <span className="w-4 h-4 bg-green-100 text-green-700 rounded flex items-center justify-center text-xs font-bold">R</span>
-                <span className="font-medium text-indigo-900">Required Toggle</span>
+                <ToggleRight className="w-4 h-4 text-green-600" />
+                <span className="font-medium text-indigo-900">Toggle All Required</span>
               </button>
             </div>
             <p className="text-xs text-indigo-600 mt-2">
-              💡 <strong>Tip:</strong> Add Section Headers to organize questions into Parts (A, B, C, D). Add Legends to show rating scale instructions (1-5).
+              💡 <strong>How to use:</strong> Click buttons above to quickly add formatted elements. Drag questions by the handle (⋮⋮) to reorder. Edit text fields to customize.
             </p>
           </div>
 
@@ -693,21 +766,38 @@ export default function SurveyBuilder() {
           <div className="space-y-4">
 
           {questions.map((question, index) => (
-            <div key={question.id} className="card">
+            <div 
+              key={question.id} 
+              className={`card transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''}`}
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+            >
               <div className="flex items-start gap-4">
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 items-center">
+                  {/* Drag Handle */}
+                  <div 
+                    className="p-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                    title="Drag to reorder"
+                  >
+                    <GripVertical className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full">{index + 1}</span>
                   <button
                     onClick={() => moveQuestion(index, 'up')}
                     disabled={index === 0}
                     className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                    title="Move up"
                   >
                     <ArrowLeft className="w-4 h-4 -rotate-90" />
                   </button>
-                  <span className="text-xs font-medium text-gray-500 text-center">{index + 1}</span>
                   <button
                     onClick={() => moveQuestion(index, 'down')}
                     disabled={index === questions.length - 1}
                     className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                    title="Move down"
                   >
                     <ArrowLeft className="w-4 h-4 rotate-90" />
                   </button>
