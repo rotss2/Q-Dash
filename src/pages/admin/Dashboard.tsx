@@ -5,7 +5,7 @@ import { useToast } from '../../components/Toaster';
 import { apiGet, apiDelete, apiPost } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { Survey, Response } from '../../types';
-import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, X, Maximize2, Minimize2, Activity, Sparkles, Calendar, ArrowUpRight, Loader2, User } from 'lucide-react';
+import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, X, Maximize2, Minimize2, Activity, Sparkles, Calendar, ArrowUpRight, Loader2, User, Search, Clock } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -13,6 +13,8 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [liveFeed, setLiveFeed] = useState<Array<{ 
     id: string; 
     surveyTitle: string; 
@@ -145,6 +147,7 @@ export default function AdminDashboard() {
     const surveyCount = response.data?.surveys?.length || 0;
     console.log(`Dashboard: Loaded ${surveyCount} surveys`);
     setSurveys(response.data?.surveys || []);
+    setLastUpdated(new Date());
     setIsLoading(false);
   };
 
@@ -205,6 +208,13 @@ export default function AdminDashboard() {
 
   const totalResponses = surveys.reduce((sum, s) => sum + s.total_responses, 0);
   const openSurveys = surveys.filter(s => s.status === 'open').length;
+
+  // Filter surveys based on search query
+  const filteredSurveys = surveys.filter(survey => 
+    searchQuery === '' || 
+    survey.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (survey.description || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const toggleLiveMode = () => {
     setLiveMode(!liveMode);
@@ -360,6 +370,22 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* Search Bar - NEW */}
+        {!liveMode && surveys.length > 0 && (
+          <div className="mb-6">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search surveys by title or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Actions - Enhanced */}
         <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center mb-8">
           <div className="flex items-center gap-3">
@@ -368,30 +394,38 @@ export default function AdminDashboard() {
             </h2>
             {!liveMode && surveys.length > 0 && (
               <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
-                {surveys.length} total
+                {filteredSurveys.length} of {surveys.length}
               </span>
             )}
           </div>
-          {!liveMode && (
-            <div className="flex gap-3">
-              <button
-                onClick={() => loadSurveys()}
-                disabled={isLoading}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed group"
-                title="Refresh survey list"
-              >
-                <Loader2 className={`w-4 h-4 transition-transform duration-700 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} />
-                Refresh
-              </button>
-              <button
-                onClick={() => navigate('/admin/surveys/new')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
-              >
-                <Plus className="w-4 h-4" />
-                New Survey
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            {lastUpdated && !liveMode && (
+              <span className="text-xs text-gray-400 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                Updated {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+            {!liveMode && (
+              <>
+                <button
+                  onClick={() => loadSurveys()}
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed group"
+                  title="Refresh survey list"
+                >
+                  <Loader2 className={`w-4 h-4 transition-transform duration-700 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+                <button
+                  onClick={() => navigate('/admin/surveys/new')}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">New Survey</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Surveys List - Enhanced */}
@@ -434,7 +468,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {surveys.map((survey) => (
+            {filteredSurveys.map((survey) => (
               <div key={survey.id} className="group bg-white rounded-2xl border border-gray-100 p-6 transition-all hover:shadow-xl hover:-translate-y-0.5 hover:border-gray-200">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

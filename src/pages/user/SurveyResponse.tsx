@@ -714,9 +714,11 @@ function SurveyContent() {
                 <span className="text-sm font-medium text-gray-500 block">
                   {showWelcome ? 'Welcome' : `Question ${currentQuestionIndex + 1} of ${visibleQuestions.length}`}
                 </span>
-                <span className="text-xs text-gray-400">
-                  {Math.round(progress)}% complete
-                </span>
+                {!showWelcome && (
+                  <span className="text-xs text-gray-400">
+                    {Math.round(progress)}% complete
+                  </span>
+                )}
               </div>
             </div>
             <span className="text-sm font-medium text-slate-900 break-words text-center sm:text-left max-w-full truncate">
@@ -733,14 +735,16 @@ function SurveyContent() {
               </div>
             </div>
           </div>
-          <div className={`mt-3 h-3 ${themeClasses.progress} rounded-full overflow-hidden`}>
-            <div 
-              className={`h-full ${themeClasses.progressFill} transition-all duration-500 ease-out relative`}
-              style={{ width: `${progress}%` }}
-            >
-              <div className="absolute right-0 top-0 w-3 h-3 bg-white rounded-full shadow-md animate-pulse" />
+          {!showWelcome && (
+            <div className={`mt-3 h-3 ${themeClasses.progress} rounded-full overflow-hidden`}>
+              <div 
+                className={`h-full ${themeClasses.progressFill} transition-all duration-500 ease-out relative`}
+                style={{ width: `${progress}%` }}
+              >
+                <div className="absolute right-0 top-0 w-3 h-3 bg-white rounded-full shadow-md animate-pulse" />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </header>
 
@@ -750,25 +754,16 @@ function SurveyContent() {
           {showWelcome ? (
             // Welcome Screen
             <div className="card space-y-6 text-center">
-              {/* SurveyTest Logo */}
-              <div className="flex flex-col items-center gap-3">
+              {/* Survey Logo - Consolidated Header */}
+              <div className="flex flex-col items-center gap-2">
                 <img 
                   src="/logo.png" 
                   alt="SurveyTest" 
-                  className="h-16 sm:h-20 md:h-24 w-auto object-contain mx-auto"
+                  className="h-14 sm:h-18 md:h-20 w-auto object-contain mx-auto"
                   onError={(e) => {
-                    // Fallback to emoji if logo not found
                     e.currentTarget.style.display = 'none';
-                    const parent = e.currentTarget.parentElement;
-                    if (parent) {
-                      const fallback = document.createElement('div');
-                      fallback.className = 'w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4';
-                      fallback.innerHTML = '<span class="text-3xl">📋</span>';
-                      parent.prepend(fallback);
-                    }
                   }}
                 />
-                <p className="text-sm text-gray-500 font-medium">SurveyTest</p>
               </div>
               
               <div>
@@ -818,7 +813,7 @@ function SurveyContent() {
                   className={`w-full rounded-xl border px-4 py-3 text-slate-900 focus:outline-none transition-colors ${
                     emailError ? 'border-red-300 focus:border-red-400 bg-red-50' : 'border-gray-200 focus:border-slate-400'
                   }`}
-                  placeholder="Enter your Gmail to receive a preview summary"
+                  placeholder="your.email@gmail.com"
                 />
                 {emailError ? (
                   <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5">
@@ -1025,12 +1020,16 @@ function SurveyContent() {
         </div>
       </footer>
       
-      {/* Avatar Mascot */}
-      <AvatarMascot 
-        progress={progress} 
-        currentQuestion={currentQuestionIndex + 1} 
-        totalQuestions={visibleQuestions.length} 
-      />
+      {/* Avatar Mascot - Docked to bottom corner, only show during questions */}
+      {!showWelcome && (
+        <div className="fixed bottom-4 right-4 z-20">
+          <AvatarMascot 
+            progress={progress} 
+            currentQuestion={currentQuestionIndex + 1} 
+            totalQuestions={visibleQuestions.length} 
+          />
+        </div>
+      )}
     </div>
   );
 }
