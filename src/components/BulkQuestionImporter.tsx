@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Plus, X, Check, FileText, Eye, Trash2, Upload, AlertCircle, CheckCircle, Copy, RefreshCw, Wand2 } from 'lucide-react';
+import { HighCapacityProcessor, ProcessingStats } from '../lib/highCapacityProcessor';
 
 type QuestionType = 'text' | 'choice' | 'likert';
 type ImportTab = 'paste' | 'validate' | 'preview' | 'import';
@@ -12,6 +13,10 @@ interface ParsedQuestion {
   required?: boolean;
   validationError?: string;
   validationWarning?: string;
+  section?: string;
+  needsManualReview?: boolean;
+  reviewReason?: string;
+  duplicates?: string[];
 }
 
 interface ValidationIssue {
@@ -182,17 +187,76 @@ export default function BulkQuestionImporter({
   const [globalType, setGlobalType] = useState<QuestionType>('text');
   const [showAutoFix, setShowAutoFix] = useState(true);
   
+  // Super Genius processing state - reserved for future use
+  const [, setIsSuperGeniusMode] = useState(false);
+  const [, setIsProcessing] = useState(false);
+  const [, setProcessingStats] = useState<ProcessingStats | null>(null);
+  const [, setProcessingProgress] = useState(0);
+  
   // Validation state
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
 
-  // Parse text into questions using regex-based block grouping
-  const parseText = useCallback((text: string) => {
+  // Super Genius processing with high-capacity handling
+  const parseText = useCallback(async (text: string) => {
     const lines = text.split('\n').filter(line => line.trim());
     setTotalLines(lines.length);
     
+    // Check if we should use Super Genius mode
+    const questionCount = lines.filter(line => 
+      /^(Question|Q\d*|Boolean|Multiple Choice|Yes\/No|Options|Expected Answer|Correct Answer)/i.test(line.trim()) ||
+      /^\d+[\.\)]\s*/.test(line.trim()) ||
+      /^[A-Z]\)[\s]*/.test(line.trim())
+    ).length;
+    
+    const shouldUseSuperGenius = questionCount > 10 || text.length > 2000;
+    setIsSuperGeniusMode(shouldUseSuperGenius);
+    
+    if (shouldUseSuperGenius) {
+      // Use Super Genius processing
+      setIsProcessing(true);
+      setProcessingProgress(0);
+      
+      try {
+        const result = await HighCapacityProcessor.processLargeDataset(text);
+        
+        // Convert ProcessedQuestion to ParsedQuestion format
+        const parsed: ParsedQuestion[] = result.questions.map(q => ({
+          id: q.id,
+          text: q.text,
+          type: q.type as QuestionType,
+          options: q.options,
+          required: false,
+          section: q.section,
+          needsManualReview: q.needsManualReview,
+          reviewReason: q.reviewReason,
+          duplicates: q.duplicates
+        }));
+        
+        setQuestions(parsed);
+        setProcessingStats(result.stats);
+        setSelectedQuestions(new Set());
+        
+      } catch (error) {
+        console.error('Super Genius processing failed:', error);
+        // Fallback to simple processing
+        fallbackProcessing(text);
+      } finally {
+        setIsProcessing(false);
+        setProcessingProgress(100);
+      }
+    } else {
+      // Use simple processing for smaller datasets
+      fallbackProcessing(text);
+    }
+  }, []);
+  
+  // Fallback processing for smaller datasets
+  const fallbackProcessing = useCallback((text: string) => {
     // Group lines into question blocks using regex patterns
     const questionBlocks: string[] = [];
     let currentBlock = '';
+    
+    const lines = text.split('\n').filter(line => line.trim());
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
