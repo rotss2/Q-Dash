@@ -708,16 +708,33 @@ import { z } from 'zod';
 // Dynamic imports for CommonJS modules
 let pdfParse;
 let mammoth;
+let modulesLoaded = false;
 
 async function loadModules() {
-  const pdfParseModule = await import('pdf-parse');
-  const mammothModule = await import('mammoth');
-  pdfParse = pdfParseModule.default || pdfParseModule;
-  mammoth = mammothModule.default || mammothModule;
+  if (modulesLoaded) return;
+  
+  try {
+    const pdfParseModule = await import('pdf-parse');
+    const mammothModule = await import('mammoth');
+    
+    // Handle different export structures
+    pdfParse = pdfParseModule.default?.default || pdfParseModule.default || pdfParseModule;
+    mammoth = mammothModule.default?.default || mammothModule.default || mammothModule;
+    
+    // Verify they're functions
+    if (typeof pdfParse !== 'function') {
+      console.error('pdf-parse export structure:', Object.keys(pdfParseModule));
+      // Try to find the function in the module
+      pdfParse = pdfParseModule.default || pdfParseModule.pdfParse || pdfParseModule;
+    }
+    
+    modulesLoaded = true;
+    console.log('PDF and DOCX parsing modules loaded successfully');
+  } catch (err) {
+    console.error('Failed to load parsing modules:', err);
+    throw err;
+  }
 }
-
-// Load modules on startup
-loadModules().catch(err => console.error('Failed to load parsing modules:', err));
 
 // Initialize Gemini (FREE TIER)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
@@ -775,8 +792,14 @@ async function extractTextFromFile(fileBuffer, fileName) {
   const ext = fileName.split('.').pop()?.toLowerCase();
   
   // Ensure modules are loaded
-  if (!pdfParse || !mammoth) {
-    await loadModules();
+  await loadModules();
+  
+  // Verify modules are available
+  if (!pdfParse || typeof pdfParse !== 'function') {
+    throw new Error('PDF parsing module not properly loaded');
+  }
+  if (!mammoth) {
+    throw new Error('DOCX parsing module not properly loaded');
   }
   
   try {
