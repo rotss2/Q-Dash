@@ -1,7 +1,7 @@
 // Localization System for Q-Dash
 // Supports multiple languages with fallback to English
 
-export type Locale = 'en' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'ar' | 'pt';
+export type Locale = 'en' | 'es' | 'fr' | 'de' | 'zh' | 'ja' | 'ar' | 'pt' | 'fil';
 
 export interface Translations {
   // Common
@@ -265,6 +265,71 @@ const fr: Translations = {
   timezoneNote: 'Toutes les heures sont dans votre fuseau horaire local.',
 };
 
+// Filipino translations
+const fil: Translations = {
+  appName: 'Q-Dash',
+  loading: 'Naglo-load...',
+  error: 'Error',
+  success: 'Tagumpay',
+  cancel: 'Kanselahin',
+  save: 'I-save',
+  delete: 'Burahin',
+  edit: 'I-edit',
+  close: 'Isara',
+  open: 'Buksan',
+  back: 'Bumalik',
+  next: 'Susunod',
+  submit: 'Isumite',
+  required: 'Kinakailangan',
+  optional: 'Opsyonal',
+  
+  surveyTitle: 'Pamagat ng Survey',
+  surveyDescription: 'Deskripsyon ng Survey',
+  surveyClosed: 'Sarado na ang survey na ito.',
+  surveyNotOpen: 'Hindi pa bukas ang survey na ito. Magsisimula sa:',
+  surveyExpired: 'Nag-expire na ang survey na ito noong:',
+  startSurvey: 'Simulan ang Survey',
+  completeSurvey: 'Kumpletuhin ang Survey',
+  thankYou: 'Salamat!',
+  responseRecorded: 'Na-isumite na ang iyong kasagutan.',
+  
+  question: 'Tanong',
+  answer: 'Sagot',
+  textPlaceholder: 'Ilagay ang iyong sagot...',
+  choicePlaceholder: 'Pumili ng opsyon',
+  yes: 'Oo',
+  no: 'Hindi',
+  agree: 'Sumasang-ayon',
+  disagree: 'Hindi sumasang-ayon',
+  stronglyAgree: 'Lubos na sumasang-ayon',
+  stronglyDisagree: 'Lubos na hindi sumasang-ayon',
+  neutral: 'Neutral',
+  
+  errorLoadingSurvey: 'Nagkaroon ng error sa pag-load ng survey.',
+  errorSubmitting: 'Nagkaroon ng error sa pagsumite. Subukan muli.',
+  errorRequiredField: 'Pakipunan ang lahat ng kinakailangang field.',
+  errorInvalidEmail: 'Pakilagay ang isang wastong Gmail address.',
+  errorServer: 'Nagkaroon ng error sa server.',
+  errorNetwork: 'Nagkaroon ng error sa network. Pakisubukan muli.',
+  
+  dashboard: 'Dashboard',
+  newSurvey: 'Bagong Survey',
+  editSurvey: 'I-edit ang Survey',
+  analytics: 'Analytics',
+  responses: 'Mga Kasagutan',
+  settings: 'Mga Setting',
+  languageSettings: 'Mga Setting ng Wika',
+  themeSettings: 'Mga Setting ng Tema',
+  branding: 'Branding',
+  
+  scheduling: 'Pag-iiskedyul',
+  openDate: 'Petsa ng Pagbubukas',
+  closeDate: 'Petsa ng Pagsasara',
+  autoOpen: 'Awtomatikong Magbukas',
+  autoClose: 'Awtomatikong Magsara',
+  timezoneNote: 'Ang lahat ng oras ay nasa iyong lokal na timezone.',
+};
+
 // Stub translations for not-yet-supported locales (fallback to English)
 const de: Translations = { ...en };
 const zh: Translations = { ...en };
@@ -273,13 +338,13 @@ const ar: Translations = { ...en };
 const pt: Translations = { ...en };
 
 // Translation dictionary
-const translations: Record<Locale, Translations> = { en, es, fr, de, zh, ja, ar, pt };
+const translations: Record<Locale, Translations> = { en, es, fr, de, zh, ja, ar, pt, fil };
 
 // Default locale
 export const DEFAULT_LOCALE: Locale = 'en';
 
 // Supported locales
-export const SUPPORTED_LOCALES: Locale[] = ['en', 'es', 'fr', 'de', 'zh', 'ja', 'ar', 'pt'];
+export const SUPPORTED_LOCALES: Locale[] = ['en', 'es', 'fr', 'de', 'zh', 'ja', 'ar', 'pt', 'fil'];
 
 // Get browser locale
 export function getBrowserLocale(): Locale {
@@ -323,6 +388,7 @@ export function getLocaleDisplayName(locale: Locale): string {
     ja: '日本語',
     ar: 'العربية',
     pt: 'Português',
+    fil: 'Filipino',
   };
   return names[locale] || locale;
 }

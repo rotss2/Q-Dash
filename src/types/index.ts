@@ -39,6 +39,9 @@ export interface Question {
   show_when_answer_value?: string | null;
   order_index: number;
   required: boolean;
+  is_active?: boolean;
+  version?: number;
+  question_group_id?: string | null;
 }
 
 export interface Response {

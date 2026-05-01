@@ -244,6 +244,7 @@ function SurveyContent() {
       .from('questions')
       .select('*')
       .eq('survey_id', surveyId)
+      .eq('is_active', true)
       .order('order_index', { ascending: true });
 
     if (questionsError) {

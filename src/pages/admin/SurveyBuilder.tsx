@@ -427,8 +427,8 @@ export default function SurveyBuilder() {
                     Supported Languages
                   </label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {(['English', 'Spanish', 'French', 'German', 'Chinese'] as const).map((lang) => {
-                      const langMap: Record<string, string> = { 'English': 'en', 'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Chinese': 'zh' };
+                    {(['English', 'Spanish', 'French', 'German', 'Chinese', 'Filipino'] as const).map((lang) => {
+                      const langMap: Record<string, string> = { 'English': 'en', 'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Chinese': 'zh', 'Filipino': 'fil' };
                       const langCode = langMap[lang];
                       const isSelected = supportedLanguages.split(',').map(l => l.trim()).includes(langCode);
                       return (
@@ -468,6 +468,7 @@ export default function SurveyBuilder() {
                     <option value="fr">French</option>
                     <option value="de">German</option>
                     <option value="zh">Chinese</option>
+                    <option value="fil">Filipino</option>
                   </select>
                 </div>
                 <div>
