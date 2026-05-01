@@ -199,19 +199,42 @@ export default function BulkQuestionImporter({
   // Validation state
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
 
+  // Check if a line is a question starter (enhanced detection)
+  const isQuestionStarter = (line: string): boolean => {
+    const trimmed = line.trim();
+    if (trimmed.length < 5) return false;
+    
+    // Question words
+    const questionWords = /^(how|what|when|where|why|who|which|whose|whom|is|are|do|does|did|will|would|should|can|could|has|have|was|were|am|shall|may|might|must|explain|describe|tell|give|list|name|identify|select|choose|pick|rate|rank|evaluate|assess|compare|contrast|discuss|analyze|justify|recommend|suggest|predict|estimate|calculate|determine|find|state|mention|define|clarify|elaborate)/i;
+    
+    // Numbered or lettered prefix: 1. or 1) or A) or a)
+    const hasPrefix = /^\s*(\d+[\.\)]\s+|\d+\.\s+|\d+\)\s+|[A-Z][\.\)]\s+|[a-z][\.\)]\s+|\([a-zA-Z]\)\s+|Q\d*[\.:\)]\s*)/.test(trimmed);
+    
+    // Ends with question mark
+    const hasQuestionMark = /\?\s*$/.test(trimmed);
+    
+    // Contains question words
+    const hasQuestionWord = questionWords.test(trimmed);
+    
+    // Common question patterns
+    const isQuestionPattern = hasQuestionMark || hasQuestionWord || hasPrefix;
+    
+    // Not a header/instruction line
+    const nonQuestionPatterns = /^(question|instructions|directions|notes?|tips?|hints?|section|part|step|page|chapter|module|unit|lesson|exercise|activity|example|sample|demo|test|quiz|exam|assignment|project|task|note:|warning:|important:|tip:|hint:|remember:|please|thank|click|press|enter|type|select|choose|pick|fill|complete|submit|save|next|previous|back|continue|finish|done|start|begin|end|close|exit|cancel|delete|remove|add|edit|update|modify|change|create|make|generate|produce|develop|build|construct|design|form|shape|structure|organize|arrange|order|sort|group|classify|categorize|label|tag|mark|identify|recognize|distinguish|differentiate)\s*\d*[:\.)\s]/i;
+    
+    return isQuestionPattern && !nonQuestionPatterns.test(trimmed);
+  };
+
   // Super Genius processing with high-capacity handling
   const parseText = useCallback(async (text: string) => {
-    const lines = text.split('\n').filter(line => line.trim());
+    // Normalize line endings (handle Windows \r\n and Mac \r)
+    const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = normalizedText.split('\n').filter(line => line.trim());
     setTotalLines(lines.length);
     
-    // Check if we should use Super Genius mode
-    const questionCount = lines.filter(line => 
-      /^(Question|Q\d*|Boolean|Multiple Choice|Yes\/No|Options|Expected Answer|Correct Answer)/i.test(line.trim()) ||
-      /^\d+[\.\)]\s*/.test(line.trim()) ||
-      /^[A-Z]\)[\s]*/.test(line.trim())
-    ).length;
-    
-    const shouldUseSuperGenius = questionCount > 10 || text.length > 2000;
+    // Check if we should use Super Genius mode (>10 questions or >2000 chars)
+    const potentialQuestionCount = lines.filter(line => isQuestionStarter(line)).length;
+    const shouldUseSuperGenius = potentialQuestionCount > 10 || normalizedText.length > 2000;
     setIsSuperGeniusMode(shouldUseSuperGenius);
     
     if (shouldUseSuperGenius) {
@@ -220,7 +243,7 @@ export default function BulkQuestionImporter({
       setProcessingProgress(0);
       
       try {
-        const result = await HighCapacityProcessor.processLargeDataset(text);
+        const result = await HighCapacityProcessor.processLargeDataset(normalizedText);
         
         // Convert ProcessedQuestion to ParsedQuestion format
         const parsed: ParsedQuestion[] = result.questions.map(q => ({
@@ -242,82 +265,134 @@ export default function BulkQuestionImporter({
       } catch (error) {
         console.error('Super Genius processing failed:', error);
         // Fallback to simple processing
-        fallbackProcessing(text);
+        fallbackProcessing(normalizedText);
       } finally {
         setIsProcessing(false);
         setProcessingProgress(100);
       }
     } else {
       // Use simple processing for smaller datasets
-      fallbackProcessing(text);
+      fallbackProcessing(normalizedText);
     }
   }, []);
   
-  // Fallback processing for smaller datasets
+  // Enhanced fallback processing for smaller datasets
   const fallbackProcessing = useCallback((text: string) => {
-    // Group lines into question blocks using regex patterns
+    // Split by blank lines (double newlines) as primary separator, or single newlines
+    const potentialBlocks = text.split(/\n\s*\n+/).filter(block => block.trim());
+    
     const questionBlocks: string[] = [];
-    let currentBlock = '';
     
-    const lines = text.split('\n').filter(line => line.trim());
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+    // Process each potential block
+    for (const block of potentialBlocks) {
+      const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+      if (lines.length === 0) continue;
       
-      // Check if this line starts a new question block
-      const isQuestionStart = /^(Question:|Boolean|Multiple Choice|Yes\/No|Options:|Expected Answer:|Correct Answer:)/i.test(line);
-      
-      if (isQuestionStart && currentBlock) {
-        // Save previous block and start new one
-        questionBlocks.push(currentBlock.trim());
-        currentBlock = line;
+      // Check if first line is a question starter
+      if (isQuestionStarter(lines[0])) {
+        questionBlocks.push(block.trim());
       } else {
-        // Add to current block
-        currentBlock += (currentBlock ? '\n' : '') + line;
+        // Check if any line in the block is a question
+        for (const line of lines) {
+          if (isQuestionStarter(line) && line.length >= 10) {
+            questionBlocks.push(line);
+          }
+        }
       }
     }
     
-    // Don't forget the last block
-    if (currentBlock) {
-      questionBlocks.push(currentBlock.trim());
+    // If no blocks found with blank-line separation, try line-by-line
+    if (questionBlocks.length === 0) {
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      for (const line of lines) {
+        if (isQuestionStarter(line) && !isValidQuestion(line) === false) {
+          // Check length constraints from isValidQuestion
+          if (line.length >= 10 && line.length <= 200 && !/^\d+$/.test(line)) {
+            questionBlocks.push(line);
+          }
+        }
+      }
     }
     
     // Parse each question block
     const parsed = questionBlocks.map((block, index) => {
-      // Extract question text
-      const questionMatch = block.match(/Question:\s*(.+?)(?=\n(?:Options:|Expected Answer:|Correct Answer:)|$)/i);
-      let questionText = questionMatch ? questionMatch[1].trim() : block;
+      const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+      let questionText = lines[0];
+      let optionsText = '';
       
-      // Strip category labels like "Boolean (Technical):"
-      questionText = questionText.replace(/^(Boolean|Multiple Choice|Yes\/No|Options|Technical|Contextual|Theoretical|Security|Logic)\s*\(?\w*\)?:\s*/i, '').trim();
-      
-      // Extract options
-      let options: string[] = [];
-      const optionsMatch = block.match(/Options:\s*\[(.+?)\]/i);
-      if (optionsMatch) {
-        // Parse [A] Option1, [B] Option2 format
-        const optionsText = optionsMatch[1];
-        options = optionsText.split(/\s*,\s*\[?\w*\]?\s*/).filter(opt => opt.trim());
+      // Check if subsequent lines are options (indented or bullet points)
+      if (lines.length > 1) {
+        const optionLines = lines.slice(1).filter(l => 
+          /^[-•·*\[\(\da-zA-Z][\.\):\]\s]/.test(l) || // Bullet points or numbered
+          /^\s{2,}/.test(l) || // Indented lines
+          l.includes(')') || l.includes(']')
+        );
+        if (optionLines.length >= 2) {
+          optionsText = optionLines.join(', ');
+        }
       }
       
-      // Extract expected/correct answer (for reference, not used in current implementation)
-      // Note: Could extract answer here for future features like validation
+      // Strip numbered prefixes (1. 1) A) a) etc)
+      questionText = questionText.replace(/^\s*(\d+[\.\)]\s+|\d+\.\s+|\d+\)\s+|[A-Z][\.\)]\s+|[a-z][\.\)]\s+|\([a-zA-Z]\)\s+|Q\d*[\.:\)]\s*)/, '').trim();
       
-      // Determine question type using PatternRecognitionEngine for smart detection
+      // Strip category labels
+      questionText = questionText.replace(/^(Boolean|Multiple Choice|Yes\/No|Likert|Rating|Scale|Options|Technical|Contextual|Theoretical|Security|Logic)\s*\(?\w*\)?:\s*/i, '').trim();
+      
+      // Extract inline options: "What is X? (A) Option1 (B) Option2" or "[A] Option1 [B] Option2"
+      let options: string[] = [];
+      
+      // Pattern: (A) Option1 (B) Option2 or [A] Option1 [B] Option2
+      const inlineOptionsMatch = questionText.match(/[\(\[]([A-Z])\)[\]]([^[\(\]]+)(?:[\(\[]([A-Z])\)[\]]([^[\(\]]+))+/i);
+      if (inlineOptionsMatch) {
+        // Extract all options from inline format
+        const allOptions = questionText.matchAll(/[\(\[]([A-Z])\)[\]]\s*([^[\(\]]+)(?=[\(\[]|$)/gi);
+        for (const match of allOptions) {
+          options.push(match[2].trim());
+        }
+        // Remove options from question text
+        questionText = questionText.replace(/[\(\[]([A-Z])\)[\]]\s*[^[\(\]]+/gi, '').trim();
+        questionText = questionText.replace(/\s+/g, ' ').trim();
+      }
+      
+      // Parse options from separate lines
+      if (options.length === 0 && optionsText) {
+        // Parse formats: "A) Option", "A. Option", "- Option", "* Option", "[A] Option"
+        const optionMatches = optionsText.matchAll(/(?:^|,\s*)\[?([A-Z\d])[\]\.\):]\s*([^,]+)/gi);
+        for (const match of optionMatches) {
+          options.push(match[2].trim());
+        }
+        
+        // Parse bullet points
+        if (options.length === 0) {
+          const bullets = optionsText.matchAll(/[-•·*]\s*(.+?)(?=\s*[-•·*]|$)/gi);
+          for (const match of bullets) {
+            options.push(match[1].trim());
+          }
+        }
+      }
+      
+      // Determine question type using PatternRecognitionEngine
       let type: QuestionType = 'text';
       const detected = PatternRecognitionEngine.detectQuestionType(questionText, '');
       
-      if (options.length > 0) {
+      if (options.length >= 2) {
         type = 'choice';
       } else if (detected.type === 'likert') {
         type = 'likert';
         options = ['1', '2', '3', '4', '5'];
-      } else if (detected.type === 'boolean' || /^(do you|would you|have you|is it|are you|should you|can you|will you|does the|are the|is the)/i.test(questionText)) {
+      } else if (detected.type === 'boolean') {
         type = 'choice';
         options = ['Yes', 'No'];
       } else if (detected.type === 'choice') {
         type = 'choice';
-        options = detected.options || ['Option 1', 'Option 2', 'Option 3', 'Option 4'];
+        options = detected.options || ['Option 1', 'Option 2', 'Option 3'];
+      } else if (/\?$/.test(questionText)) {
+        // It's a question with ? but no specific type detected
+        // Check for yes/no patterns
+        if (/^(is|are|do|does|did|will|would|should|can|could|has|have|was|were|am)/i.test(questionText)) {
+          type = 'choice';
+          options = ['Yes', 'No'];
+        }
       }
       
       // Clean question text
@@ -332,8 +407,9 @@ export default function BulkQuestionImporter({
       };
     }).filter(q => isValidQuestion(q.text));
     
+    console.log('Parsed questions:', parsed.length, parsed.map(q => ({ text: q.text.substring(0, 50), type: q.type })));
     setQuestions(parsed);
-    setSelectedQuestions(new Set()); // Clear selection on new parse
+    setSelectedQuestions(new Set());
   }, []);
 
   // Run validation when questions change
