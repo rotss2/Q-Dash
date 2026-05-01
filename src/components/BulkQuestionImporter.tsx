@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Plus, X, Check, FileText, Eye, Trash2, Upload, AlertCircle, CheckCircle, Copy, RefreshCw, Wand2 } from 'lucide-react';
+import { Plus, X, Check, FileText, Eye, Trash2, Upload, AlertCircle, CheckCircle, Copy, RefreshCw, Wand2, Sparkles } from 'lucide-react';
 import { HighCapacityProcessor, ProcessingStats } from '../lib/highCapacityProcessor';
+import { PatternRecognitionEngine } from '../lib/questionTypeRegistry';
 
 type QuestionType = 'text' | 'choice' | 'likert';
 type ImportTab = 'paste' | 'validate' | 'preview' | 'import';
@@ -186,6 +187,8 @@ export default function BulkQuestionImporter({
   const [totalLines, setTotalLines] = useState(0);
   const [globalType, setGlobalType] = useState<QuestionType>('text');
   const [showAutoFix, setShowAutoFix] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [organizeStats, setOrganizeStats] = useState<{ analyzed: number; organized: number; sections: string[] } | null>(null);
   
   // Super Genius processing state - reserved for future use
   const [, setIsSuperGeniusMode] = useState(false);
@@ -413,6 +416,126 @@ export default function BulkQuestionImporter({
     
     return fixedCount;
   };
+
+  // Auto Organize & Analyze - Smart question detection and organization
+  const autoOrganizeAndAnalyze = useCallback(async () => {
+    if (questions.length === 0) return;
+    
+    setIsAnalyzing(true);
+    
+    // Small delay to show loading state
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const sections = new Set<string>();
+    let organized = 0;
+    
+    const analyzedQuestions = questions.map((q, index) => {
+      // Get surrounding context for better detection
+      const context = questions
+        .slice(Math.max(0, index - 2), Math.min(questions.length, index + 3))
+        .map(q => q.text)
+        .join(' ');
+      
+      // Detect question type using PatternRecognitionEngine
+      const detected = PatternRecognitionEngine.detectQuestionType(q.text, context);
+      
+      // Map detected type to our supported types
+      let newType: QuestionType = 'text';
+      let newOptions: string[] = [];
+      
+      switch (detected.type) {
+        case 'choice':
+        case 'boolean':
+          newType = 'choice';
+          newOptions = detected.options || PatternRecognitionEngine.extractOptions(q.text, detected.type);
+          if (newOptions.length < 2) {
+            newOptions = ['Yes', 'No'];
+          }
+          break;
+        case 'likert':
+          newType = 'likert';
+          newOptions = ['1', '2', '3', '4', '5'];
+          break;
+        case 'ranking':
+        case 'matrix':
+          newType = 'choice';
+          newOptions = ['First', 'Second', 'Third', 'Fourth'];
+          break;
+        case 'long_text':
+          newType = 'text';
+          newOptions = [];
+          break;
+        default:
+          newType = 'text';
+          newOptions = [];
+      }
+      
+      // Determine section based on content analysis
+      let section = 'General';
+      const text = q.text.toLowerCase();
+      
+      if (/name|email|phone|contact|address/i.test(text)) {
+        section = 'Contact Information';
+      } else if (/satisfied|satisfaction|rate|experience|feedback|quality/i.test(text)) {
+        section = 'Satisfaction';
+      } else if (/age|gender|education|occupation|income|demographic/i.test(text)) {
+        section = 'Demographics';
+      } else if (/usage|frequency|often|how.*many|when.*last/i.test(text)) {
+        section = 'Usage Patterns';
+      } else if (/recommend|refer|share|tell.*friend/i.test(text)) {
+        section = 'Loyalty';
+      } else if (/improve|suggestion|better|change|missing/i.test(text)) {
+        section = 'Improvement';
+      } else if (/price|cost|value|money|afford/i.test(text)) {
+        section = 'Pricing';
+      } else if (/feature|function|capability|work/i.test(text)) {
+        section = 'Features';
+      } else if (/problem|issue|difficult|challenge|frustrat/i.test(text)) {
+        section = 'Pain Points';
+      }
+      
+      sections.add(section);
+      organized++;
+      
+      return {
+        ...q,
+        type: newType,
+        options: newOptions,
+        section
+      };
+    });
+    
+    // Sort questions by section for better organization
+    const sortedQuestions = [...analyzedQuestions].sort((a, b) => {
+      const sectionOrder = [
+        'Contact Information',
+        'Demographics', 
+        'Usage Patterns',
+        'Satisfaction',
+        'Features',
+        'Pricing',
+        'Loyalty',
+        'Pain Points',
+        'Improvement',
+        'General'
+      ];
+      
+      const aIndex = sectionOrder.indexOf(a.section || 'General');
+      const bIndex = sectionOrder.indexOf(b.section || 'General');
+      
+      if (aIndex !== bIndex) return aIndex - bIndex;
+      return 0; // Keep original order within same section
+    });
+    
+    setQuestions(sortedQuestions);
+    setOrganizeStats({
+      analyzed: questions.length,
+      organized,
+      sections: Array.from(sections)
+    });
+    
+    setIsAnalyzing(false);
+  }, [questions]);
 
   const updateQuestionType = (id: string, type: QuestionType) => {
     setQuestions(prev => prev.map(q => 
@@ -728,7 +851,29 @@ export default function BulkQuestionImporter({
                   />
                   Select All ({selectedQuestions.size}/{questions.length})
                 </label>
-                
+
+                <div className="h-6 w-px bg-gray-300" />
+
+                {/* Auto Organize & Analyze Button */}
+                <button
+                  onClick={autoOrganizeAndAnalyze}
+                  disabled={isAnalyzing || questions.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 text-indigo-700 text-sm rounded hover:from-purple-100 hover:to-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all border border-indigo-200"
+                  title="AI-powered: Auto-detect question types, extract options, and organize into sections"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      Auto Organize
+                    </>
+                  )}
+                </button>
+
                 {selectedQuestions.size > 0 && (
                   <>
                     <div className="h-6 w-px bg-gray-300" />
@@ -763,6 +908,36 @@ export default function BulkQuestionImporter({
                     </select>
                   </>
                 )}
+              </div>
+            )}
+
+            {/* Organize Stats Display */}
+            {organizeStats && (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded p-3 flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-sm font-medium text-green-800">
+                    Organized {organizeStats.organized} questions
+                  </span>
+                </div>
+                <div className="h-4 w-px bg-green-300" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-green-700 font-medium">Sections:</span>
+                  {organizeStats.sections.map((section) => (
+                    <span
+                      key={section}
+                      className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full"
+                    >
+                      {section}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setOrganizeStats(null)}
+                  className="ml-auto text-green-600 hover:text-green-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             )}
 
@@ -824,7 +999,14 @@ export default function BulkQuestionImporter({
                         className="w-4 h-4 rounded border-gray-300"
                       />
                       <span className="text-sm font-medium text-slate-500 w-8">#{index + 1}</span>
-                      
+
+                      {/* Section Badge */}
+                      {q.section && (
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
+                          {q.section}
+                        </span>
+                      )}
+
                       <select
                         value={q.type}
                         onChange={(e) => updateQuestionType(q.id, e.target.value as QuestionType)}
