@@ -6,7 +6,7 @@ import { getAnonymousUserId } from '../../lib/fingerprint';
 import { Survey, Question } from '../../types';
 import { LanguageProvider, useLanguage } from '../../hooks/useLanguage';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
-import { CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Download, Printer, FileText } from 'lucide-react';
+import { CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Download, Printer } from 'lucide-react';
 import { ThemedBackground } from '../../components/ThemedBackground';
 import { AvatarMascot } from '../../components/AvatarMascot';
 import html2pdf from 'html2pdf.js';
@@ -582,12 +582,17 @@ function SurveyContent() {
 
             {/* Response Preview - PDF/Print Version */}
             <div ref={summaryRef} className="bg-white rounded-xl p-6 text-left border border-gray-200 print:shadow-none print:border-0">
-              {/* PDF Header */}
+              {/* PDF Header with Logo */}
               <div className="border-b-2 border-gray-100 pb-4 mb-6 print:pb-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center print:bg-blue-600">
-                    <FileText className="w-6 h-6 text-white" />
-                  </div>
+                <div className="flex items-center gap-4 mb-4">
+                  <img 
+                    src="/logo.png" 
+                    alt="SurveyTest" 
+                    className="h-16 w-auto object-contain print:h-12"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">{survey?.title}</h2>
                     <p className="text-sm text-gray-500">Response Summary</p>
@@ -766,16 +771,18 @@ function SurveyContent() {
           {showWelcome ? (
             // Welcome Screen
             <div className="card space-y-6 text-center">
-              {/* Survey Logo - Consolidated Header */}
-              <div className="flex flex-col items-center gap-2">
+              {/* Survey Logo - Prominent Header */}
+              <div className="flex flex-col items-center gap-3">
                 <img 
                   src="/logo.png" 
                   alt="SurveyTest" 
-                  className="h-14 sm:h-18 md:h-20 w-auto object-contain mx-auto"
+                  className="h-24 sm:h-28 md:h-32 w-auto object-contain mx-auto drop-shadow-xl"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
                 />
+                <h2 className="text-2xl font-bold text-gray-900">SurveyTest</h2>
+                <p className="text-base text-gray-500">Smart Data Insights</p>
               </div>
               
               <div>
@@ -851,6 +858,19 @@ function SurveyContent() {
             // Questions
             currentQuestion && (
               <div className="card space-y-6">
+              {/* Logo Header - Visible on every question */}
+              <div className="flex flex-col items-center gap-2 pb-4 border-b border-gray-100">
+                <img 
+                  src="/logo.png" 
+                  alt="SurveyTest" 
+                  className="h-12 sm:h-16 w-auto object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <p className="text-xs text-gray-400 font-medium">SurveyTest</p>
+              </div>
+              
               {/* Question */}
               <div className="space-y-4">
                 <div className="flex items-start gap-3">

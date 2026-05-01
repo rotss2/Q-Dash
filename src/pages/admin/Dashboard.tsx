@@ -237,7 +237,7 @@ export default function AdminDashboard() {
                 <img 
                   src="/logo.png" 
                   alt="SurveyTest" 
-                  className="h-14 sm:h-16 md:h-20 w-auto object-contain drop-shadow-sm"
+                  className="h-16 sm:h-20 md:h-24 w-auto object-contain drop-shadow-md hover:scale-105 transition-transform"
                   onError={(e) => {
                     // Fallback if logo.png doesn't exist
                     e.currentTarget.style.display = 'none';
