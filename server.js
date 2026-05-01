@@ -750,86 +750,9 @@ function generateRuleBasedQuestions(fileName, questionCount) {
   return baseQuestions.slice(0, Math.min(questionCount, baseQuestions.length));
 }
 
-// Question schema for validation
-const GeneratedQuestionSchema = z.array(z.object({
-  type: z.enum(['choice', 'text', 'likert']),
-  question_text: z.string().min(5).max(500),
-  options: z.array(z.string()).nullable(),
-  required: z.boolean().default(true),
-  sourceContext: z.string().optional(),
-}));
 
 
 
-/**
- * Generate system prompt for AI with strict grounding constraints
- */
-function generateSystemPrompt(config) {
-  const { questionTypes, complexity, strictGrounding } = config;
-  
-  const enabledTypes = [];
-  if (questionTypes.multipleChoice) enabledTypes.push('multiple choice');
-  if (questionTypes.boolean) enabledTypes.push('boolean (Yes/No)');
-  if (questionTypes.shortAnswer) enabledTypes.push('short answer');
-  if (questionTypes.likert) enabledTypes.push('Likert scale (1-5)');
-  
-  const complexityGuidelines = {
-    academic: 'Create questions that test academic understanding, requiring analysis of concepts, theories, and methodologies presented in the text.',
-    research: 'Generate research-grade questions suitable for scholarly evaluation. Questions should probe deeper understanding, require critical analysis, and assess comprehension of research findings, methodologies, and implications.',
-    analytical: 'Create evaluative questions that require synthesis of information, critical thinking, and application of concepts from the document.'
-  };
-  
-  return `You are an expert educational assessment designer specializing in creating research-grade questionnaires.
-
-## ABSOLUTE GROUNDING CONSTRAINT (CRITICAL)
-${strictGrounding ? `
-⚠️ STRICT GROUNDING ENFORCED ⚠️
-- Generate questions SOLELY based on the provided document text
-- ZERO external knowledge or assumptions allowed
-- If the document lacks sufficient information for a question, STOP and return fewer questions
-- NEVER hallucinate facts, statistics, or claims not explicitly in the text
-- Each question must be verifiable by referencing specific content in the document
-` : `
-Generate questions primarily based on the document, but you may use general knowledge to frame questions appropriately.
-`}
-
-## QUESTION TYPE REQUIREMENTS
-Generate ONLY these question types: ${enabledTypes.join(', ')}
-
-For each type:
-- Multiple Choice: 3-5 distinct options, one correct answer clearly supported by text
-- Boolean: Yes/No or True/False format, based on explicit claims in document
-- Short Answer: Questions requiring 1-3 sentence responses, testing comprehension
-- Likert Scale: Statements to rate on 1-5 scale (Strongly Disagree to Strongly Agree), based on evaluable claims
-
-## COMPLEXITY LEVEL: ${complexity.toUpperCase()}
-${complexityGuidelines[complexity]}
-
-## QUALITY CRITERIA
-1. Questions must be clear, unambiguous, and grammatically correct
-2. Avoid questions that can be answered without reading the document
-3. Include a mix of factual recall and analytical thinking
-4. Ensure questions cover different sections/aspects of the document
-5. For Likert scales, use statements that can be evaluated (not questions)
-
-## OUTPUT FORMAT
-Return a JSON array of question objects with this exact structure:
-[
-  {
-    "type": "choice" | "text" | "likert",
-    "question_text": "string (the question or statement)",
-    "options": ["option1", "option2", ...] or null for text/likert,
-    "required": true,
-    "sourceContext": "Brief excerpt from document this is based on"
-  }
-]
-
-## HALLUCINATION PREVENTION
-Before finalizing each question:
-1. Verify the answer/expertise required is explicitly in the document
-2. If insufficient content exists, generate fewer questions rather than fabricating
-3. Mark the source context for traceability`;
-}
 
 
 
