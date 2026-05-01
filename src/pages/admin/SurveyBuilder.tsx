@@ -3,9 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save, FileText, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
-import DocumentQuestionGenerator from '../../components/DocumentQuestionGenerator';
 
 interface SurveyTemplate {
   id: string;
@@ -78,7 +77,6 @@ export default function SurveyBuilder() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showBulkImporter, setShowBulkImporter] = useState(false);
-  const [showAIGenerator, setShowAIGenerator] = useState(false);
 
   useEffect(() => {
     if (isEditing && surveyId) {
@@ -542,13 +540,6 @@ export default function SurveyBuilder() {
                 <span>Bulk Import</span>
               </button>
               <button
-                onClick={() => setShowAIGenerator(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg hover:from-blue-100 hover:to-indigo-100 hover:border-blue-300 transition-colors text-sm"
-              >
-                <Sparkles className="w-4 h-4 text-blue-600" />
-                <span className="text-blue-700">AI Generate</span>
-              </button>
-              <button
                 onClick={async () => {
                   try {
                     const response = await fetch('/api/emergency-demo', {
@@ -747,17 +738,10 @@ export default function SurveyBuilder() {
           ))}
           </div>
           
-          {questions.length === 0 && !showBulkImporter && !showAIGenerator && (
+          {questions.length === 0 && !showBulkImporter && (
             <div className="card text-center py-12">
               <p className="text-gray-500 mb-4">No questions yet. Add your first question above.</p>
               <div className="flex justify-center gap-2 flex-wrap">
-                <button
-                  onClick={() => setShowAIGenerator(true)}
-                  className="btn-secondary bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:from-blue-100 hover:to-indigo-100"
-                >
-                  <Sparkles className="w-4 h-4 inline mr-2 text-blue-600" />
-                  AI Generate from Document
-                </button>
                 <button
                   onClick={() => setShowBulkImporter(true)}
                   className="btn-secondary"
@@ -781,46 +765,7 @@ export default function SurveyBuilder() {
             </div>
           )}
 
-          {/* AI Question Generator */}
-          {showAIGenerator && (
-            <div className="card">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-blue-600" />
-                    AI Question Generator
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Upload a research paper or document to automatically generate context-aware questions
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowAIGenerator(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <DocumentQuestionGenerator
-                onQuestionsGenerated={(generatedQuestions) => {
-                  const newQuestions: FormQuestion[] = generatedQuestions.map((q, index) => ({
-                    id: generateId(),
-                    type: q.type,
-                    question_text: q.question_text,
-                    options: q.options || [],
-                    required: q.required,
-                    order_index: questions?.length || 0 + index,
-                    show_when_question_id: undefined,
-                    show_when_answer_value: undefined
-                  }));
-                  setQuestions([...questions, ...newQuestions]);
-                  setShowAIGenerator(false);
-                  showToast(`${newQuestions.length} AI-generated questions added to survey`, 'success');
-                }}
-              />
-            </div>
-          )}
-
+          
           {/* Bulk Question Importer */}
           {showBulkImporter && (
             <div className="card">
