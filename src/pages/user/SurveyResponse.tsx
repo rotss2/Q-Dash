@@ -778,7 +778,7 @@ function SurveyContent() {
           {/* Progress Info */}
           <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
             <span className="font-medium">
-              {showWelcome ? 'Welcome' : `Section ${currentSectionIndex + 1} of ${questionSections.length} • ${currentSection.length} questions`}
+              {showWelcome ? 'Welcome' : `${currentSectionIndex === 0 ? 'Part A: Ease of Use' : currentSectionIndex === 1 ? 'Part B: Speed & Efficiency' : currentSectionIndex === 2 ? 'Part C: Accuracy' : currentSectionIndex === 3 ? 'Part D: Security' : `Section ${currentSectionIndex + 1}`} • ${currentSection.length} questions`}
             </span>
             {!showWelcome && (
               <span className="font-semibold text-gray-700">
@@ -910,17 +910,58 @@ function SurveyContent() {
                 </div>
 
                 <div className="rounded-3xl border border-gray-200 bg-slate-50 p-6">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md ${themeClasses.button}`}>
-                        {currentSectionIndex + 1}
-                      </div>
-                      <div>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Section {currentSectionIndex + 1}</h2>
-                        <p className="text-sm text-gray-600">Scroll down to answer all {currentSection.length} questions in this section</p>
+                  <div className="flex flex-col gap-4">
+                    {/* PART Label */}
+                    <div className="flex items-center justify-center">
+                      <span className={`px-6 py-2 rounded-full text-white text-sm font-bold uppercase tracking-wider shadow-md ${themeClasses.button}`}>
+                        Part {String.fromCharCode(65 + currentSectionIndex)}
+                      </span>
+                    </div>
+                    
+                    {/* Section Title */}
+                    <div className="text-center">
+                      <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+                        {currentSectionIndex === 0 && 'Ease of Use'}
+                        {currentSectionIndex === 1 && 'Speed & Efficiency'}
+                        {currentSectionIndex === 2 && 'Accuracy'}
+                        {currentSectionIndex === 3 && 'Security'}
+                        {currentSectionIndex > 3 && `Section ${currentSectionIndex + 1}`}
+                      </h2>
+                      <p className="text-sm text-gray-600 mt-2">
+                        Scroll down to answer all {currentSection.length} questions in this section
+                      </p>
+                    </div>
+                    
+                    {/* Rating Scale Legend */}
+                    <div className="bg-white rounded-2xl border-2 border-gray-200 p-4 mt-2">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 text-center">
+                        Rating Scale Legend
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+                        <div className="flex items-center gap-2 bg-red-50 px-3 py-2 rounded-lg border border-red-100">
+                          <span className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold">1</span>
+                          <span className="text-xs text-gray-700 font-medium">Strongly Disagree</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-orange-50 px-3 py-2 rounded-lg border border-orange-100">
+                          <span className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-bold">2</span>
+                          <span className="text-xs text-gray-700 font-medium">Disagree</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-yellow-50 px-3 py-2 rounded-lg border border-yellow-100">
+                          <span className="w-8 h-8 rounded-full bg-yellow-500 text-white flex items-center justify-center text-sm font-bold">3</span>
+                          <span className="text-xs text-gray-700 font-medium">Neutral</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg border border-green-100">
+                          <span className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold">4</span>
+                          <span className="text-xs text-gray-700 font-medium">Agree</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100">
+                          <span className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm font-bold">5</span>
+                          <span className="text-xs text-gray-700 font-medium">Strongly Agree</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-sm text-gray-500">
+
+                    <div className="text-sm text-gray-500 text-center">
                       {currentSection.length} question{currentSection.length !== 1 ? 's' : ''} in this section • {visibleQuestions.length} total questions
                     </div>
                   </div>
