@@ -721,13 +721,22 @@ async function loadModules() {
     const pdfParseModule = require('pdf-parse');
     const mammothModule = require('mammoth');
     
-    // Extract default exports (handle both ESM and CJS)
-    pdfParse = pdfParseModule.default || pdfParseModule;
-    mammoth = mammothModule.default || mammothModule;
+    // Bulletproof extraction: check all possible export locations
+    // Based on logs: pdf-parse exports { PDFParse: [class PDFParse] }
+    pdfParse = typeof pdfParseModule === 'function' 
+      ? pdfParseModule 
+      : (pdfParseModule.PDFParse || pdfParseModule.default || pdfParseModule);
+    
+    mammoth = typeof mammothModule === 'function' 
+      ? mammothModule 
+      : (mammothModule.default || mammothModule);
     
     // Log what we got for debugging
     console.log('pdf-parse loaded, type:', typeof pdfParse);
-    console.log('pdf-parse keys:', typeof pdfParse === 'object' ? Object.keys(pdfParse) : 'N/A');
+    console.log('pdf-parse is function:', typeof pdfParse === 'function');
+    if (typeof pdfParse === 'object') {
+      console.log('pdf-parse keys:', Object.keys(pdfParse));
+    }
     console.log('mammoth loaded, type:', typeof mammoth);
     
     modulesLoaded = true;
@@ -796,17 +805,22 @@ async function extractTextFromFile(fileBuffer, fileName) {
   // Ensure modules are loaded
   await loadModules();
   
-  // Verify modules are available
-  if (!pdfParse || typeof pdfParse !== 'function') {
+  // Bulletproof: extract function from object if needed
+  const pdfParser = typeof pdfParse === 'function' 
+    ? pdfParse 
+    : (pdfParse?.PDFParse || pdfParse?.default || pdfParse);
+  
+  if (!pdfParser || typeof pdfParser !== 'function') {
+    console.error('PDF Loader Debug:', {
+      type: typeof pdfParse,
+      keys: typeof pdfParse === 'object' ? Object.keys(pdfParse) : 'N/A'
+    });
     throw new Error('PDF parsing module not properly loaded');
-  }
-  if (!mammoth) {
-    throw new Error('DOCX parsing module not properly loaded');
   }
   
   try {
     if (ext === 'pdf') {
-      const pdfData = await pdfParse(fileBuffer);
+      const pdfData = await pdfParser(fileBuffer);
       return {
         text: pdfData.text,
         pageCount: pdfData.numpages,
