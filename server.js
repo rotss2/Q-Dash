@@ -820,7 +820,21 @@ async function extractTextFromFile(fileBuffer, fileName) {
   
   try {
     if (ext === 'pdf') {
-      const pdfData = await pdfParser(fileBuffer);
+      let pdfData;
+      try {
+        // Attempt 1: Call as a standard function
+        pdfData = await pdfParser(fileBuffer);
+      } catch (err) {
+        // Attempt 2: If it's a Class, use the 'new' keyword
+        if (err.message && err.message.includes("Class constructors")) {
+          console.log("Detected PDF Class constructor, using 'new' keyword...");
+          const Parser = pdfParse?.PDFParse || pdfParse;
+          const instance = new Parser(fileBuffer);
+          pdfData = await instance.parse();
+        } else {
+          throw err;
+        }
+      }
       return {
         text: pdfData.text,
         pageCount: pdfData.numpages,
