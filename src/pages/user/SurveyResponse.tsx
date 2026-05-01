@@ -525,23 +525,27 @@ function SurveyContent() {
         
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="card max-w-2xl w-full text-center space-y-6">
-            {/* Success Logo */}
-            <div className="flex flex-col items-center">
-              <img 
-                src="/logo.png" 
-                alt="SurveyTest" 
-                className="h-24 sm:h-28 md:h-32 w-auto object-contain drop-shadow-lg"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
+            {/* Success Logo - PROMINENT */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-3xl blur-xl"></div>
+                <img 
+                  src="/logo.png" 
+                  alt="SurveyTest" 
+                  className="relative h-28 sm:h-32 md:h-40 w-auto object-contain drop-shadow-2xl"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
             </div>
-            
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">
-                🎉 {t('thankYou')}! 🎉
+
+            {/* Success Message - Professional */}
+            <div className="space-y-2">
+              <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
+                {t('thankYou')}
               </h1>
-              <p className="text-lg text-gray-600 mb-2">
+              <p className="text-lg text-gray-600 max-w-md mx-auto">
                 Your response has been successfully submitted
               </p>
               <p className="text-sm text-gray-500">
@@ -549,19 +553,19 @@ function SurveyContent() {
               </p>
             </div>
 
-            {/* Success Stats */}
-            <div className="grid grid-cols-3 gap-4 py-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{submissionPreview.answers.length}</div>
-                <div className="text-xs text-gray-500">Questions Answered</div>
+            {/* Success Stats - BIGGER & BOLDER */}
+            <div className="grid grid-cols-3 gap-6 py-8">
+              <div className="text-center bg-green-50 rounded-2xl p-4 border border-green-100">
+                <div className="text-3xl sm:text-4xl font-extrabold text-green-600">{submissionPreview.answers.length}</div>
+                <div className="text-sm font-medium text-green-700 mt-1">Questions Answered</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">100%</div>
-                <div className="text-xs text-gray-500">Completed</div>
+              <div className="text-center bg-blue-50 rounded-2xl p-4 border border-blue-100">
+                <div className="text-3xl sm:text-4xl font-extrabold text-blue-600">100%</div>
+                <div className="text-sm font-medium text-blue-700 mt-1">Completed</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">✓</div>
-                <div className="text-xs text-gray-500">Success</div>
+              <div className="text-center bg-purple-50 rounded-2xl p-4 border border-purple-100">
+                <div className="text-3xl sm:text-4xl font-extrabold text-purple-600">✓</div>
+                <div className="text-sm font-medium text-purple-700 mt-1">Success</div>
               </div>
             </div>
 
@@ -584,49 +588,57 @@ function SurveyContent() {
             )}
 
             {/* Response Preview - PDF/Print Version */}
-            <div ref={summaryRef} className="bg-white rounded-xl p-6 text-left border border-gray-200 print:shadow-none print:border-0">
-              {/* PDF Header with Logo - Centered */}
-              <div className="border-b-2 border-gray-100 pb-4 mb-6 print:pb-4">
-                <div className="flex flex-col items-center text-center gap-3 mb-4">
+            <div ref={summaryRef} className="bg-white rounded-2xl p-8 text-left border border-gray-200 print:shadow-none print:border-0">
+              {/* PDF Header with Logo - BIG & Centered */}
+              <div className="border-b-2 border-gray-100 pb-6 mb-6 print:pb-4">
+                <div className="flex flex-col items-center text-center gap-4 mb-6">
                   <img 
                     src="/logo.png" 
                     alt="SurveyTest" 
-                    className="h-16 sm:h-20 w-auto object-contain print:h-14"
+                    className="h-20 sm:h-24 w-auto object-contain print:h-16 drop-shadow-md"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">{survey?.title}</h2>
-                    <p className="text-sm text-gray-500">Response Summary</p>
+                  <div className="space-y-1">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{survey?.title}</h2>
+                    <p className="text-base text-gray-500 font-medium">Response Summary</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-3">
-                  <span>Submitted: {new Date().toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500 mt-4 bg-gray-50 rounded-xl p-3">
+                  <span className="font-medium">
+                    <span className="text-gray-400">Submitted:</span> {new Date().toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
                   {submissionPreview.email && (
-                    <span className="text-blue-600">Email: {submissionPreview.email}</span>
+                    <span className="text-blue-600 font-medium">
+                      <span className="text-gray-400">Email:</span> {submissionPreview.email}
+                    </span>
                   )}
-                  <span>User ID: {userId.slice(0, 12)}...</span>
+                  <span className="font-medium text-gray-400">
+                    User ID: {userId.slice(0, 12)}...
+                  </span>
                 </div>
               </div>
 
-              {/* All Answers - No height limit */}
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                Your Responses ({submissionPreview.answers.length} questions)
+              {/* All Answers - BIGGER & More Professional */}
+              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                <CheckCircle className="w-6 h-6 text-green-500" />
+                Your Responses ({submissionPreview.answers.length} {submissionPreview.answers.length === 1 ? 'question' : 'questions'})
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {submissionPreview.answers.map((item, index) => (
-                  <div key={index} className="bg-gray-50 rounded-lg border border-gray-200 p-4 break-inside-avoid">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-semibold text-blue-600 flex-shrink-0">
+                  <div key={index} className="bg-gray-50 rounded-xl border-2 border-gray-200 p-5 break-inside-avoid hover:border-blue-300 transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-base font-bold text-blue-600 flex-shrink-0 shadow-sm">
                         {index + 1}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 mb-1">{item.questionText}</p>
-                        <p className="text-base text-gray-900 font-semibold break-words bg-white p-3 rounded-lg border border-gray-100">
-                          {item.answer || 'No answer provided'}
-                        </p>
+                      <div className="flex-1 min-w-0 space-y-3">
+                        <p className="text-base font-semibold text-gray-800 leading-relaxed">{item.questionText}</p>
+                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                          <p className="text-lg text-gray-900 font-medium break-words">
+                            {item.answer || <span className="text-gray-400 italic">No answer provided</span>}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
