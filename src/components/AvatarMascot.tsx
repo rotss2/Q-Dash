@@ -38,15 +38,7 @@ export const AvatarMascot = ({ progress, currentQuestion, totalQuestions }: Avat
     return () => clearTimeout(timer);
   }, [progress]);
 
-  // Random encouraging messages that rotate
-  const encouragementMessages = [
-    "You're doing great! ✨",
-    "Every answer counts! 📝",
-    "Thanks for your time! 💙",
-    "Your feedback matters! 🌟",
-    "Almost there! 🏃",
-  ];
-
+  
   const getMoodEmoji = () => {
     switch (mood) {
       case 'neutral':
