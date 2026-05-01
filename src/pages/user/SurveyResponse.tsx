@@ -35,8 +35,10 @@ function SurveyContent() {
   const [blockReason, setBlockReason] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
   const [fingerprint, setFingerprint] = useState<string>('');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
+
+  const QUESTIONS_PER_SECTION = 6;
 
   const answersMap = useMemo(
     () => Object.fromEntries(answers.map((answer) => [answer.question_id, answer.answer])),
@@ -124,11 +126,30 @@ function SurveyContent() {
     [questions, answersMap]
   );
 
-  useEffect(() => {
-    if (currentQuestionIndex >= visibleQuestions.length) {
-      setCurrentQuestionIndex(Math.max(0, visibleQuestions.length - 1));
+  const questionSections = useMemo(() => {
+    const sections: Question[][] = [];
+    let currentSection: Question[] = [];
+
+    visibleQuestions.forEach((question) => {
+      if (currentSection.length >= QUESTIONS_PER_SECTION) {
+        sections.push(currentSection);
+        currentSection = [];
+      }
+      currentSection.push(question);
+    });
+
+    if (currentSection.length > 0) {
+      sections.push(currentSection);
     }
-  }, [currentQuestionIndex, visibleQuestions.length]);
+
+    return sections;
+  }, [visibleQuestions]);
+
+  useEffect(() => {
+    if (currentSectionIndex >= questionSections.length) {
+      setCurrentSectionIndex(Math.max(0, questionSections.length - 1));
+    }
+  }, [currentSectionIndex, questionSections.length]);
 
   // Initialize anonymous user ID on mount
   useEffect(() => {
@@ -472,19 +493,20 @@ function SurveyContent() {
   };
 
   const goToNext = () => {
-    const currentQ = visibleQuestions[currentQuestionIndex];
-    if (currentQ?.required && !getAnswer(currentQ.id)) {
+    const currentSection = questionSections[currentSectionIndex] || [];
+    const missingRequired = currentSection.filter((q) => q.required && !getAnswer(q.id));
+    if (missingRequired.length > 0) {
       showToast(t('errorRequiredField'), 'error');
       return;
     }
-    if (currentQuestionIndex < visibleQuestions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
+    if (currentSectionIndex < questionSections.length - 1) {
+      setCurrentSectionIndex((prev) => prev + 1);
     }
   };
 
   const goToPrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+    if (currentSectionIndex > 0) {
+      setCurrentSectionIndex((prev) => prev - 1);
     }
   };
 
@@ -725,9 +747,10 @@ function SurveyContent() {
     );
   }
 
-  const currentQuestion = visibleQuestions[currentQuestionIndex];
-  const isLastQuestion = currentQuestionIndex === visibleQuestions.length - 1;
-  const progress = visibleQuestions.length > 0 ? ((currentQuestionIndex + 1) / visibleQuestions.length) * 100 : 0;
+  const currentSection = questionSections[currentSectionIndex] || [];
+  const isLastSection = currentSectionIndex === questionSections.length - 1;
+  const answeredCount = visibleQuestions.filter((q) => !!getAnswer(q.id)).length;
+  const progress = visibleQuestions.length > 0 ? (answeredCount / visibleQuestions.length) * 100 : 0;
 
   return (
     <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass} relative`}>
@@ -755,11 +778,11 @@ function SurveyContent() {
           {/* Progress Info */}
           <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
             <span className="font-medium">
-              {showWelcome ? 'Welcome' : `Question ${currentQuestionIndex + 1} of ${visibleQuestions.length}`}
+              {showWelcome ? 'Welcome' : `Section ${currentSectionIndex + 1} of ${questionSections.length} • ${currentSection.length} questions`}
             </span>
             {!showWelcome && (
               <span className="font-semibold text-gray-700">
-                {Math.round(progress)}% complete
+                {Math.round(progress)}% complete • {answeredCount} of {visibleQuestions.length} answered
               </span>
             )}
           </div>
@@ -777,7 +800,7 @@ function SurveyContent() {
       </header>
 
       {/* Main Content - Welcome Screen or Questions */}
-      <main className="flex-1 flex items-center justify-center p-4">
+      <main className="flex-1 flex justify-center p-4 items-start">
         <div className="w-full max-w-lg">
           {showWelcome ? (
             // Welcome Screen
@@ -866,195 +889,220 @@ function SurveyContent() {
               </button>
             </div>
           ) : (
-            // Questions
-            currentQuestion && (
+            currentSection.length > 0 && (
               <div className="card space-y-6">
-              {/* Logo Header - PROMINENT Branding */}
-              <div className="flex flex-col items-center gap-3 pb-6 border-b-2 border-gray-100">
-                <div className="relative">
-                  <img 
-                    src="/logo.png" 
-                    alt="SurveyTest" 
-                    className="h-20 sm:h-24 md:h-28 w-auto object-contain drop-shadow-lg"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-gray-800 tracking-wide">SurveyTest</p>
-                  <p className="text-xs text-gray-500">Smart Data Insights</p>
-                </div>
-              </div>
-              
-              {/* Question - BIGGER & BOLDER */}
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md ${themeClasses.button}`}>
-                    {currentQuestionIndex + 1}
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-snug break-words">
-                      {currentQuestion.question_text}
-                      {currentQuestion.required && (
-                        <span className="text-red-500 ml-2" title={t('required')}>*</span>
-                      )}
-                    </h2>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        currentQuestion.type === 'text' ? 'bg-blue-100 text-blue-700' :
-                        currentQuestion.type === 'choice' ? 'bg-green-100 text-green-700' :
-                        'bg-orange-100 text-orange-700'
-                      }`}>
-                        {currentQuestion.type === 'text' ? 'Text Response' :
-                         currentQuestion.type === 'choice' ? 'Multiple Choice' :
-                         'Rating Scale'}
-                      </span>
-                      {currentQuestion.required && (
-                        <span className="text-xs text-gray-500">Required</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Answer Input */}
-              <div className="space-y-4">
-                {currentQuestion.type === 'text' && (
+                {/* Logo Header - PROMINENT Branding */}
+                <div className="flex flex-col items-center gap-3 pb-6 border-b-2 border-gray-100">
                   <div className="relative">
-                    <textarea
-                      value={getAnswer(currentQuestion.id)}
-                      onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
-                      className="w-full p-4 border-2 border-gray-200 rounded-xl text-slate-900 min-h-[140px] focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
-                      placeholder={t('textPlaceholder')}
-                      autoFocus
+                    <img 
+                      src="/logo.png" 
+                      alt="SurveyTest" 
+                      className="h-20 sm:h-24 md:h-28 w-auto object-contain drop-shadow-lg"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
-                    {getAnswer(currentQuestion.id) && (
-                      <div className="absolute top-3 right-3">
-                        <CheckCircle className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-gray-800 tracking-wide">SurveyTest</p>
+                    <p className="text-xs text-gray-500">Smart Data Insights</p>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-gray-200 bg-slate-50 p-6">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md ${themeClasses.button}`}>
+                        {currentSectionIndex + 1}
                       </div>
-                    )}
+                      <div>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Section {currentSectionIndex + 1}</h2>
+                        <p className="text-sm text-gray-600">Scroll down to answer all {currentSection.length} questions in this section</p>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {currentSection.length} question{currentSection.length !== 1 ? 's' : ''} in this section • {visibleQuestions.length} total questions
+                    </div>
                   </div>
-                )}
+                </div>
 
-                {currentQuestion.type === 'choice' && currentQuestion.options && (
-                  <div className="space-y-4" role="radiogroup" aria-label={currentQuestion.question_text}>
-                    {currentQuestion.options.map((option) => {
-                      const isSelected = getAnswer(currentQuestion.id) === option;
-                      return (
-                        <button
-                          key={option}
-                          onClick={() => updateAnswer(currentQuestion.id, option)}
-                          className={`w-full p-5 sm:p-6 text-left border-2 rounded-2xl transition-all group ${
-                            isSelected
-                              ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-lg transform scale-[1.02]'
-                              : 'border-gray-200 hover:border-blue-300 text-slate-700 hover:bg-gray-50 hover:shadow-md'
-                          }`}
-                          role="radio"
-                          aria-checked={isSelected}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-all ${
-                              isSelected
-                                ? 'border-blue-500 bg-blue-500'
-                                : 'border-gray-300 group-hover:border-blue-400'
-                            }`}>
-                              {isSelected && (
-                                <div className="w-3 h-3 rounded-full bg-white" />
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <span className="text-lg sm:text-xl font-semibold break-words">{option}</span>
-                              {isSelected && (
-                                <span className="ml-3 text-sm text-blue-600 font-medium bg-blue-100 px-2 py-1 rounded-full">Selected</span>
-                              )}
-                            </div>
-                            {isSelected && (
-                              <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-blue-500" />
-                            )}
+                <div className="space-y-6 relative">
+                  {/* Scroll indicator for first section */}
+                  {currentSectionIndex === 0 && currentSection.length > 3 && (
+                    <div className="flex justify-center mb-4 animate-bounce">
+                      <div className="text-gray-400 text-sm flex items-center gap-2">
+                        <span>Scroll down for more questions</span>
+                        <ChevronRight className="w-4 h-4 rotate-90" />
+                      </div>
+                    </div>
+                  )}
+                  {currentSection.map((question, index) => {
+                    const answerValue = getAnswer(question.id);
+                    const isText = question.type === 'text';
+                    const isChoice = question.type === 'choice' && question.options;
+                    const isLikert = question.type === 'likert';
+
+                    return (
+                      <div key={question.id} className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <div className="flex items-start gap-4">
+                          <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md ${themeClasses.button}`}>
+                            {currentSectionIndex * QUESTIONS_PER_SECTION + index + 1}
                           </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          <div className="flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
+                              <h3 className="text-xl font-semibold text-slate-900 break-words">
+                                {question.question_text}
+                                {question.required && <span className="text-red-500 ml-2">*</span>}
+                              </h3>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                              <span className={`px-2 py-1 rounded-full ${
+                                question.type === 'text'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : question.type === 'choice'
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-orange-100 text-orange-700'
+                              }`}> 
+                                {question.type === 'text' ? 'Text Response' : question.type === 'choice' ? 'Multiple Choice' : 'Rating Scale'}
+                              </span>
+                              {question.required && <span>Required</span>}
+                            </div>
+                          </div>
+                        </div>
 
-                {currentQuestion.type === 'likert' && (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center px-2 text-xs text-gray-500">
-                      <span>Strongly Disagree</span>
-                      <span>Strongly Agree</span>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      {[1, 2, 3, 4, 5].map((value) => {
-                        const isSelected = getAnswer(currentQuestion.id) === value.toString();
-                        return (
-                          <button
-                            key={value}
-                            onClick={() => updateAnswer(currentQuestion.id, value.toString())}
-                            className={`flex-1 py-4 px-2 border-2 rounded-xl transition-all relative group ${
-                              isSelected
-                                ? `border-transparent ${themeClasses.button} text-white shadow-lg transform scale-105`
-                                : 'border-gray-200 hover:border-gray-300 text-slate-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            <span className="text-xl font-bold">{value}</span>
-                            {isSelected && (
-                              <div className="absolute -top-2 -right-2">
-                                <CheckCircle className="w-5 h-5 text-white" />
+                        <div className="mt-5 space-y-4">
+                          {isText && (
+                            <div className="relative">
+                              <textarea
+                                value={answerValue}
+                                onChange={(e) => updateAnswer(question.id, e.target.value)}
+                                className="w-full p-4 border-2 border-gray-200 rounded-xl text-slate-900 min-h-[140px] focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
+                                placeholder={t('textPlaceholder')}
+                              />
+                              {answerValue && (
+                                <div className="absolute top-3 right-3">
+                                  <CheckCircle className="w-5 h-5 text-green-500" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {isChoice && question.options && (
+                            <div className="space-y-4" role="radiogroup" aria-label={question.question_text}>
+                              {question.options.map((option) => {
+                                const isSelected = answerValue === option;
+                                return (
+                                  <button
+                                    key={option}
+                                    onClick={() => updateAnswer(question.id, option)}
+                                    className={`w-full p-5 sm:p-6 text-left border-2 rounded-2xl transition-all group ${
+                                      isSelected
+                                        ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-lg transform scale-[1.02]'
+                                        : 'border-gray-200 hover:border-blue-300 text-slate-700 hover:bg-gray-50 hover:shadow-md'
+                                    }`}
+                                    role="radio"
+                                    aria-checked={isSelected}
+                                  >
+                                    <div className="flex items-center gap-4">
+                                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                                        isSelected
+                                          ? 'border-blue-500 bg-blue-500'
+                                          : 'border-gray-300 group-hover:border-blue-400'
+                                      }`}>
+                                        {isSelected && <div className="w-3 h-3 rounded-full bg-white" />}
+                                      </div>
+                                      <div className="flex-1">
+                                        <span className="text-lg sm:text-xl font-semibold break-words">{option}</span>
+                                        {isSelected && <span className="ml-3 text-sm text-blue-600 font-medium bg-blue-100 px-2 py-1 rounded-full">Selected</span>}
+                                      </div>
+                                      {isSelected && <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-blue-500" />}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {isLikert && (
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center px-2 text-xs text-gray-500">
+                                <span>Strongly Disagree</span>
+                                <span>Strongly Agree</span>
                               </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                              <div className="flex justify-between gap-2">
+                                {[1, 2, 3, 4, 5].map((value) => {
+                                  const isSelected = answerValue === value.toString();
+                                  return (
+                                    <button
+                                      key={value}
+                                      onClick={() => updateAnswer(question.id, value.toString())}
+                                      className={`flex-1 py-4 px-2 border-2 rounded-xl transition-all relative group ${
+                                        isSelected
+                                          ? `border-transparent ${themeClasses.button} text-white shadow-lg transform scale-105`
+                                          : 'border-gray-200 hover:border-gray-300 text-slate-700 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      <span className="text-xl font-bold">{value}</span>
+                                      {isSelected && (
+                                        <div className="absolute -top-2 -right-2">
+                                          <CheckCircle className="w-5 h-5 text-white" />
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-              {/* Navigation */}
-              <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center">
-                {currentQuestionIndex > 0 && (
-                  <button
-                    onClick={goToPrevious}
-                    className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02] touch-manipulation"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                    {t('back')}
-                  </button>
-                )}
-                
-                {isLastQuestion ? (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting || (currentQuestion.required && !getAnswer(currentQuestion.id))}
-                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        {t('loading')}
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-6 h-6" />
-                        {t('submit')}
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    onClick={goToNext}
-                    disabled={currentQuestion.required && !getAnswer(currentQuestion.id)}
-                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
-                  >
-                    {t('next')}
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                )}
+                <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center">
+                  {currentSectionIndex > 0 && (
+                    <button
+                      onClick={goToPrevious}
+                      className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02] touch-manipulation"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                      {t('back')}
+                    </button>
+                  )}
+
+                  {isLastSection ? (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting || currentSection.some((q) => q.required && !getAnswer(q.id))}
+                      className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          {t('loading')}
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-6 h-6" />
+                          {t('submit')}
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={goToNext}
+                      disabled={currentSection.some((q) => q.required && !getAnswer(q.id))}
+                      className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
+                    >
+                      {t('next')}
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
       </main>
 
