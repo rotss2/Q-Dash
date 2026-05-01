@@ -20,23 +20,31 @@ const COOKIE_MAX_AGE = 8 * 60 * 60 * 1000; // 8 hours
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-if (!SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('ERROR: SUPABASE_SERVICE_ROLE_KEY is not set. Admin API routes will fail.');
-}
+let supabaseAdmin = null;
 
-const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  },
-  global: {
-    headers: {
-      'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      'apikey': SUPABASE_SERVICE_ROLE_KEY
-    }
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('ERROR: Supabase credentials not set. Database features will be unavailable.');
+  console.error('Please set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
+} else {
+  try {
+    supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      },
+      global: {
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          'apikey': SUPABASE_SERVICE_ROLE_KEY
+        }
+      }
+    });
+    console.log('Supabase client initialized successfully');
+  } catch (err) {
+    console.error('Failed to initialize Supabase client:', err.message);
   }
-});
+}
 
 function parseCookies(cookieHeader) {
   if (!cookieHeader) return {};
@@ -78,6 +86,10 @@ function verifySessionToken(token) {
 }
 
 function requireAdmin(req, res, next) {
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: 'Database not configured. Please set up environment variables.' });
+  }
+
   const cookies = parseCookies(req.headers.cookie);
   const token = cookies[COOKIE_NAME];
   const session = verifySessionToken(token);
@@ -858,6 +870,11 @@ let schedulerRuns = 0;
 let lastSchedulerError = null;
 
 async function runSurveyScheduler() {
+  if (!supabaseAdmin) {
+    // Skip scheduling if no database connection
+    return;
+  }
+
   try {
     // Auto-open surveys that have reached their open_date
     const { data: openedData, error: openError } = await supabaseAdmin
