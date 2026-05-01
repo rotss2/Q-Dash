@@ -563,6 +563,47 @@ export default function SurveyBuilder() {
             <span className="text-sm text-gray-500 ml-2">Add and organize your survey questions</span>
           </div>
           
+          {/* Editor Tools - Section Headers & Legends */}
+          <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-indigo-600 rounded"></div>
+              <span className="text-sm font-bold text-indigo-900 uppercase tracking-wide">Editor Tools</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <button
+                onClick={() => addQuestion('text')}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+              >
+                <span className="w-4 h-4 bg-indigo-100 text-indigo-700 rounded flex items-center justify-center text-xs font-bold">H</span>
+                <span className="font-medium text-indigo-900">Section Header</span>
+              </button>
+              <button
+                onClick={() => addQuestion('text')}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+              >
+                <span className="w-4 h-4 bg-purple-100 text-purple-700 rounded flex items-center justify-center text-xs font-bold">L</span>
+                <span className="font-medium text-indigo-900">Legend/Notes</span>
+              </button>
+              <button
+                onClick={() => addQuestion('text')}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+              >
+                <span className="w-4 h-4 bg-blue-100 text-blue-700 rounded flex items-center justify-center text-xs font-bold">1-5</span>
+                <span className="font-medium text-indigo-900">Rating Scale</span>
+              </button>
+              <button
+                onClick={() => addQuestion('text')}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+              >
+                <span className="w-4 h-4 bg-green-100 text-green-700 rounded flex items-center justify-center text-xs font-bold">R</span>
+                <span className="font-medium text-indigo-900">Required Toggle</span>
+              </button>
+            </div>
+            <p className="text-xs text-indigo-600 mt-2">
+              💡 <strong>Tip:</strong> Add Section Headers to organize questions into Parts (A, B, C, D). Add Legends to show rating scale instructions (1-5).
+            </p>
+          </div>
+
           {/* Add Question Section */}
           <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <div className="flex items-center gap-2 mb-3">
