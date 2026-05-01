@@ -702,28 +702,49 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
     }
     console.log('Found responses:', responses?.length || 0);
 
+    // Get all unique user_ids from responses
+    const allUserIds = [...new Set((responses || []).map(r => r.user_id))];
+    
     // Get unique user_ids that look like UUIDs (for profile lookup)
-    const userIds = [...new Set((responses || []).map(r => r.user_id).filter(id => 
+    const uuidUserIds = allUserIds.filter(id => 
       id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
-    ))];
+    );
     
     // Fetch profiles for registered users
     let profilesMap = new Map();
-    if (userIds.length > 0) {
+    if (uuidUserIds.length > 0) {
       const { data: profiles } = await supabaseAdmin
         .from('profiles')
         .select('id, email')
-        .in('id', userIds);
+        .in('id', uuidUserIds);
       
       (profiles || []).forEach(p => profilesMap.set(p.id, p.email));
     }
 
-    // Enrich responses with profile email and question text
+    // Fetch survey_sessions for ALL users (to get email from anonymous users)
+    let sessionsMap = new Map();
+    if (allUserIds.length > 0) {
+      const { data: sessions } = await supabaseAdmin
+        .from('survey_sessions')
+        .select('user_id, email')
+        .eq('survey_id', surveyId)
+        .in('user_id', allUserIds);
+      
+      (sessions || []).forEach(s => {
+        if (s.email) {
+          sessionsMap.set(s.user_id, s.email);
+        }
+      });
+    }
+
+    // Enrich responses with profile email, survey session email (for anonymous), and question text
     const enrichedResponses = (responses || []).map(r => {
       const question = questions?.find(q => q.id === r.question_id);
+      // Priority: 1. Profile email (registered user), 2. Survey session email (anonymous), 3. null
+      const email = profilesMap.get(r.user_id) || sessionsMap.get(r.user_id) || null;
       return {
         ...r,
-        profile: { email: profilesMap.get(r.user_id) || null },
+        profile: { email },
         question: question ? { question_text: question.question_text } : null
       };
     });
