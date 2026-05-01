@@ -734,41 +734,39 @@ function SurveyContent() {
       {/* Animated Background Theme */}
       <ThemedBackground theme={survey?.background_theme || 'default'} />
       
-      {/* Header with Progress */}
+      {/* Header with Logo & Progress */}
       <header className={`${themeClasses.card} border-b sticky top-0 z-10 shadow-sm`}>
-        <div className="max-w-lg mx-auto px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
-            <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold ${themeClasses.button}`}>
-                {showWelcome ? '👋' : (currentQuestionIndex + 1)}
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-500 block">
-                  {showWelcome ? 'Welcome' : `Question ${currentQuestionIndex + 1} of ${visibleQuestions.length}`}
-                </span>
-                {!showWelcome && (
-                  <span className="text-xs text-gray-400">
-                    {Math.round(progress)}% complete
-                  </span>
-                )}
-              </div>
-            </div>
-            <span className="text-sm font-medium text-slate-900 break-words text-center sm:text-left max-w-full truncate">
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          {/* Top Row: Logo + Title */}
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <img 
+              src="/logo.png" 
+              alt="SurveyTest" 
+              className="h-8 sm:h-10 w-auto object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
               {survey.title}
-            </span>
-            <div className="flex items-center gap-2">
-              <div className="text-right">
-                <span className="text-sm font-medium text-gray-500 block">
-                  {visibleQuestions.length - currentQuestionIndex - 1} left
-                </span>
-                <span className="text-xs text-gray-400">
-                  ~{Math.ceil((visibleQuestions.length - currentQuestionIndex - 1) * 0.5)} min
-                </span>
-              </div>
-            </div>
+            </h1>
           </div>
+          
+          {/* Progress Info */}
+          <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
+            <span className="font-medium">
+              {showWelcome ? 'Welcome' : `Question ${currentQuestionIndex + 1} of ${visibleQuestions.length}`}
+            </span>
+            {!showWelcome && (
+              <span className="font-semibold text-gray-700">
+                {Math.round(progress)}% complete
+              </span>
+            )}
+          </div>
+          
+          {/* Progress Bar */}
           {!showWelcome && (
-            <div className={`mt-3 h-3 ${themeClasses.progress} rounded-full overflow-hidden`}>
+            <div className={`h-3 ${themeClasses.progress} rounded-full overflow-hidden`}>
               <div 
                 className={`h-full ${themeClasses.progressFill} transition-all duration-500 ease-out relative`}
                 style={{ width: `${progress}%` }}
