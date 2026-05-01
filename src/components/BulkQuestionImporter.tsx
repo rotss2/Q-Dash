@@ -303,16 +303,21 @@ export default function BulkQuestionImporter({
       // Extract expected/correct answer (for reference, not used in current implementation)
       // Note: Could extract answer here for future features like validation
       
-      // Determine question type
+      // Determine question type using PatternRecognitionEngine for smart detection
       let type: QuestionType = 'text';
+      const detected = PatternRecognitionEngine.detectQuestionType(questionText, '');
+      
       if (options.length > 0) {
         type = 'choice';
-      } else if (/^(do you|would you|have you|is it|are you|should you|can you|will you|does the|are the|is the)/i.test(questionText)) {
-        type = 'choice';
-        options = ['Yes', 'No'];
-      } else if (questionText.toLowerCase().includes('rate') || questionText.toLowerCase().includes('scale')) {
+      } else if (detected.type === 'likert') {
         type = 'likert';
         options = ['1', '2', '3', '4', '5'];
+      } else if (detected.type === 'boolean' || /^(do you|would you|have you|is it|are you|should you|can you|will you|does the|are the|is the)/i.test(questionText)) {
+        type = 'choice';
+        options = ['Yes', 'No'];
+      } else if (detected.type === 'choice') {
+        type = 'choice';
+        options = detected.options || ['Option 1', 'Option 2', 'Option 3', 'Option 4'];
       }
       
       // Clean question text
@@ -419,7 +424,11 @@ export default function BulkQuestionImporter({
 
   // Auto Organize & Analyze - Smart question detection and organization
   const autoOrganizeAndAnalyze = useCallback(async () => {
-    if (questions.length === 0) return;
+    console.log('Auto Organize clicked, questions count:', questions.length);
+    if (questions.length === 0) {
+      console.log('No questions to organize');
+      return;
+    }
     
     setIsAnalyzing(true);
     
@@ -807,8 +816,8 @@ export default function BulkQuestionImporter({
           {/* Prominent Auto Organize Button - Always Visible */}
           <button
             onClick={autoOrganizeAndAnalyze}
-            disabled={isAnalyzing || questions.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+            disabled={isAnalyzing}
+            className={`flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-violet-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg ${questions.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
             title="AI-powered: Auto-detect question types, extract options, and organize into sections"
           >
             {isAnalyzing ? (
