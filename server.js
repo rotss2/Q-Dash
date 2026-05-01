@@ -704,8 +704,11 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
+import { createRequire } from 'module';
 
-// Dynamic imports for CommonJS modules
+const require = createRequire(import.meta.url);
+
+// Load CommonJS modules properly
 let pdfParse;
 let mammoth;
 let modulesLoaded = false;
@@ -714,20 +717,13 @@ async function loadModules() {
   if (modulesLoaded) return;
   
   try {
-    const pdfParseModule = await import('pdf-parse');
-    const mammothModule = await import('mammoth');
+    // Use createRequire for CommonJS compatibility
+    pdfParse = require('pdf-parse');
+    mammoth = require('mammoth');
     
-    // Handle CommonJS interop - default export is the function
-    pdfParse = pdfParseModule.default || pdfParseModule;
-    mammoth = mammothModule.default || mammothModule;
-    
-    // If still not a function, try direct property access
-    if (typeof pdfParse !== 'function') {
-      console.log('pdf-parse type:', typeof pdfParse);
-      console.log('pdf-parse keys:', Object.keys(pdfParseModule));
-      // Use the module directly as function (CommonJS interop)
-      pdfParse = pdfParseModule.default?.default || pdfParseModule.default || pdfParse;
-    }
+    // Log what we got for debugging
+    console.log('pdf-parse loaded, type:', typeof pdfParse);
+    console.log('mammoth loaded, type:', typeof mammoth);
     
     modulesLoaded = true;
     console.log('PDF and DOCX parsing modules loaded successfully');
