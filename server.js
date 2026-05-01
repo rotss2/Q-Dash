@@ -717,15 +717,16 @@ async function loadModules() {
     const pdfParseModule = await import('pdf-parse');
     const mammothModule = await import('mammoth');
     
-    // Handle different export structures
-    pdfParse = pdfParseModule.default?.default || pdfParseModule.default || pdfParseModule;
-    mammoth = mammothModule.default?.default || mammothModule.default || mammothModule;
+    // Handle CommonJS interop - default export is the function
+    pdfParse = pdfParseModule.default || pdfParseModule;
+    mammoth = mammothModule.default || mammothModule;
     
-    // Verify they're functions
+    // If still not a function, try direct property access
     if (typeof pdfParse !== 'function') {
-      console.error('pdf-parse export structure:', Object.keys(pdfParseModule));
-      // pdf-parse exports PDFParse (capital P) in some versions
-      pdfParse = pdfParseModule.PDFParse || pdfParseModule.pdfParse || pdfParseModule.default || pdfParseModule;
+      console.log('pdf-parse type:', typeof pdfParse);
+      console.log('pdf-parse keys:', Object.keys(pdfParseModule));
+      // Use the module directly as function (CommonJS interop)
+      pdfParse = pdfParseModule.default?.default || pdfParseModule.default || pdfParse;
     }
     
     modulesLoaded = true;
