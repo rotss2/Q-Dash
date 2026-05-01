@@ -294,9 +294,12 @@ export default function AdminDashboard() {
         <div className="flex flex-col gap-6 lg:flex-row">
           {/* Main Content */}
           <div className="flex-1">
-        {/* Stats - Enhanced with gradients and animations */}
+        {/* Stats - Enhanced with gradients and animations - Now Clickable */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+          <button
+            onClick={() => navigate('/admin/surveys/all')}
+            className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group"
+          >
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="relative flex items-center gap-4">
               <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
@@ -308,11 +311,14 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="absolute bottom-4 right-4">
-              <ArrowUpRight className="w-5 h-5 text-blue-400" />
+              <ArrowUpRight className="w-5 h-5 text-blue-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </div>
-          </div>
+          </button>
 
-          <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+          <button
+            onClick={() => navigate('/admin/responses/all')}
+            className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group"
+          >
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="relative flex items-center gap-4">
               <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
@@ -324,9 +330,9 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="absolute bottom-4 right-4">
-              <ArrowUpRight className="w-5 h-5 text-emerald-400" />
+              <ArrowUpRight className="w-5 h-5 text-emerald-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </div>
-          </div>
+          </button>
 
           <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />

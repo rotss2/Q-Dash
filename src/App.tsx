@@ -4,6 +4,8 @@ import { ToasterProvider } from './components/Toaster';
 import AdminDashboard from './pages/admin/Dashboard';
 import SurveyBuilder from './pages/admin/SurveyBuilder';
 import SurveyAnalytics from './pages/admin/SurveyAnalytics';
+import AllSurveys from './pages/admin/AllSurveys';
+import AllResponses from './pages/admin/AllResponses';
 import SurveyResponse from './pages/user/SurveyResponse';
 import Login from './pages/Login';
 import Forbidden from './pages/Forbidden';
@@ -48,6 +50,22 @@ function App() {
               element={
                 <RequireAdmin>
                   <SurveyAnalytics />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/surveys/all"
+              element={
+                <RequireAdmin>
+                  <AllSurveys />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin/responses/all"
+              element={
+                <RequireAdmin>
+                  <AllResponses />
                 </RequireAdmin>
               }
             />

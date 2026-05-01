@@ -25,6 +25,7 @@ function SurveyContent() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [submissionPreview, setSubmissionPreview] = useState<{ email?: string; answers: { questionText: string; answer: string }[] } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -418,6 +419,22 @@ function SurveyContent() {
     setIsSubmitting(false);
   };
 
+  const validateEmail = (email: string): boolean => {
+    if (!email) return true; // Email is optional
+    // Gmail validation - must be @gmail.com
+    const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/i;
+    return gmailRegex.test(email);
+  };
+
+  const handleGetStarted = () => {
+    if (email && !validateEmail(email)) {
+      setEmailError('Please enter a valid Gmail address (e.g., user@gmail.com)');
+      return;
+    }
+    setEmailError('');
+    setShowWelcome(false);
+  };
+
   const goToNext = () => {
     const currentQ = visibleQuestions[currentQuestionIndex];
     if (currentQ?.required && !getAnswer(currentQ.id)) {
@@ -713,17 +730,29 @@ function SurveyContent() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-slate-900 focus:border-slate-400 focus:outline-none"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError('');
+                  }}
+                  className={`w-full rounded-xl border px-4 py-3 text-slate-900 focus:outline-none transition-colors ${
+                    emailError ? 'border-red-300 focus:border-red-400 bg-red-50' : 'border-gray-200 focus:border-slate-400'
+                  }`}
                   placeholder="Enter your Gmail to receive a preview summary"
                 />
-                <p className="mt-2 text-xs text-slate-500">
-                  {t('optional')}. Leave blank to proceed anonymously.
-                </p>
+                {emailError ? (
+                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4" />
+                    {emailError}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    {t('optional')}. Leave blank to proceed anonymously. Must be a valid @gmail.com address.
+                  </p>
+                )}
               </div>
 
               <button
-                onClick={() => setShowWelcome(false)}
+                onClick={handleGetStarted}
                 className={`w-full flex items-center justify-center gap-2 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] touch-manipulation`}
               >
                 Get Started
