@@ -145,14 +145,19 @@ export default function DocumentQuestionGenerator({
       
       const data = await response.json();
       
+      // Defensive check for upload response
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response format from server');
+      }
+      
       if (data.success) {
-        setExtractedText(data.text);
+        setExtractedText(data.text || '');
         setTextChunks(data.chunks || []);
-        showToast(`Extracted ${data.text.length.toLocaleString()} characters from document`, 'success');
+        showToast(`Extracted ${(data.text || '').length.toLocaleString()} characters from document`, 'success');
         
         // Auto-start generation if text was extracted
-        if (data.text.length > 0) {
-          await generateQuestions(data.text, data.chunks);
+        if (data.text && data.text.length > 0) {
+          await generateQuestions(data.text, data.chunks || []);
         }
       } else {
         throw new Error(data.error || 'Failed to extract text');
@@ -202,7 +207,7 @@ export default function DocumentQuestionGenerator({
       
       const data = await response.json();
       
-      if (data.questions && data.questions.length > 0) {
+      if (data.questions && Array.isArray(data.questions) && data.questions.length > 0) {
         setGeneratedQuestions(data.questions);
         showToast(`Generated ${data.questions.length} questions from document`, 'success');
         

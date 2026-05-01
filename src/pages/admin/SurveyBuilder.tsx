@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save, FileText, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText, Sparkles, AlertCircle } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 import DocumentQuestionGenerator from '../../components/DocumentQuestionGenerator';
 
@@ -143,7 +143,7 @@ export default function SurveyBuilder() {
       question_text: '',
       options: options.length > 0 ? options : type === 'choice' ? ['Option 1', 'Option 2'] : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
       required: true,
-      order_index: questions.length
+      order_index: questions?.length || 0
     };
     setQuestions([...questions, newQuestion]);
   };
@@ -208,7 +208,7 @@ export default function SurveyBuilder() {
       return;
     }
 
-    if (questions.length === 0) {
+    if (!questions || questions.length === 0) {
       showToast('Please add at least one question', 'error');
       return;
     }
@@ -523,7 +523,7 @@ export default function SurveyBuilder() {
         <div className="card">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-1 h-6 bg-indigo-500 rounded-full"></div>
-            <h2 className="text-lg font-semibold text-gray-900">Questions ({questions.length})</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Questions ({questions?.length || 0})</h2>
             <span className="text-sm text-gray-500 ml-2">Add and organize your survey questions</span>
           </div>
           
@@ -547,6 +547,37 @@ export default function SurveyBuilder() {
               >
                 <Sparkles className="w-4 h-4 text-blue-600" />
                 <span className="text-blue-700">AI Generate</span>
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/emergency-demo', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    const data = await response.json();
+                    if (data.success && data.questions) {
+                      const newQuestions = data.questions.map((q: any, index: number) => ({
+                        id: generateId(),
+                        type: q.type,
+                        question_text: q.question_text,
+                        options: q.options || [],
+                        required: q.required,
+                        order_index: questions?.length || 0 + index,
+                        show_when_question_id: undefined,
+                        show_when_answer_value: undefined
+                      }));
+                      setQuestions([...questions, ...newQuestions]);
+                      showToast(`${newQuestions.length} emergency questions added`, 'success');
+                    }
+                  } catch (error) {
+                    showToast('Emergency fallback failed', 'error');
+                  }
+                }}
+                className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm"
+              >
+                <AlertCircle className="w-4 h-4 text-red-600" />
+                <span className="text-red-700">Emergency</span>
               </button>
               <button
                 onClick={() => addQuestion('text')}
@@ -778,7 +809,7 @@ export default function SurveyBuilder() {
                     question_text: q.question_text,
                     options: q.options || [],
                     required: q.required,
-                    order_index: questions.length + index,
+                    order_index: questions?.length || 0 + index,
                     show_when_question_id: undefined,
                     show_when_answer_value: undefined
                   }));
@@ -818,7 +849,7 @@ export default function SurveyBuilder() {
                       question_text: q.text,
                       options,
                       required: true,
-                      order_index: questions.length + index
+                      order_index: questions?.length || 0 + index
                     };
                   });
                   setQuestions([...questions, ...newQuestions]);
