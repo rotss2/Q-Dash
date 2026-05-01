@@ -1101,12 +1101,20 @@ function SurveyContent() {
                             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                               <span className={`px-2 py-1 rounded-full ${
                                 question.type === 'text'
-                                  ? 'bg-blue-100 text-blue-700'
+                                  ? question.required
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-purple-100 text-purple-700'
                                   : question.type === 'choice'
                                   ? 'bg-green-100 text-green-700'
                                   : 'bg-orange-100 text-orange-700'
                               }`}> 
-                                {question.type === 'text' ? 'Text Response' : question.type === 'choice' ? 'Multiple Choice' : 'Rating Scale'}
+                                {question.type === 'text'
+                                  ? question.required
+                                    ? 'Text Response'
+                                    : 'Section Header'
+                                  : question.type === 'choice'
+                                    ? 'Multiple Choice'
+                                    : 'Rating Scale'}
                               </span>
                               {question.required && <span>Required</span>}
                             </div>
@@ -1114,7 +1122,8 @@ function SurveyContent() {
                         </div>
 
                         <div className="mt-5 space-y-4">
-                          {isText && (
+                          {/* Text questions: If required show textarea, if not required show as heading/instruction */}
+                          {isText && question.required && (
                             <div className="relative">
                               <textarea
                                 value={answerValue}
@@ -1127,6 +1136,13 @@ function SurveyContent() {
                                   <CheckCircle className="w-5 h-5 text-green-500" />
                                 </div>
                               )}
+                            </div>
+                          )}
+                          {isText && !question.required && (
+                            <div className="bg-indigo-50 rounded-xl p-4 border-l-4 border-indigo-500">
+                              <p className="text-sm text-indigo-700 font-medium">
+                                ℹ️ This is an information section - no answer required
+                              </p>
                             </div>
                           )}
 
