@@ -385,7 +385,8 @@ function SurveyContent() {
         hint: 'No issues found'
       });
       // Layer 3: Record completion in survey_sessions table
-      const { error: completionError } = await supabase
+      console.log('Recording survey completion:', { surveyId, userId, email: email.trim() || null });
+      const { error: completionError, data: completionData } = await supabase
         .rpc('record_survey_completion', {
           p_survey_id: surveyId!,
           p_user_id: userId,
@@ -397,7 +398,8 @@ function SurveyContent() {
 
       if (completionError) {
         console.error('Error recording completion:', completionError);
-        // Still mark as submitted since responses were saved
+      } else {
+        console.log('Survey completion recorded:', completionData);
       }
 
       // Response count is automatically updated by database trigger
