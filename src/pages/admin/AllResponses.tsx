@@ -2,19 +2,25 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiDelete } from '../../lib/api';
-import { Survey, Response } from '../../types';
+import { Survey, Response, Question } from '../../types';
 import { ArrowLeft, Users, FileText, Clock, User, Search, Filter, Download, Trash2, BarChart3 } from 'lucide-react';
 
-interface ResponseWithDetails extends Response {
-  survey_title?: string;
-  user_email?: string;
-  user_fingerprint?: string;
+interface GroupedSubmission {
+  id: string; // Composite key: userId_surveyId
+  user_id: string;
+  user_email: string | null;
+  survey_id: string;
+  survey_title: string;
+  answers: { question: string; answer: string }[];
+  submitted_at: string;
+  ip_address?: string;
+  user_agent?: string;
 }
 
 export default function AllResponses() {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [responses, setResponses] = useState<ResponseWithDetails[]>([]);
+  const [submissions, setSubmissions] = useState<GroupedSubmission[]>([]);
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,51 +45,98 @@ export default function AllResponses() {
     const surveyList = surveysResponse.data?.surveys || [];
     setSurveys(surveyList);
 
-    // Load responses for each survey
-    const allResponses: ResponseWithDetails[] = [];
+    // Load responses for each survey and group by user+survey
+    const submissionMap = new Map<string, GroupedSubmission>();
+    
     for (const survey of surveyList) {
-      const response = await apiGet<{ responses: Response[] }>(
-        `/api/admin/surveys/${survey.id}/analytics?_t=${timestamp}`
-      );
+      const response = await apiGet<{
+        responses: Array<Response & { question?: Question; profile?: { email: string } }>;
+      }>(`/api/admin/surveys/${survey.id}/analytics?_t=${timestamp}`);
+      
       if (!response.error && response.data?.responses) {
-        const surveyResponses = response.data.responses.map(r => ({
-          ...r,
-          survey_title: survey.title,
-          user_email: r.user_id, // Will be updated if we have profile data
-        }));
-        allResponses.push(...surveyResponses);
+        for (const r of response.data.responses) {
+          const key = `${r.user_id}_${r.survey_id}`;
+          
+          if (!submissionMap.has(key)) {
+            submissionMap.set(key, {
+              id: key,
+              user_id: r.user_id,
+              user_email: r.profile?.email || null,
+              survey_id: r.survey_id,
+              survey_title: survey.title,
+              answers: [],
+              submitted_at: r.submitted_at,
+              ip_address: (r as any).ip_address,
+              user_agent: (r as any).user_agent,
+            });
+          }
+          
+          // Add answer to the submission
+          const submission = submissionMap.get(key)!;
+          submission.answers.push({
+            question: r.question?.question_text || 'Unknown Question',
+            answer: r.answer,
+          });
+          
+          // Keep the latest timestamp
+          if (new Date(r.submitted_at) > new Date(submission.submitted_at)) {
+            submission.submitted_at = r.submitted_at;
+          }
+        }
       }
     }
 
-    // Sort by timestamp descending
-    allResponses.sort((a, b) => new Date(b.submitted_at || 0).getTime() - new Date(a.submitted_at || 0).getTime());
-    setResponses(allResponses);
+    // Convert to array and sort by timestamp descending
+    const groupedSubmissions = Array.from(submissionMap.values());
+    groupedSubmissions.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+    setSubmissions(groupedSubmissions);
     setIsLoading(false);
   };
 
-  const deleteResponse = async (responseId: string, surveyId: string) => {
-    if (!confirm('Are you sure you want to delete this response?')) return;
+  const deleteSubmission = async (userId: string, surveyId: string) => {
+    if (!confirm('Are you sure you want to delete this entire submission? This will remove all answers from this user for this survey.')) return;
 
-    const response = await apiDelete<{ success: boolean }>(
-      `/api/admin/surveys/${surveyId}/responses/${responseId}`
-    );
-
+    // Find all response IDs for this user+survey combination
+    const timestamp = new Date().getTime();
+    const response = await apiGet<{
+      responses: Array<Response>;
+    }>(`/api/admin/surveys/${surveyId}/analytics?_t=${timestamp}`);
+    
     if (response.error) {
       showToast(response.error, 'error');
+      return;
+    }
+
+    // Delete all responses from this user for this survey
+    const userResponses = response.data?.responses.filter(r => r.user_id === userId) || [];
+    let deletedCount = 0;
+    
+    for (const r of userResponses) {
+      const deleteResult = await apiDelete<{ success: boolean }>(
+        `/api/admin/surveys/${surveyId}/responses/${r.id}`
+      );
+      if (!deleteResult.error) {
+        deletedCount++;
+      }
+    }
+
+    if (deletedCount > 0) {
+      showToast(`Deleted ${deletedCount} response(s) successfully`, 'success');
+      setSubmissions(prev => prev.filter(s => !(s.user_id === userId && s.survey_id === surveyId)));
     } else {
-      showToast('Response deleted successfully', 'success');
-      setResponses(prev => prev.filter(r => r.id !== responseId));
+      showToast('Failed to delete responses', 'error');
     }
   };
 
   const exportToCSV = () => {
-    const headers = ['User ID', 'Email', 'Survey', 'Answer', 'Submitted At'];
-    const rows = filteredResponses.map(r => [
-      r.user_id,
-      r.user_email || 'Anonymous',
-      r.survey_title || 'Unknown',
-      r.answer,
-      new Date(r.submitted_at).toLocaleString()
+    const headers = ['User ID', 'Email', 'Survey', 'Answers', 'Submitted At', 'IP Address'];
+    const rows = filteredSubmissions.map(s => [
+      s.user_id,
+      s.user_email || 'Anonymous',
+      s.survey_title || 'Unknown',
+      s.answers.map(a => `${a.question}: ${a.answer}`).join('; '),
+      new Date(s.submitted_at).toLocaleString(),
+      s.ip_address || 'N/A'
     ]);
 
     const csv = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n');
@@ -91,25 +144,34 @@ export default function AllResponses() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `all-responses-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `all-submissions-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
-    showToast('Responses exported successfully', 'success');
+    showToast(`${filteredSubmissions.length} submissions exported successfully`, 'success');
   };
 
-  const filteredResponses = responses.filter(response => {
+  const filteredSubmissions = submissions.filter(submission => {
     const matchesSearch = 
-      response.user_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      response.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      response.survey_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      response.answer?.toLowerCase().includes(searchTerm.toLowerCase());
+      submission.user_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      submission.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      submission.survey_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      submission.answers.some(a => 
+        a.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.answer.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     
-    const matchesSurvey = filterSurvey === 'all' || response.survey_title === filterSurvey;
+    const matchesSurvey = filterSurvey === 'all' || submission.survey_title === filterSurvey;
     
     return matchesSearch && matchesSurvey;
   });
 
-  const uniqueSurveys = [...new Set(responses.map(r => r.survey_title).filter(Boolean))];
+  const uniqueSurveys = [...new Set(submissions.map(s => s.survey_title).filter(Boolean))];
+  
+  // Calculate filtered stats
+  const filteredCount = filteredSubmissions.length;
+  const activeSurveysCount = filterSurvey === 'all' 
+    ? surveys.filter(s => s.status === 'open').length 
+    : (surveys.find(s => s.title === filterSurvey)?.status === 'open' ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -126,13 +188,13 @@ export default function AllResponses() {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">All Responses</h1>
-                <p className="text-xs text-gray-500">{responses.length} total responses across {surveys.length} surveys</p>
+                <p className="text-xs text-gray-500">{submissions.length} total submissions across {surveys.length} surveys</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={exportToCSV}
-                disabled={filteredResponses.length === 0}
+                disabled={filteredSubmissions.length === 0}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download className="w-4 h-4" />
@@ -171,16 +233,21 @@ export default function AllResponses() {
           </div>
         </div>
 
-        {/* Stats Summary */}
+        {/* Stats Summary - Now shows filtered counts */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className={`rounded-xl border p-4 transition-colors ${filterSurvey !== 'all' ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'}`}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
                 <Users className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Responses</p>
-                <p className="text-xl font-bold text-gray-900">{responses.length}</p>
+                <p className="text-sm text-gray-500">
+                  {filterSurvey === 'all' ? 'Total Submissions' : 'Filtered Submissions'}
+                </p>
+                <p className="text-xl font-bold text-gray-900">{filteredCount}</p>
+                {filterSurvey !== 'all' && (
+                  <p className="text-xs text-blue-600">of {submissions.length} total</p>
+                )}
               </div>
             </div>
           </div>
@@ -191,7 +258,7 @@ export default function AllResponses() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Active Surveys</p>
-                <p className="text-xl font-bold text-gray-900">{surveys.filter(s => s.status === 'open').length}</p>
+                <p className="text-xl font-bold text-gray-900">{activeSurveysCount}</p>
               </div>
             </div>
           </div>
@@ -201,14 +268,16 @@ export default function AllResponses() {
                 <BarChart3 className="w-5 h-5 text-violet-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Filtered Results</p>
-                <p className="text-xl font-bold text-gray-900">{filteredResponses.length}</p>
+                <p className="text-sm text-gray-500">Unique Users</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {new Set(filteredSubmissions.map(s => s.user_id)).size}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Responses Table */}
+        {/* Submissions Table */}
         {isLoading ? (
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <div className="p-6 space-y-4">
@@ -223,10 +292,10 @@ export default function AllResponses() {
               ))}
             </div>
           </div>
-        ) : filteredResponses.length === 0 ? (
+        ) : filteredSubmissions.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
             <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No responses found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No submissions found</h3>
             <p className="text-gray-500">Try adjusting your search or filters</p>
           </div>
         ) : (
@@ -237,40 +306,51 @@ export default function AllResponses() {
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">User</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Survey</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Answer</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Answers</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Submitted</th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredResponses.map((response) => (
-                    <tr key={response.id} className="hover:bg-gray-50/80 transition-colors">
+                  {filteredSubmissions.map((submission) => (
+                    <tr key={submission.id} className="hover:bg-gray-50/80 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
                             <User className="w-5 h-5 text-white" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-900">{response.user_id?.slice(0, 12) || 'Anonymous'}</p>
-                            <p className="text-xs text-gray-500">{response.user_email || 'No email'}</p>
+                            <p className="text-sm font-semibold text-gray-900">{submission.user_id?.slice(0, 12) || 'Anonymous'}</p>
+                            {submission.user_email ? (
+                              <p className="text-xs text-emerald-600 font-medium">{submission.user_email}</p>
+                            ) : (
+                              <p className="text-xs text-gray-400">No email provided</p>
+                            )}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-900">{response.survey_title || 'Unknown'}</span>
+                          <span className="text-sm text-gray-900">{submission.survey_title || 'Unknown'}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900 max-w-xs truncate" title={response.answer}>
-                          {response.answer || '-'}
-                        </p>
+                        <div className="space-y-1">
+                          {submission.answers.slice(0, 2).map((a, i) => (
+                            <p key={i} className="text-sm text-gray-600 truncate max-w-xs">
+                              <span className="font-medium text-gray-900">{a.question.slice(0, 30)}...</span>: {a.answer.slice(0, 50)}
+                            </p>
+                          ))}
+                          {submission.answers.length > 2 && (
+                            <p className="text-xs text-gray-400">+{submission.answers.length - 2} more answers</p>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                           <Clock className="w-4 h-4" />
-                          {new Date(response.submitted_at).toLocaleString('en-US', {
+                          {new Date(submission.submitted_at).toLocaleString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric',
@@ -281,9 +361,9 @@ export default function AllResponses() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
-                          onClick={() => deleteResponse(response.id, response.survey_id)}
+                          onClick={() => deleteSubmission(submission.user_id, submission.survey_id)}
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          title="Delete response"
+                          title="Delete entire submission"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
