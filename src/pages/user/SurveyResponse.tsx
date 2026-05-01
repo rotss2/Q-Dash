@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { supabase } from '../../lib/supabase';
@@ -6,9 +6,10 @@ import { getAnonymousUserId } from '../../lib/fingerprint';
 import { Survey, Question } from '../../types';
 import { LanguageProvider, useLanguage } from '../../hooks/useLanguage';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
-import { CheckCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Download, Printer, FileText } from 'lucide-react';
 import { ThemedBackground } from '../../components/ThemedBackground';
 import { AvatarMascot } from '../../components/AvatarMascot';
+import html2pdf from 'html2pdf.js';
 
 interface Answer {
   question_id: string;
@@ -27,6 +28,7 @@ function SurveyContent() {
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [submissionPreview, setSubmissionPreview] = useState<{ email?: string; answers: { questionText: string; answer: string }[] } | null>(null);
+  const summaryRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -419,6 +421,27 @@ function SurveyContent() {
     setIsSubmitting(false);
   };
 
+  const downloadPDF = async () => {
+    if (!summaryRef.current || !survey) return;
+
+    const element = summaryRef.current;
+    const opt = {
+      margin: 10,
+      filename: `${survey.title}-response-summary.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+      showToast('PDF downloaded successfully!', 'success');
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      showToast('Failed to generate PDF. Please try printing instead.', 'error');
+    }
+  };
+
   const validateEmail = (email: string): boolean => {
     if (!email) return true; // Email is optional
     // Gmail validation - must be @gmail.com
@@ -543,47 +566,86 @@ function SurveyContent() {
               </div>
             )}
 
-            {/* Response Preview */}
-            <div className="bg-gray-50 rounded-xl p-6 text-left">
+            {/* Response Preview - PDF/Print Version */}
+            <div ref={summaryRef} className="bg-white rounded-xl p-6 text-left border border-gray-200 print:shadow-none print:border-0">
+              {/* PDF Header */}
+              <div className="border-b-2 border-gray-100 pb-4 mb-6 print:pb-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center print:bg-blue-600">
+                    <FileText className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{survey?.title}</h2>
+                    <p className="text-sm text-gray-500">Response Summary</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-3">
+                  <span>Submitted: {new Date().toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  {submissionPreview.email && (
+                    <span className="text-blue-600">Email: {submissionPreview.email}</span>
+                  )}
+                  <span>User ID: {userId.slice(0, 12)}...</span>
+                </div>
+              </div>
+
+              {/* All Answers - No height limit */}
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span>📋</span>
-                Your Response Summary
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                Your Responses ({submissionPreview.answers.length} questions)
               </h3>
-              <div className="space-y-3 max-h-60 overflow-y-auto">
+              <div className="space-y-4">
                 {submissionPreview.answers.map((item, index) => (
-                  <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+                  <div key={index} className="bg-gray-50 rounded-lg border border-gray-200 p-4 break-inside-avoid">
                     <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-semibold text-blue-600 flex-shrink-0 mt-0.5">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-semibold text-blue-600 flex-shrink-0">
                         {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-500 mb-1">{item.questionText}</p>
-                        <p className="text-sm text-gray-900 font-medium break-words">{item.answer || 'No answer provided'}</p>
+                        <p className="text-sm font-medium text-gray-700 mb-1">{item.questionText}</p>
+                        <p className="text-base text-gray-900 font-semibold break-words bg-white p-3 rounded-lg border border-gray-100">
+                          {item.answer || 'No answer provided'}
+                        </p>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
+
+              {/* PDF Footer */}
+              <div className="mt-8 pt-4 border-t border-gray-200 text-center text-sm text-gray-400 print:mt-8">
+                <p>Generated by Q-Dash Survey Platform</p>
+                <p className="text-xs mt-1">q-dash.onrender.com</p>
+              </div>
             </div>
 
+            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={downloadPDF}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 font-medium transition-all shadow-lg shadow-slate-200"
+              >
+                <Download className="w-5 h-5" />
+                Download PDF
+              </button>
               <button
                 onClick={() => window.print()}
                 className="flex items-center gap-2 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-all"
               >
-                <span>🖨️</span>
-                Print Summary
+                <Printer className="w-5 h-5" />
+                Print
               </button>
-              <button
-                onClick={() => navigator.share && navigator.share({
-                  title: `Completed: ${survey?.title}`,
-                  text: `I just completed the survey "${survey?.title}"!`,
-                })}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition-all"
-              >
-                <span>📤</span>
-                Share Results
-              </button>
+              {navigator.share && (
+                <button
+                  onClick={() => navigator.share({
+                    title: `Completed: ${survey?.title}`,
+                    text: `I just completed the survey "${survey?.title}"!`,
+                  })}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition-all"
+                >
+                  <span>📤</span>
+                  Share
+                </button>
+              )}
             </div>
           </div>
         </div>
