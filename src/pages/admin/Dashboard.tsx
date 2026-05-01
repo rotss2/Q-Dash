@@ -368,10 +368,10 @@ export default function AdminDashboard() {
               <button
                 onClick={() => loadSurveys()}
                 disabled={isLoading}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed group"
                 title="Refresh survey list"
               >
-                <Loader2 className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <Loader2 className={`w-4 h-4 transition-transform duration-700 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} />
                 Refresh
               </button>
               <button
