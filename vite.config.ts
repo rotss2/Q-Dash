@@ -8,7 +8,7 @@ export default defineConfig({
     port: 3000,
     host: true
   },
-  base: '/Q-Dash/',
+  base: '/',
   build: {
     outDir: 'dist',
     assetsDir: 'assets'
