@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle, HelpCircle, Globe } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle, HelpCircle, Globe, Calendar } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 
 interface SurveyTemplate {
@@ -324,13 +324,14 @@ export default function SurveyBuilder() {
             </div>
           </div>
 
-          {/* Appearance */}
-          <div className="card">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
-              <h2 className="text-lg font-semibold text-gray-900">Appearance & Branding</h2>
-            </div>
-            <div className="grid gap-6 lg:grid-cols-2">
+          {/* Appearance & Settings - Two Column Layout on Desktop */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Appearance */}
+            <div className="card">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
+                <h2 className="text-lg font-semibold text-gray-900">Appearance & Branding</h2>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="label">Brand Color</label>
@@ -366,8 +367,6 @@ export default function SurveyBuilder() {
                     </div>
                   )}
                 </div>
-              </div>
-              <div className="space-y-4">
                 <div>
                   <label className="label">Theme Style</label>
                   <select
@@ -414,15 +413,13 @@ export default function SurveyBuilder() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Settings */}
-          <div className="card">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-green-500 rounded-full"></div>
-              <h2 className="text-lg font-semibold text-gray-900">Settings & Scheduling</h2>
-            </div>
-            <div className="grid gap-6 lg:grid-cols-2">
+            {/* Settings */}
+            <div className="card">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-green-500 rounded-full"></div>
+                <h2 className="text-lg font-semibold text-gray-900">Settings & Scheduling</h2>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="label flex items-center gap-2">
@@ -473,25 +470,37 @@ export default function SurveyBuilder() {
                     <option value="zh">Chinese</option>
                   </select>
                 </div>
-              </div>
-              <div className="space-y-4">
                 <div>
-                  <label className="label">Open Date</label>
-                  <input
-                    type="datetime-local"
-                    value={openDate}
-                    onChange={(e) => setOpenDate(e.target.value)}
-                    className="input"
-                  />
+                  <label className="label flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    Open Date
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="datetime-local"
+                      value={openDate}
+                      onChange={(e) => setOpenDate(e.target.value)}
+                      className="input w-full pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">When the survey becomes available to respondents.</p>
                 </div>
                 <div>
-                  <label className="label">Close Date</label>
-                  <input
-                    type="datetime-local"
-                    value={closeDate}
-                    onChange={(e) => setCloseDate(e.target.value)}
-                    className="input"
-                  />
+                  <label className="label flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    Close Date
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="datetime-local"
+                      value={closeDate}
+                      onChange={(e) => setCloseDate(e.target.value)}
+                      className="input w-full pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">When the survey stops accepting responses.</p>
                 </div>
               </div>
             </div>
@@ -514,17 +523,17 @@ export default function SurveyBuilder() {
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0">
-                    {template.id === 'customer-feedback' && (
+                    {template.id === 'template-feedback' && (
                       <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                         <span className="text-lg">💬</span>
                       </div>
                     )}
-                    {template.id === 'nps' && (
+                    {template.id === 'template-nps' && (
                       <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                         <span className="text-lg">⭐</span>
                       </div>
                     )}
-                    {template.id === 'event-checkin' && (
+                    {template.id === 'template-event' && (
                       <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
                         <span className="text-lg">📅</span>
                       </div>
