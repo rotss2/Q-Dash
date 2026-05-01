@@ -210,7 +210,7 @@ export default function BulkQuestionImporter({
           options.splice(0, options.length, 'Yes', 'No');
         }
         return {
-          id: `bulk-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `bulk-${index}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           text: cleaned,
           type,
           options,
@@ -273,7 +273,7 @@ export default function BulkQuestionImporter({
     const toDuplicate = questions.filter(q => selectedQuestions.has(q.id));
     const newQuestions = toDuplicate.map(q => ({
       ...q,
-      id: `${q.id}-copy-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      id: `${q.id}-copy-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       text: `${q.text} (Copy)`
     }));
     setQuestions(prev => [...prev, ...newQuestions]);

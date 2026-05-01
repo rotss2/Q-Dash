@@ -1,11 +1,11 @@
 export async function apiFetch<T>(path: string, options: RequestInit = {}) {
   const response = await fetch(path, {
+    ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {})
-    },
-    ...options
+    }
   });
 
   const text = await response.text();
