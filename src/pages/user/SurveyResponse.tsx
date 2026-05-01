@@ -34,6 +34,7 @@ function SurveyContent() {
   const [userId, setUserId] = useState<string>('');
   const [fingerprint, setFingerprint] = useState<string>('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(true);
 
   const answersMap = useMemo(
     () => Object.fromEntries(answers.map((answer) => [answer.question_id, answer.answer])),
@@ -465,30 +466,120 @@ function SurveyContent() {
 
   if (hasSubmitted && submissionPreview) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="card max-w-2xl w-full text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">{t('thankYou')}</h2>
-          <p className="text-gray-600 mb-4">{t('responseRecorded')}</p>
-          {submissionPreview.email && (
-            <p className="text-sm text-slate-500 mb-4">
-              A preview summary has been generated for <strong>{submissionPreview.email}</strong>.
-            </p>
-          )}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left">
-            <h3 className="text-lg font-semibold text-slate-900 mb-3">Your Response Preview</h3>
-            <div className="space-y-3">
-              {submissionPreview.answers.map((item, index) => (
-                <div key={index} className="rounded-lg bg-white border border-gray-200 p-3 text-left">
-                  <p className="text-sm text-slate-500 mb-1">{item.questionText}</p>
-                  <p className="text-sm text-slate-800 font-medium">{item.answer || 'No answer provided'}</p>
+      <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass} relative`}>
+        {/* Animated Background Theme */}
+        <ThemedBackground theme={survey?.background_theme || 'default'} />
+        
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="card max-w-2xl w-full text-center space-y-6">
+            {/* Success Animation */}
+            <div className="relative">
+              <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <CheckCircle className="w-12 h-12 text-white" />
+              </div>
+              <div className="absolute inset-0 w-24 h-24 bg-green-400 rounded-full mx-auto animate-ping opacity-20"></div>
+            </div>
+            
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                🎉 {t('thankYou')}! 🎉
+              </h1>
+              <p className="text-lg text-gray-600 mb-2">
+                Your response has been successfully submitted
+              </p>
+              <p className="text-sm text-gray-500">
+                We appreciate your time and valuable feedback
+              </p>
+            </div>
+
+            {/* Success Stats */}
+            <div className="grid grid-cols-3 gap-4 py-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">{submissionPreview.answers.length}</div>
+                <div className="text-xs text-gray-500">Questions Answered</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">100%</div>
+                <div className="text-xs text-gray-500">Completed</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">✓</div>
+                <div className="text-xs text-gray-500">Success</div>
+              </div>
+            </div>
+
+            {submissionPreview.email && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-lg">📧</span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-blue-900">
+                      Preview summary sent to {submissionPreview.email}
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      Check your inbox for a copy of your responses
+                    </p>
+                  </div>
                 </div>
-              ))}
+              </div>
+            )}
+
+            {/* Response Preview */}
+            <div className="bg-gray-50 rounded-xl p-6 text-left">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <span>📋</span>
+                Your Response Summary
+              </h3>
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {submissionPreview.answers.map((item, index) => (
+                  <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs font-semibold text-blue-600 flex-shrink-0 mt-0.5">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-500 mb-1">{item.questionText}</p>
+                        <p className="text-sm text-gray-900 font-medium break-words">{item.answer || 'No answer provided'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-all"
+              >
+                <span>🖨️</span>
+                Print Summary
+              </button>
+              <button
+                onClick={() => navigator.share && navigator.share({
+                  title: `Completed: ${survey?.title}`,
+                  text: `I just completed the survey "${survey?.title}"!`,
+                })}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition-all"
+              >
+                <span>📤</span>
+                Share Results
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Footer */}
+        <footer className="bg-white border-t border-gray-200 py-4">
+          <div className="max-w-lg mx-auto px-4 text-center flex flex-col items-center gap-2">
+            <LanguageSwitcher variant="minimal" />
+            <p className="text-xs text-gray-500">
+              Secured with browser fingerprinting
+            </p>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -531,128 +622,249 @@ function SurveyContent() {
       <ThemedBackground theme={survey?.background_theme || 'default'} />
       
       {/* Header with Progress */}
-      <header className={`${themeClasses.card} border-b sticky top-0 z-10`}>
-        <div className="max-w-lg mx-auto px-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between h-auto sm:h-14 min-w-0">
-            <span className="text-sm font-medium text-gray-500 break-words">
-              {visibleQuestions.length > 0 ? currentQuestionIndex + 1 : 0} of {visibleQuestions.length}
-            </span>
-            <span className="text-sm font-medium text-slate-900 break-words text-center sm:text-left max-w-full">
+      <header className={`${themeClasses.card} border-b sticky top-0 z-10 shadow-sm`}>
+        <div className="max-w-lg mx-auto px-4 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold ${themeClasses.button}`}>
+                {showWelcome ? '👋' : (currentQuestionIndex + 1)}
+              </div>
+              <div>
+                <span className="text-sm font-medium text-gray-500 block">
+                  {showWelcome ? 'Welcome' : `Question ${currentQuestionIndex + 1} of ${visibleQuestions.length}`}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {Math.round(progress)}% complete
+                </span>
+              </div>
+            </div>
+            <span className="text-sm font-medium text-slate-900 break-words text-center sm:text-left max-w-full truncate">
               {survey.title}
             </span>
-            <span className="text-sm font-medium text-gray-500 break-words">
-              {Math.round(progress)}%
-            </span>
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <span className="text-sm font-medium text-gray-500 block">
+                  {visibleQuestions.length - currentQuestionIndex - 1} left
+                </span>
+                <span className="text-xs text-gray-400">
+                  ~{Math.ceil((visibleQuestions.length - currentQuestionIndex - 1) * 0.5)} min
+                </span>
+              </div>
+            </div>
           </div>
-          <div className={`h-2 ${themeClasses.progress} rounded-full overflow-hidden`}>
+          <div className={`mt-3 h-3 ${themeClasses.progress} rounded-full overflow-hidden`}>
             <div 
-              className={`h-full ${themeClasses.progressFill} transition-all duration-300`}
+              className={`h-full ${themeClasses.progressFill} transition-all duration-500 ease-out relative`}
               style={{ width: `${progress}%` }}
-            />
+            >
+              <div className="absolute right-0 top-0 w-3 h-3 bg-white rounded-full shadow-md animate-pulse" />
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content - One Question at a Time */}
+      {/* Main Content - Welcome Screen or Questions */}
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-lg">
-          {currentQuestion && (
-            <div className="card space-y-6">
-              {currentQuestionIndex === 0 && (
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Gmail ({t('optional').toLowerCase()})
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-slate-900 focus:border-slate-400 focus:outline-none"
-                    placeholder="Enter your Gmail to receive a preview summary"
-                  />
-                  <p className="mt-2 text-xs text-slate-500">
-                    {t('optional')}. Leave blank to proceed anonymously.
+          {showWelcome ? (
+            // Welcome Screen
+            <div className="card space-y-6 text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">📋</span>
+              </div>
+              
+              <div>
+                <h1 className={`text-2xl font-bold ${themeClasses.accent} mb-3`}>
+                  Welcome to {survey?.title}
+                </h1>
+                {survey?.description && (
+                  <p className="text-gray-600 leading-relaxed mb-6">
+                    {survey.description}
                   </p>
-                </div>
-              )}
+                )}
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 text-left">
+                <h3 className="font-semibold text-gray-900 mb-3">What to expect:</h3>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>This survey takes approximately {Math.ceil(visibleQuestions.length * 0.5)} minutes</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>There are {visibleQuestions.length} question{visibleQuestions.length !== 1 ? 's' : ''} to complete</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>Your responses are completely confidential</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span>You can navigate back to review previous answers</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Gmail ({t('optional').toLowerCase()})
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-slate-900 focus:border-slate-400 focus:outline-none"
+                  placeholder="Enter your Gmail to receive a preview summary"
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  {t('optional')}. Leave blank to proceed anonymously.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowWelcome(false)}
+                className={`w-full flex items-center justify-center gap-2 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02]`}
+              >
+                Get Started
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            // Questions
+            currentQuestion && (
+              <div className="card space-y-6">
               {/* Question */}
-              <div className="space-y-2">
-                <h2 className="text-xl font-semibold text-slate-900 leading-relaxed break-words">
-                  {currentQuestion.question_text}
-                  {currentQuestion.required && (
-                    <span className="text-red-500 ml-1" title={t('required')}>*</span>
-                  )}
-                </h2>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold ${themeClasses.button}`}>
+                    {currentQuestionIndex + 1}
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-semibold text-slate-900 leading-relaxed break-words">
+                      {currentQuestion.question_text}
+                      {currentQuestion.required && (
+                        <span className="text-red-500 ml-2" title={t('required')}>*</span>
+                      )}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        currentQuestion.type === 'text' ? 'bg-blue-100 text-blue-700' :
+                        currentQuestion.type === 'choice' ? 'bg-green-100 text-green-700' :
+                        'bg-orange-100 text-orange-700'
+                      }`}>
+                        {currentQuestion.type === 'text' ? 'Text Response' :
+                         currentQuestion.type === 'choice' ? 'Multiple Choice' :
+                         'Rating Scale'}
+                      </span>
+                      {currentQuestion.required && (
+                        <span className="text-xs text-gray-500">Required</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Answer Input */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {currentQuestion.type === 'text' && (
-                  <textarea
-                    value={getAnswer(currentQuestion.id)}
-                    onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
-                    className="w-full p-4 border border-gray-200 rounded-lg text-slate-900 min-h-[120px] focus:outline-none focus:border-slate-400 resize-none"
-                    placeholder={t('textPlaceholder')}
-                    autoFocus
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={getAnswer(currentQuestion.id)}
+                      onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
+                      className="w-full p-4 border-2 border-gray-200 rounded-xl text-slate-900 min-h-[140px] focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
+                      placeholder={t('textPlaceholder')}
+                      autoFocus
+                    />
+                    {getAnswer(currentQuestion.id) && (
+                      <div className="absolute top-3 right-3">
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {currentQuestion.type === 'choice' && currentQuestion.options && (
-                  <div className="space-y-2" role="radiogroup" aria-label={currentQuestion.question_text}>
-                    {currentQuestion.options.map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => updateAnswer(currentQuestion.id, option)}
-                        className={`w-full p-4 text-left border rounded-lg transition-all ${
-                          getAnswer(currentQuestion.id) === option
-                            ? 'border-slate-900 bg-slate-50 text-slate-900'
-                            : 'border-gray-200 hover:border-slate-300 text-slate-700'
-                        }`}
-                        role="radio"
-                        aria-checked={getAnswer(currentQuestion.id) === option}
-                      >
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            getAnswer(currentQuestion.id) === option
-                              ? 'border-slate-900'
-                              : 'border-gray-300'
-                          }`}>
-                            {getAnswer(currentQuestion.id) === option && (
-                              <div className={`w-2.5 h-2.5 rounded-full ${themeClasses.progressFill}`} />
+                  <div className="space-y-3" role="radiogroup" aria-label={currentQuestion.question_text}>
+                    {currentQuestion.options.map((option, index) => {
+                      const isSelected = getAnswer(currentQuestion.id) === option;
+                      return (
+                        <button
+                          key={option}
+                          onClick={() => updateAnswer(currentQuestion.id, option)}
+                          className={`w-full p-4 text-left border-2 rounded-xl transition-all group ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-sm'
+                              : 'border-gray-200 hover:border-gray-300 text-slate-700 hover:bg-gray-50'
+                          }`}
+                          role="radio"
+                          aria-checked={isSelected}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                              isSelected
+                                ? 'border-blue-500 bg-blue-500'
+                                : 'border-gray-300 group-hover:border-gray-400'
+                            }`}>
+                              {isSelected && (
+                                <div className="w-2 h-2 rounded-full bg-white" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <span className="font-medium break-words">{option}</span>
+                              {isSelected && (
+                                <span className="ml-2 text-xs text-blue-600 font-medium">Selected</span>
+                              )}
+                            </div>
+                            {isSelected && (
+                              <CheckCircle className="w-5 h-5 text-blue-500" />
                             )}
                           </div>
-                          <span className="font-medium break-words">{option}</span>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
                 {currentQuestion.type === 'likert' && (
-                  <div className="flex justify-between gap-2">
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <button
-                        key={value}
-                        onClick={() => updateAnswer(currentQuestion.id, value.toString())}
-                        className={`flex-1 py-4 px-2 border rounded-lg transition-all ${
-                          getAnswer(currentQuestion.id) === value.toString()
-                            ? `border-transparent ${themeClasses.button} text-white`
-                            : 'border-gray-200 hover:border-slate-300 text-slate-700'
-                        }`}
-                      >
-                        <span className="text-xl font-bold">{value}</span>
-                      </button>
-                    ))}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center px-2 text-xs text-gray-500">
+                      <span>Strongly Disagree</span>
+                      <span>Strongly Agree</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      {[1, 2, 3, 4, 5].map((value) => {
+                        const isSelected = getAnswer(currentQuestion.id) === value.toString();
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => updateAnswer(currentQuestion.id, value.toString())}
+                            className={`flex-1 py-4 px-2 border-2 rounded-xl transition-all relative group ${
+                              isSelected
+                                ? `border-transparent ${themeClasses.button} text-white shadow-lg transform scale-105`
+                                : 'border-gray-200 hover:border-gray-300 text-slate-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className="text-xl font-bold">{value}</span>
+                            {isSelected && (
+                              <div className="absolute -top-2 -right-2">
+                                <CheckCircle className="w-5 h-5 text-white" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
 
               {/* Navigation */}
-              <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center">
                 {currentQuestionIndex > 0 && (
                   <button
                     onClick={goToPrevious}
-                    className="flex items-center gap-2 px-4 py-3 border border-gray-200 text-slate-700 rounded-lg hover:bg-gray-50 font-medium"
+                    className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02]"
                   >
                     <ChevronLeft className="w-5 h-5" />
                     {t('back')}
@@ -663,7 +875,7 @@ function SurveyContent() {
                   <button
                     onClick={handleSubmit}
                     disabled={isSubmitting || (currentQuestion.required && !getAnswer(currentQuestion.id))}
-                    className={`flex-1 flex items-center justify-center gap-2 ${themeClasses.button} text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg`}
                   >
                     {isSubmitting ? (
                       <>
@@ -672,7 +884,7 @@ function SurveyContent() {
                       </>
                     ) : (
                       <>
-                        <Send className="w-5 h-5" />
+                        <CheckCircle className="w-6 h-6" />
                         {t('submit')}
                       </>
                     )}
@@ -681,10 +893,10 @@ function SurveyContent() {
                   <button
                     onClick={goToNext}
                     disabled={currentQuestion.required && !getAnswer(currentQuestion.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 ${themeClasses.button} text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg`}
                   >
                     {t('next')}
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-6 h-6" />
                   </button>
                 )}
               </div>
