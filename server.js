@@ -703,9 +703,21 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
 // ============================================================================
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import pdfParse from 'pdf-parse';
-import mammoth from 'mammoth';
 import { z } from 'zod';
+
+// Dynamic imports for CommonJS modules
+let pdfParse;
+let mammoth;
+
+async function loadModules() {
+  const pdfParseModule = await import('pdf-parse');
+  const mammothModule = await import('mammoth');
+  pdfParse = pdfParseModule.default || pdfParseModule;
+  mammoth = mammothModule.default || mammothModule;
+}
+
+// Load modules on startup
+loadModules().catch(err => console.error('Failed to load parsing modules:', err));
 
 // Initialize Gemini (FREE TIER)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
@@ -761,6 +773,11 @@ function chunkText(text, chunkSize = CHUNK_SIZE, overlap = CHUNK_OVERLAP) {
  */
 async function extractTextFromFile(fileBuffer, fileName) {
   const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  // Ensure modules are loaded
+  if (!pdfParse || !mammoth) {
+    await loadModules();
+  }
   
   try {
     if (ext === 'pdf') {
