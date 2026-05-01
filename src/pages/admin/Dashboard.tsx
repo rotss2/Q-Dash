@@ -5,7 +5,7 @@ import { useToast } from '../../components/Toaster';
 import { apiGet, apiDelete, apiPost } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { Survey, Response } from '../../types';
-import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, X, Maximize2, Minimize2 } from 'lucide-react';
+import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, X, Maximize2, Minimize2, Activity, Sparkles, Calendar, ArrowUpRight, Loader2, User } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -217,56 +217,73 @@ export default function AdminDashboard() {
 
   return (
     <div className={`min-h-screen bg-gray-50 ${liveMode ? 'fixed inset-0 z-50 overflow-auto' : ''}`}>
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      {/* Header - Enhanced */}
+      <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/80 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-slate-900 to-slate-700 rounded-xl flex items-center justify-center shadow-lg shadow-slate-200">
                 <FileText className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-gray-900">Creator Studio</h1>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Creator Studio</h1>
+                <p className="text-xs text-gray-500 hidden sm:block">Survey Management Dashboard</p>
+              </div>
               {activeUsers > 0 && (
-                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-100">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                   {activeUsers} active
                 </span>
               )}
               {liveMode && (
-                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded animate-pulse">
+                <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 text-xs font-semibold rounded-full border border-red-100 animate-pulse">
+                  <Radio className="w-3 h-3" />
                   LIVE MODE
                 </span>
               )}
             </div>
-            <div className="flex flex-col gap-3 items-start sm:flex-row sm:items-center sm:gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowLiveFeed(!showLiveFeed)}
-                className={`flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  showLiveFeed ? 'bg-slate-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  showLiveFeed 
+                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
                 <Radio className="w-4 h-4" />
-                Live Feed
+                <span className="hidden sm:inline">Live Feed</span>
                 {liveFeed.length > 0 && (
                   <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                 )}
               </button>
               <button
                 onClick={toggleLiveMode}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  liveMode ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  liveMode 
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
                 {liveMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                {liveMode ? 'Exit Live' : 'Live Mode'}
+                <span className="hidden sm:inline">{liveMode ? 'Exit' : 'Live'}</span>
               </button>
               {!liveMode && (
-                <>
-                  <span className="text-sm text-gray-600">{user?.email}</span>
-                  <button onClick={handleSignOut} className="btn-secondary flex items-center gap-2">
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
+                <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="hidden lg:block text-sm font-medium text-gray-700">{user?.email}</span>
+                  </div>
+                  <button 
+                    onClick={handleSignOut} 
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-5 h-5" />
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -277,64 +294,83 @@ export default function AdminDashboard() {
         <div className="flex flex-col gap-6 lg:flex-row">
           {/* Main Content */}
           <div className="flex-1">
-        {/* Stats */}
+        {/* Stats - Enhanced with gradients and animations */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FileText className="w-6 h-6 text-blue-600" />
+          <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
+                <FileText className="w-7 h-7 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Total Surveys</p>
-                <p className="text-2xl font-bold text-gray-900">{surveys.length}</p>
+                <p className="text-sm font-medium text-gray-500 mb-1">Total Surveys</p>
+                <p className="text-3xl font-bold text-gray-900">{surveys.length}</p>
               </div>
             </div>
-          </div>
-          <div className="card">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Responses</p>
-                <p className="text-2xl font-bold text-gray-900">{totalResponses}</p>
-              </div>
+            <div className="absolute bottom-4 right-4">
+              <ArrowUpRight className="w-5 h-5 text-blue-400" />
             </div>
           </div>
-          <div className="card">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-yellow-600" />
+
+          <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
+                <Users className="w-7 h-7 text-white" />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Open Surveys</p>
-                <p className="text-2xl font-bold text-gray-900">{openSurveys}</p>
+                <p className="text-sm font-medium text-gray-500 mb-1">Total Responses</p>
+                <p className="text-3xl font-bold text-gray-900">{totalResponses}</p>
               </div>
+            </div>
+            <div className="absolute bottom-4 right-4">
+              <ArrowUpRight className="w-5 h-5 text-emerald-400" />
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-200">
+                <Activity className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500 mb-1">Open Surveys</p>
+                <p className="text-3xl font-bold text-gray-900">{openSurveys}</p>
+              </div>
+            </div>
+            <div className="absolute bottom-4 right-4">
+              <ArrowUpRight className="w-5 h-5 text-violet-400" />
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {liveMode ? 'Live Dashboard' : 'Your Surveys'}
-          </h2>
+        {/* Actions - Enhanced */}
+        <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center mb-8">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-gray-900">
+              {liveMode ? 'Live Dashboard' : 'Your Surveys'}
+            </h2>
+            {!liveMode && surveys.length > 0 && (
+              <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
+                {surveys.length} total
+              </span>
+            )}
+          </div>
           {!liveMode && (
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={() => loadSurveys()}
                 disabled={isLoading}
-                className="btn-secondary flex items-center gap-2"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Refresh survey list"
               >
-                <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+                <Loader2 className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
               <button
                 onClick={() => navigate('/admin/surveys/new')}
-                className="btn-primary flex items-center gap-2"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
               >
                 <Plus className="w-4 h-4" />
                 New Survey
@@ -343,90 +379,118 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Surveys List */}
+        {/* Surveys List - Enhanced */}
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 space-y-3">
+                    <div className="h-5 bg-gray-200 rounded w-1/3" />
+                    <div className="h-4 bg-gray-200 rounded w-2/3" />
+                    <div className="flex gap-4">
+                      <div className="h-4 bg-gray-200 rounded w-24" />
+                      <div className="h-4 bg-gray-200 rounded w-24" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg" />
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg" />
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : surveys.length === 0 ? (
-          <div className="card text-center py-12">
-            <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No surveys yet</h3>
-            <p className="text-gray-600 mb-6">Create your first survey to start collecting responses</p>
+          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="w-10 h-10 text-blue-500" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Create your first survey</h3>
+            <p className="text-gray-500 mb-8 max-w-md mx-auto">Start collecting valuable feedback and insights from your audience in minutes.</p>
             <button
               onClick={() => navigate('/admin/surveys/new')}
-              className="btn-primary inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-5 h-5" />
               Create Survey
             </button>
           </div>
         ) : (
           <div className="grid gap-4">
             {surveys.map((survey) => (
-              <div key={survey.id} className="card hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{survey.title}</h3>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        survey.status === 'open' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
+              <div key={survey.id} className="group bg-white rounded-2xl border border-gray-100 p-6 transition-all hover:shadow-xl hover:-translate-y-0.5 hover:border-gray-200">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-slate-700 transition-colors">{survey.title}</h3>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full ${
+                        survey.status === 'open'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                          : 'bg-gray-50 text-gray-600 border border-gray-200'
                       }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${survey.status === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
                         {survey.status === 'open' ? 'Open' : 'Closed'}
                       </span>
                     </div>
-                    <p className="text-gray-600 text-sm mb-4">{survey.description || 'No description'}</p>
-                    <div className="flex items-center gap-6 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        {survey.total_responses} responses
+                    <p className="text-gray-500 text-sm mb-4 line-clamp-1">{survey.description || 'No description'}</p>
+                    <div className="flex items-center gap-6 text-sm">
+                      <span className="flex items-center gap-2 text-gray-600">
+                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                          <Users className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <span className="font-medium">{survey.total_responses} responses</span>
                       </span>
                       {activeUsersBySurvey[survey.id] > 0 && (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <Radio className="w-4 h-4 animate-pulse" />
-                          {activeUsersBySurvey[survey.id]} active
+                        <span className="flex items-center gap-2 text-emerald-600">
+                          <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                            <Radio className="w-4 h-4 animate-pulse" />
+                          </div>
+                          <span className="font-medium">{activeUsersBySurvey[survey.id]} active</span>
                         </span>
                       )}
-                      <span>Created {new Date(survey.created_at).toLocaleDateString()}</span>
+                      <span className="flex items-center gap-2 text-gray-400">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(survey.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => copySurveyLink(survey.id)}
-                      className="p-2 text-gray-400 hover:text-primary-600 transition-colors"
+                      className="p-2.5 text-gray-400 hover:text-slate-600 hover:bg-gray-50 rounded-xl transition-all"
                       title="Copy survey link"
                     >
                       <Copy className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => navigate(`/admin/surveys/${survey.id}/analytics`)}
-                      className="p-2 text-gray-400 hover:text-primary-600 transition-colors"
+                      className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                       title="View analytics"
                     >
                       <BarChart3 className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => navigate(`/admin/surveys/${survey.id}/edit`)}
-                      className="p-2 text-gray-400 hover:text-primary-600 transition-colors"
+                      className="p-2.5 text-gray-400 hover:text-slate-600 hover:bg-gray-50 rounded-xl transition-all"
                       title="Edit survey"
                     >
                       <Edit2 className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => toggleStatus(survey)}
-                      className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+                      className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
                         survey.status === 'open'
                           ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                       }`}
                     >
                       {survey.status === 'open' ? 'Close' : 'Open'}
                     </button>
                     <button
                       onClick={() => deleteSurvey(survey.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                      className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
                       title="Delete survey"
                     >
                       <Trash2 className="w-5 h-5" />
@@ -439,58 +503,81 @@ export default function AdminDashboard() {
         )}
           </div>
 
-          {/* Live Feed Sidebar */}
+          {/* Live Feed Sidebar - Enhanced */}
           {showLiveFeed && (
-            <div className="w-80 bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-200 bg-slate-900 text-white flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-red-400" />
-                  <span className="font-medium">Live Feed</span>
+            <div className="w-80 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xl shadow-gray-200/50">
+              <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
+                    <Radio className="w-4 h-4 text-red-400" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-sm">Live Feed</span>
+                    <p className="text-xs text-slate-400">Real-time responses</p>
+                  </div>
                 </div>
                 <button 
                   onClick={() => setShowLiveFeed(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="max-h-96 overflow-y-auto">
+              <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
                 {liveFeed.length === 0 ? (
-                  <p className="p-4 text-sm text-gray-500 text-center">
-                    Waiting for responses...
-                  </p>
-                ) : (
-                  liveFeed.map((entry) => (
-                    <div key={entry.id} className="p-3 border-b border-gray-100 hover:bg-gray-50">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium text-slate-900 truncate">
-                          {entry.userLabel}
-                        </p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          entry.isComplete 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {entry.isComplete ? 'Complete' : `Q${entry.currentQuestion}`}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mb-2">
-                        {entry.surveyTitle}
-                      </p>
-                      {/* Progress bar */}
-                      <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
-                        <div 
-                          className={`h-1.5 rounded-full transition-all duration-300 ${
-                            entry.isComplete ? 'bg-green-500' : 'bg-blue-500'
-                          }`}
-                          style={{ width: `${entry.progress}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-400">
-                        {entry.progress}% • {new Date(entry.timestamp).toLocaleTimeString()}
-                      </p>
+                  <div className="p-8 text-center">
+                    <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Activity className="w-8 h-8 text-gray-300" />
                     </div>
-                  ))
+                    <p className="text-sm text-gray-500">Waiting for responses...</p>
+                    <p className="text-xs text-gray-400 mt-1">New submissions will appear here</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {liveFeed.map((entry) => (
+                      <div key={entry.id} className="p-4 hover:bg-gray-50/80 transition-colors">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-bold text-white">{entry.userLabel.charAt(5)}</span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {entry.userLabel}
+                            </p>
+                          </div>
+                          <span className={`text-xs px-2.5 py-1 font-semibold rounded-full ${
+                            entry.isComplete 
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                              : 'bg-blue-50 text-blue-700 border border-blue-100'
+                          }`}>
+                            {entry.isComplete ? 'Complete' : `Q${entry.currentQuestion}`}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-3 truncate">
+                          {entry.surveyTitle}
+                        </p>
+                        {/* Progress bar */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 bg-gray-100 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full transition-all duration-500 ${
+                                entry.isComplete 
+                                  ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' 
+                                  : 'bg-gradient-to-r from-blue-400 to-blue-500'
+                              }`}
+                              style={{ width: `${entry.progress}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-medium text-gray-500 min-w-[3rem] text-right">
+                            {entry.progress}%
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2">
+                          {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
