@@ -519,7 +519,7 @@ function SurveyContent() {
 
   if (hasSubmitted && submissionPreview) {
     return (
-      <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass} relative`}>
+      <div className={`min-h-screen flex flex-col ${themeClasses.background} touch-manipulation select-none`} style={{ WebkitUserSelect: 'none', userSelect: 'none' }}>
         {/* Animated Background Theme */}
         <ThemedBackground theme={survey?.background_theme || 'default'} />
         
@@ -764,15 +764,13 @@ function SurveyContent() {
             )}
           </div>
           
-          {/* Progress Bar */}
+          {/* Progress Bar - no animation for performance */}
           {!showWelcome && (
-            <div className={`h-3 ${themeClasses.progress} rounded-full overflow-hidden`}>
+            <div className={`h-3 ${themeClasses.progress} rounded-full overflow-hidden will-change-transform`}>
               <div 
-                className={`h-full ${themeClasses.progressFill} transition-all duration-500 ease-out relative`}
-                style={{ width: `${progress}%` }}
-              >
-                <div className="absolute right-0 top-0 w-3 h-3 bg-white rounded-full shadow-md animate-pulse" />
-              </div>
+                className={`h-full ${themeClasses.progressFill} transition-all duration-300 ease-out`}
+                style={{ width: `${progress}%`, willChange: 'width' }}
+              />
             </div>
           )}
         </div>
