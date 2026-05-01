@@ -26,6 +26,9 @@ function SurveyContent() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | ''>('');
+  const [age, setAge] = useState('');
+  const [profileError, setProfileError] = useState('');
   const [submissionPreview, setSubmissionPreview] = useState<{ email?: string; answers: { questionText: string; answer: string }[] } | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -416,13 +419,15 @@ function SurveyContent() {
         details: 'Responses inserted successfully',
         hint: 'No issues found'
       });
-      // Layer 3: Record completion in survey_sessions table
-      console.log('Recording survey completion:', { surveyId, userId, email: email.trim() || null });
+      // Layer 3: Record completion in survey_sessions table with profiling data
+      console.log('Recording survey completion:', { surveyId, userId, email: email.trim() || null, gender, age });
       const { error: completionError, data: completionData } = await supabase
         .rpc('record_survey_completion', {
           p_survey_id: surveyId!,
           p_user_id: userId,
           p_email: email.trim() || null,
+          p_gender: gender || null,
+          p_age: age ? parseInt(age, 10) : null,
           p_fingerprint: fingerprint,
           p_ip_address: typeof window !== 'undefined' ? window.location.hostname : undefined,
           p_user_agent: navigator.userAgent
@@ -495,10 +500,23 @@ function SurveyContent() {
   };
 
   const handleGetStarted = () => {
+    // Validate profiling information
+    if (!gender) {
+      setProfileError('Please select your gender');
+      return;
+    }
+    if (!age || isNaN(Number(age)) || Number(age) < 1 || Number(age) > 120) {
+      setProfileError('Please enter a valid age (1-120)');
+      return;
+    }
+    
+    // Validate email if provided
     if (email && !validateEmail(email)) {
       setEmailError('Please enter a valid Gmail address (e.g., user@gmail.com)');
       return;
     }
+    
+    setProfileError('');
     setEmailError('');
     setShowWelcome(false);
   };
@@ -863,30 +881,107 @@ function SurveyContent() {
                 </ul>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Gmail ({t('optional').toLowerCase()})
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (emailError) setEmailError('');
-                  }}
-                  className={`w-full rounded-xl border px-4 py-3 text-slate-900 focus:outline-none transition-colors ${
-                    emailError ? 'border-red-300 focus:border-red-400 bg-red-50' : 'border-gray-200 focus:border-slate-400'
-                  }`}
-                  placeholder="your.email@gmail.com"
-                />
-                {emailError ? (
-                  <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5">
+              {/* Profiling Section - Required */}
+              <div className="rounded-2xl border-2 border-indigo-200 bg-indigo-50 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+                  <h3 className="font-semibold text-indigo-900">Profile Information (Required)</h3>
+                </div>
+                
+                {/* Gender Selection */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Gender <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGender('male');
+                        if (profileError) setProfileError('');
+                      }}
+                      className={`py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all ${
+                        gender === 'male'
+                          ? 'border-blue-500 bg-blue-100 text-blue-900'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                      }`}
+                    >
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="text-lg">♂</span> Male
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGender('female');
+                        if (profileError) setProfileError('');
+                      }}
+                      className={`py-3 px-4 rounded-xl border-2 text-sm font-medium transition-all ${
+                        gender === 'female'
+                          ? 'border-pink-500 bg-pink-100 text-pink-900'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-pink-300'
+                      }`}
+                    >
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="text-lg">♀</span> Female
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Age Input */}
+                <div className="mb-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Age <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={age}
+                    onChange={(e) => {
+                      setAge(e.target.value);
+                      if (profileError) setProfileError('');
+                    }}
+                    className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-400 focus:bg-white transition-colors bg-white"
+                    placeholder="Enter your age (e.g., 25)"
+                  />
+                </div>
+
+                {/* Gmail (Optional) */}
+                <div className="mt-4 pt-4 border-t border-indigo-200">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Gmail ({t('optional').toLowerCase()})
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailError) setEmailError('');
+                    }}
+                    className={`w-full rounded-xl border px-4 py-3 text-slate-900 focus:outline-none transition-colors ${
+                      emailError ? 'border-red-300 focus:border-red-400 bg-red-50' : 'border-gray-200 focus:border-slate-400 bg-white'
+                    }`}
+                    placeholder="your.email@gmail.com"
+                  />
+                  {emailError ? (
+                    <p className="mt-2 text-sm text-red-600 flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4" />
+                      {emailError}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-500">
+                      {t('optional')}. Leave blank to proceed anonymously. Must be a valid @gmail.com address.
+                    </p>
+                  )}
+                </div>
+
+                {/* Profile Error Message */}
+                {profileError && (
+                  <p className="mt-3 text-sm text-red-600 flex items-center gap-1.5 bg-red-50 p-3 rounded-lg">
                     <AlertCircle className="w-4 h-4" />
-                    {emailError}
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs text-slate-500">
-                    {t('optional')}. Leave blank to proceed anonymously. Must be a valid @gmail.com address.
+                    {profileError}
                   </p>
                 )}
               </div>
