@@ -1166,7 +1166,7 @@ async function runSurveyScheduler() {
     }
 
     schedulerRuns++;
-    if ((openedData?.length > 0 || closedData?.length > 0) || schedulerRuns % 10 === 0) {
+    if (((openedData && openedData.length > 0) || (closedData && closedData.length > 0)) || schedulerRuns % 10 === 0) {
       console.log(`Scheduler: Run #${schedulerRuns} completed at ${new Date().toISOString()}`);
     }
   } catch (error) {
