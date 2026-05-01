@@ -750,13 +750,30 @@ function SurveyContent() {
           {showWelcome ? (
             // Welcome Screen
             <div className="card space-y-6 text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">📋</span>
+              {/* SurveyTest Logo */}
+              <div className="flex flex-col items-center gap-3">
+                <img 
+                  src="/logo.png" 
+                  alt="SurveyTest" 
+                  className="h-12 sm:h-16 w-auto object-contain mx-auto"
+                  onError={(e) => {
+                    // Fallback to emoji if logo not found
+                    e.currentTarget.style.display = 'none';
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                      const fallback = document.createElement('div');
+                      fallback.className = 'w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4';
+                      fallback.innerHTML = '<span class="text-3xl">📋</span>';
+                      parent.prepend(fallback);
+                    }
+                  }}
+                />
+                <p className="text-sm text-gray-500 font-medium">SurveyTest</p>
               </div>
               
               <div>
                 <h1 className={`text-2xl font-bold ${themeClasses.accent} mb-3`}>
-                  Welcome to {survey?.title}
+                  {survey?.title}
                 </h1>
                 {survey?.description && (
                   <p className="text-gray-600 leading-relaxed mb-6">

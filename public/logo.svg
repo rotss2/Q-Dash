@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
+  <!-- Logo Icon -->
+  <rect x="5" y="10" width="40" height="40" rx="8" fill="#2563eb"/>
+  <path d="M15 35 L25 25 L32 32 L40 20" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="40" cy="20" r="3" fill="white"/>
+  
+  <!-- SurveyTest Text -->
+  <text x="55" y="32" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#1e40af">Survey</text>
+  <text x="115" y="32" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#2563eb">Test</text>
+  
+  <!-- Tagline -->
+  <text x="55" y="48" font-family="Arial, sans-serif" font-size="10" fill="#64748b">Smart Data Insights</text>
+</svg>

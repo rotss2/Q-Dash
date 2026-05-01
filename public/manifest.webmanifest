@@ -1,7 +1,7 @@
 {
-  "name": "Q-Dash",
-  "short_name": "Q-Dash",
-  "description": "Questionnaire analytics and survey response dashboard.",
+  "name": "SurveyTest",
+  "short_name": "SurveyTest",
+  "description": "Smart Data Insights - Survey and analytics platform.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",

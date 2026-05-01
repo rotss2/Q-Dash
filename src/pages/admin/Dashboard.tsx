@@ -221,13 +221,22 @@ export default function AdminDashboard() {
       <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/80 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-slate-900 to-slate-700 rounded-xl flex items-center justify-center shadow-lg shadow-slate-200">
-                <FileText className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Creator Studio</h1>
-                <p className="text-xs text-gray-500 hidden sm:block">Survey Management Dashboard</p>
+            <div className="flex items-center gap-3 sm:gap-4">
+              {/* SurveyTest Logo - Responsive */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <img 
+                  src="/logo.png" 
+                  alt="SurveyTest" 
+                  className="h-8 sm:h-10 w-auto object-contain"
+                  onError={(e) => {
+                    // Fallback if logo.png doesn't exist
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div className="hidden sm:block">
+                  <h1 className="text-lg sm:text-xl font-bold text-gray-900">SurveyTest</h1>
+                  <p className="text-xs text-gray-500">Smart Data Insights</p>
+                </div>
               </div>
               {activeUsers > 0 && (
                 <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-100">

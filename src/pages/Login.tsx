@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/Toaster';
-import { ClipboardList } from 'lucide-react';
 
 export default function Login() {
   const [passkey, setPasskey] = useState('');
@@ -38,11 +37,20 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
         <div className="text-center mb-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white">
-            <ClipboardList className="h-6 w-6" />
+          {/* SurveyTest Logo */}
+          <div className="flex flex-col items-center gap-2 mb-4">
+            <img 
+              src="/logo.png" 
+              alt="SurveyTest" 
+              className="h-12 sm:h-14 w-auto object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
           </div>
-          <h1 className="mt-4 text-2xl font-semibold text-slate-900">Admin passkey</h1>
-          <p className="mt-2 text-sm text-slate-500">Enter the admin passkey to access the dashboard.</p>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">SurveyTest</h1>
+          <p className="mt-1 text-sm text-slate-500">Smart Data Insights</p>
+          <p className="mt-4 text-sm text-slate-600 font-medium">Admin Login</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">

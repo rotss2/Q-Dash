@@ -65,10 +65,19 @@ export default function UserDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <ClipboardList className="w-5 h-5 text-white" />
+              {/* SurveyTest Logo - Responsive */}
+              <img 
+                src="/logo.png" 
+                alt="SurveyTest" 
+                className="h-8 sm:h-10 w-auto object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <div className="hidden sm:block">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">SurveyTest</h1>
+                <p className="text-xs text-gray-500">Smart Data Insights</p>
               </div>
-              <h1 className="text-xl font-bold text-gray-900">Respondent Portal</h1>
             </div>
             <div className="flex flex-col gap-3 items-start sm:flex-row sm:items-center">
               <span className="text-sm text-gray-600">{user?.email}</span>
