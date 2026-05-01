@@ -704,9 +704,63 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
+import OpenAI from 'openai';
 
 // Initialize Gemini (FREE TIER)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
+
+// Initialize OpenAI as backup
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+}) : null;
+
+// Rule-based question generator (no AI required)
+function generateRuleBasedQuestions(fileName, questionCount) {
+  const baseQuestions = [
+    {
+      id: 'rule-1',
+      type: 'choice',
+      question_text: 'What is the main purpose or objective of this document?',
+      options: ['Research Analysis', 'System Design', 'Implementation Study', 'Evaluation Report'],
+      required: true,
+      order_index: 1
+    },
+    {
+      id: 'rule-2',
+      type: 'choice', 
+      question_text: 'What methodology or approach is primarily used?',
+      options: ['Quantitative Analysis', 'Qualitative Research', 'Experimental Study', 'Case Study'],
+      required: true,
+      order_index: 2
+    },
+    {
+      id: 'rule-3',
+      type: 'text',
+      question_text: 'What are the key findings or conclusions presented?',
+      options: null,
+      required: true,
+      order_index: 3
+    },
+    {
+      id: 'rule-4',
+      type: 'likert',
+      question_text: 'The document provides sufficient evidence to support its claims.',
+      options: ['Strongly Disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly Agree'],
+      required: true,
+      order_index: 4
+    },
+    {
+      id: 'rule-5',
+      type: 'choice',
+      question_text: 'What is the target audience or application area?',
+      options: ['Academic Researchers', 'Industry Professionals', 'Policy Makers', 'General Public'],
+      required: true,
+      order_index: 5
+    }
+  ];
+  
+  return baseQuestions.slice(0, Math.min(questionCount, baseQuestions.length));
+}
 
 // File size limit: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -1034,31 +1088,96 @@ Respond with ONLY a JSON array of questions. No markdown, no code blocks, just r
       ]);
       aiResponse = result.response.text();
     } catch (geminiError) {
-      console.error('Gemini API failed, using fallback:', geminiError.message);
-      // EMERGENCY HARDCODE FALLBACK FOR DEMO
-      aiResponse = JSON.stringify([
-        {
-          type: "choice",
-          question_text: "What is the main research objective discussed in this document?",
-          options: ["Data Analysis", "System Implementation", "Performance Testing", "User Experience Study"],
-          required: true,
-          sourceContext: "Emergency fallback question for demo"
-        },
-        {
-          type: "choice", 
-          question_text: "Which methodology was primarily used in this research?",
-          options: ["Quantitative Analysis", "Qualitative Research", "Mixed Methods", "Experimental Study"],
-          required: true,
-          sourceContext: "Emergency fallback question for demo"
-        },
-        {
-          type: "text",
-          question_text: "What are the key findings or conclusions of this research?",
-          options: null,
-          required: true,
-          sourceContext: "Emergency fallback question for demo"
+      console.error('Gemini API failed, trying OpenAI backup:', geminiError.message);
+      
+      // Try OpenAI as backup
+      if (openai) {
+        try {
+          const fileData = uploadedFile.fileBuffer.toString('base64');
+          const base64Image = `data:${uploadedFile.fileType};base64,${fileData}`;
+          
+          const openaiResponse = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `${generateSystemPrompt(config)}
+
+Please read the attached document and generate ${questionCount} questions based STRICTLY on its content.
+Respond with ONLY a JSON array of questions. No markdown, no code blocks, just raw JSON starting with [ and ending with ].`
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: base64Image
+                    }
+                  }
+                ]
+              }
+            ],
+            max_tokens: 4000,
+            temperature: 0.3
+          });
+          
+          aiResponse = openaiResponse.choices[0].message.content;
+          console.log('OpenAI backup successful');
+        } catch (openaiError) {
+          console.error('OpenAI also failed, using hardcoded fallback:', openaiError.message);
+          // Final hardcoded fallback
+          aiResponse = JSON.stringify([
+            {
+              type: "choice",
+              question_text: "What is the main research objective discussed in this document?",
+              options: ["Data Analysis", "System Implementation", "Performance Testing", "User Experience Study"],
+              required: true,
+              sourceContext: "Emergency fallback question for demo"
+            },
+            {
+              type: "choice", 
+              question_text: "Which methodology was primarily used in this research?",
+              options: ["Quantitative Analysis", "Qualitative Research", "Mixed Methods", "Experimental Study"],
+              required: true,
+              sourceContext: "Emergency fallback question for demo"
+            },
+            {
+              type: "text",
+              question_text: "What are the key findings or conclusions of this research?",
+              options: null,
+              required: true,
+              sourceContext: "Emergency fallback question for demo"
+            }
+          ]);
         }
-      ]);
+      } else {
+        console.log('No OpenAI API key, using hardcoded fallback');
+        // Hardcoded fallback if no OpenAI
+        aiResponse = JSON.stringify([
+          {
+            type: "choice",
+            question_text: "What is the main research objective discussed in this document?",
+            options: ["Data Analysis", "System Implementation", "Performance Testing", "User Experience Study"],
+            required: true,
+            sourceContext: "Emergency fallback question for demo"
+          },
+          {
+            type: "choice", 
+            question_text: "Which methodology was primarily used in this research?",
+            options: ["Quantitative Analysis", "Qualitative Research", "Mixed Methods", "Experimental Study"],
+            required: true,
+            sourceContext: "Emergency fallback question for demo"
+          },
+          {
+            type: "text",
+            question_text: "What are the key findings or conclusions of this research?",
+            options: null,
+            required: true,
+            sourceContext: "Emergency fallback question for demo"
+          }
+        ]);
+      }
     }
     
     if (!aiResponse) {
@@ -1207,6 +1326,28 @@ app.post('/api/emergency-demo', (_req, res) => {
       generated: 4,
       model: 'emergency-demo-mode',
       note: 'Emergency demo mode activated - bypassing AI processing'
+    }
+  });
+});
+
+// ============================================================================
+// RULE-BASED FALLBACK - No AI required
+// ============================================================================
+app.post('/api/rule-based-questions', express.json(), (req, res) => {
+  console.log('RULE-BASED FALLBACK ACTIVATED - No AI required');
+  
+  const { questionCount = 5, fileName } = req.body;
+  
+  const questions = generateRuleBasedQuestions(fileName || 'Document', questionCount);
+  
+  return res.json({
+    success: true,
+    questions: questions,
+    meta: {
+      requested: questionCount,
+      generated: questions.length,
+      model: 'rule-based-generator',
+      note: 'Rule-based questions generated - no AI APIs used'
     }
   });
 });
