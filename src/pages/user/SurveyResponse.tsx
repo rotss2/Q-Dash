@@ -40,6 +40,17 @@ function SurveyContent() {
 
   const QUESTIONS_PER_SECTION = 6;
 
+  // Define your section titles here - add or remove as needed
+  const SECTION_TITLES: string[] = [
+    'Ease of Use',      // Part A
+    'Speed & Efficiency', // Part B
+    'Accuracy',         // Part C
+    'Security',         // Part D
+    // Add more sections here:
+    // 'Cost Effectiveness', // Part E
+    // 'User Satisfaction',  // Part F
+  ];
+
   const answersMap = useMemo(
     () => Object.fromEntries(answers.map((answer) => [answer.question_id, answer.answer])),
     [answers]
@@ -778,7 +789,7 @@ function SurveyContent() {
           {/* Progress Info */}
           <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
             <span className="font-medium">
-              {showWelcome ? 'Welcome' : `${currentSectionIndex === 0 ? 'Part A: Ease of Use' : currentSectionIndex === 1 ? 'Part B: Speed & Efficiency' : currentSectionIndex === 2 ? 'Part C: Accuracy' : currentSectionIndex === 3 ? 'Part D: Security' : `Section ${currentSectionIndex + 1}`} • ${currentSection.length} questions`}
+              {showWelcome ? 'Welcome' : `Part ${String.fromCharCode(65 + currentSectionIndex)}: ${SECTION_TITLES[currentSectionIndex] || `Section ${currentSectionIndex + 1}`} • ${currentSection.length} questions`}
             </span>
             {!showWelcome && (
               <span className="font-semibold text-gray-700">
@@ -921,11 +932,7 @@ function SurveyContent() {
                     {/* Section Title */}
                     <div className="text-center">
                       <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                        {currentSectionIndex === 0 && 'Ease of Use'}
-                        {currentSectionIndex === 1 && 'Speed & Efficiency'}
-                        {currentSectionIndex === 2 && 'Accuracy'}
-                        {currentSectionIndex === 3 && 'Security'}
-                        {currentSectionIndex > 3 && `Section ${currentSectionIndex + 1}`}
+                        {SECTION_TITLES[currentSectionIndex] || `Section ${currentSectionIndex + 1}`}
                       </h2>
                       <p className="text-sm text-gray-600 mt-2">
                         Scroll down to answer all {currentSection.length} questions in this section
