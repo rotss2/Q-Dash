@@ -54,7 +54,12 @@ export default function AllResponses() {
       }>(`/api/admin/surveys/${survey.id}/analytics?_t=${timestamp}`);
       
       if (!response.error && response.data?.responses) {
-        for (const r of response.data.responses) {
+        console.log('API responses sample:', response.data.responses.slice(0, 3).map(r => ({ 
+          user_id: r.user_id?.slice(0, 8), 
+          profile: r.profile,
+          question: r.question?.question_text?.slice(0, 30)
+        })));
+        for (const r of response.data?.responses) {
           const key = `${r.user_id}_${r.survey_id}`;
           
           if (!submissionMap.has(key)) {

@@ -724,11 +724,18 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
     // Fetch survey_sessions for ALL users (to get email from anonymous users)
     let sessionsMap = new Map();
     if (allUserIds.length > 0) {
-      const { data: sessions } = await supabaseAdmin
+      const { data: sessions, error: sessionsError } = await supabaseAdmin
         .from('survey_sessions')
         .select('user_id, email')
         .eq('survey_id', surveyId)
         .in('user_id', allUserIds);
+      
+      if (sessionsError) {
+        console.error('Error fetching survey_sessions:', sessionsError);
+      }
+      
+      console.log('Found survey_sessions:', sessions?.length || 0, 'for users:', allUserIds.length);
+      console.log('Sessions with email:', (sessions || []).filter(s => s.email).map(s => ({ user_id: s.user_id?.slice(0, 8), email: s.email })));
       
       (sessions || []).forEach(s => {
         if (s.email) {
@@ -748,6 +755,11 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
         question: question ? { question_text: question.question_text } : null
       };
     });
+
+    console.log('Enriched responses sample:', enrichedResponses.slice(0, 3).map(r => ({ 
+      user_id: r.user_id?.slice(0, 8), 
+      email: r.profile?.email 
+    })));
 
     return res.json({ survey, questions: questions || [], responses: enrichedResponses });
   } catch (error) {
