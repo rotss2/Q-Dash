@@ -87,7 +87,9 @@ export default function SurveyBuilder() {
   const loadSurvey = async (id: string) => {
     setIsLoading(true);
 
-    const { data, error } = await apiGet<{ survey: Survey; questions: FormQuestion[] }>(`/api/admin/surveys/${id}`);
+    // Add cache-busting timestamp to force fresh data
+    const timestamp = new Date().getTime();
+    const { data, error } = await apiGet<{ survey: Survey; questions: FormQuestion[] }>(`/api/admin/surveys/${id}?_t=${timestamp}`);
 
     if (error || !data?.survey) {
       showToast(error || 'Failed to load survey', 'error');

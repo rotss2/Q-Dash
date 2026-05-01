@@ -54,11 +54,13 @@ export default function SurveyAnalytics() {
     setIsLoading(true);
     console.log('Analytics: Loading data for survey:', surveyId);
 
+    // Add cache-busting timestamp to force fresh data
+    const timestamp = new Date().getTime();
     const { data, error } = await apiGet<{
       survey: Survey;
       questions: Question[];
       responses: Array<Response & { question?: Question; profile?: { email: string } }>;
-    }>(`/api/admin/surveys/${surveyId}/analytics`);
+    }>(`/api/admin/surveys/${surveyId}/analytics?_t=${timestamp}`);
 
     if (error || !data?.survey) {
       console.error('Analytics: Failed to load survey:', error);
