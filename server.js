@@ -704,48 +704,6 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-
-// Load CommonJS modules properly
-let pdfParse;
-let mammoth;
-let modulesLoaded = false;
-
-async function loadModules() {
-  if (modulesLoaded) return;
-  
-  try {
-    // Use createRequire for CommonJS compatibility
-    const pdfParseModule = require('pdf-parse');
-    const mammothModule = require('mammoth');
-    
-    // Bulletproof extraction: check all possible export locations
-    // Based on logs: pdf-parse exports { PDFParse: [class PDFParse] }
-    pdfParse = typeof pdfParseModule === 'function' 
-      ? pdfParseModule 
-      : (pdfParseModule.PDFParse || pdfParseModule.default || pdfParseModule);
-    
-    mammoth = typeof mammothModule === 'function' 
-      ? mammothModule 
-      : (mammothModule.default || mammothModule);
-    
-    // Log what we got for debugging
-    console.log('pdf-parse loaded, type:', typeof pdfParse);
-    console.log('pdf-parse is function:', typeof pdfParse === 'function');
-    if (typeof pdfParse === 'object') {
-      console.log('pdf-parse keys:', Object.keys(pdfParse));
-    }
-    console.log('mammoth loaded, type:', typeof mammoth);
-    
-    modulesLoaded = true;
-    console.log('PDF and DOCX parsing modules loaded successfully');
-  } catch (err) {
-    console.error('Failed to load parsing modules:', err);
-    throw err;
-  }
-}
 
 // Initialize Gemini (FREE TIER)
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
@@ -753,9 +711,8 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 // File size limit: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// Text chunking configuration
-const CHUNK_SIZE = 4000; // Characters per chunk
-const CHUNK_OVERLAP = 500; // Overlap between chunks for context preservation
+// File storage for uploaded documents (in-memory, cleared after question generation)
+const uploadedFiles = new Map(); // sessionId -> { fileName, fileBuffer, fileType }
 
 // Question schema for validation
 const GeneratedQuestionSchema = z.array(z.object({
@@ -797,69 +754,37 @@ function chunkText(text, chunkSize = CHUNK_SIZE, overlap = CHUNK_OVERLAP) {
 }
 
 /**
- * Extract text from uploaded file based on file type
+ * Store uploaded file temporarily for Gemini processing
  */
-async function extractTextFromFile(fileBuffer, fileName) {
-  const ext = fileName.split('.').pop()?.toLowerCase();
+function storeUploadedFile(sessionId, fileName, fileBuffer, fileType) {
+  uploadedFiles.set(sessionId, {
+    fileName,
+    fileBuffer,
+    fileType,
+    uploadedAt: Date.now()
+  });
   
-  // Ensure modules are loaded
-  await loadModules();
-  
-  // Bulletproof: extract function from object if needed
-  const pdfParser = typeof pdfParse === 'function' 
-    ? pdfParse 
-    : (pdfParse?.PDFParse || pdfParse?.default || pdfParse);
-  
-  if (!pdfParser || typeof pdfParser !== 'function') {
-    console.error('PDF Loader Debug:', {
-      type: typeof pdfParse,
-      keys: typeof pdfParse === 'object' ? Object.keys(pdfParse) : 'N/A'
-    });
-    throw new Error('PDF parsing module not properly loaded');
-  }
-  
-  try {
-    if (ext === 'pdf') {
-      let pdfData;
-      try {
-        // Attempt 1: Call as a standard function
-        pdfData = await pdfParser(fileBuffer);
-      } catch (err) {
-        // Attempt 2: If it's a Class, use the 'new' keyword
-        if (err.message && err.message.includes("Class constructors")) {
-          console.log("Detected PDF Class constructor, using 'new' keyword...");
-          const Parser = pdfParse?.PDFParse || pdfParse;
-          const instance = new Parser(fileBuffer);
-          pdfData = await instance.parse();
-        } else {
-          throw err;
-        }
-      }
-      return {
-        text: pdfData.text,
-        pageCount: pdfData.numpages,
-        info: pdfData.info
-      };
-    } else if (ext === 'docx') {
-      const result = await mammoth.extractRawText({ buffer: fileBuffer });
-      return {
-        text: result.value,
-        pageCount: null,
-        info: { title: result.messages?.[0] || 'DOCX Document' }
-      };
-    } else if (ext === 'txt') {
-      return {
-        text: fileBuffer.toString('utf-8'),
-        pageCount: null,
-        info: { title: fileName }
-      };
-    } else {
-      throw new Error('Unsupported file type. Only PDF, DOCX, and TXT are supported.');
+  // Clean up old files (older than 1 hour)
+  const oneHourAgo = Date.now() - 3600000;
+  for (const [key, value] of uploadedFiles.entries()) {
+    if (value.uploadedAt < oneHourAgo) {
+      uploadedFiles.delete(key);
     }
-  } catch (error) {
-    console.error('Text extraction error:', error);
-    throw new Error(`Failed to extract text: ${error.message}`);
   }
+}
+
+/**
+ * Get uploaded file by session ID
+ */
+function getUploadedFile(sessionId) {
+  return uploadedFiles.get(sessionId);
+}
+
+/**
+ * Delete uploaded file after processing
+ */
+function deleteUploadedFile(sessionId) {
+  uploadedFiles.delete(sessionId);
 }
 
 /**
@@ -1007,29 +932,22 @@ app.post('/api/upload-document', express.raw({
 
     console.log(`Processing upload: ${fileName} (${fileBuffer.length} bytes)`);
 
-    // Extract text from file
-    const extraction = await extractTextFromFile(fileBuffer, fileName);
+    // Generate session ID for this upload
+    const sessionId = crypto.randomUUID();
     
-    if (!extraction.text || extraction.text.trim().length === 0) {
-      return res.status(400).json({ error: 'Could not extract text from document. File may be empty, corrupted, or password-protected.' });
-    }
-
-    // Chunk the text if it's large
-    const chunks = chunkText(extraction.text);
+    // Store file temporarily (Gemini will read it directly)
+    storeUploadedFile(sessionId, fileName, fileBuffer, fileType);
     
-    console.log(`Extracted ${extraction.text.length} chars, chunked into ${chunks.length} segments`);
+    console.log(`File stored with session ID: ${sessionId}`);
 
+    // Return success - Gemini will read the file directly
     return res.json({
       success: true,
-      text: extraction.text,
-      chunks: chunks,
+      sessionId,
       meta: {
         fileName,
         fileType,
-        size: fileBuffer.length,
-        pageCount: extraction.pageCount,
-        charCount: extraction.text.length,
-        chunkCount: chunks.length
+        size: fileBuffer.length
       }
     });
 
@@ -1048,10 +966,10 @@ app.post('/api/upload-document', express.raw({
  */
 app.post('/api/generate-questions', express.json({ limit: '50mb' }), async (req, res) => {
   try {
-    const { text, config, fileName } = req.body;
+    const { sessionId, config, fileName } = req.body;
     
-    if (!text || !Array.isArray(text) || text.length === 0) {
-      return res.status(400).json({ error: 'Text chunks are required' });
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required. Please upload a document first.' });
     }
     
     if (!config) {
@@ -1065,29 +983,19 @@ app.post('/api/generate-questions', express.json({ limit: '50mb' }), async (req,
       return res.status(500).json({ error: 'Google Gemini API key not configured. Get free key at https://aistudio.google.com/app/apikey' });
     }
 
-    console.log(`Generating ${questionCount} questions from ${text.length} chunks...`);
-
-    // Combine chunks intelligently to fit within token limits
-    // GPT-4 has ~8k-32k context, but we'll be conservative
-    const MAX_CONTEXT_CHARS = 12000; // Approx 3000 tokens for content
-    let combinedText = '';
-    
-    for (const chunk of text) {
-      if ((combinedText + chunk).length <= MAX_CONTEXT_CHARS) {
-        combinedText += '\n\n' + chunk;
-      } else {
-        break; // Stop adding chunks when approaching limit
-      }
+    // Get uploaded file
+    const uploadedFile = getUploadedFile(sessionId);
+    if (!uploadedFile) {
+      return res.status(400).json({ error: 'Upload session expired or not found. Please re-upload the document.' });
     }
+
+    console.log(`Generating ${questionCount} questions from file: ${uploadedFile.fileName}`);
 
     const prompt = `${generateSystemPrompt(config)}
 
-DOCUMENT: "${fileName || 'Research Document'}"
+DOCUMENT: "${uploadedFile.fileName || 'Research Document'}"
 
-CONTENT:
-${combinedText}
-
-Generate ${questionCount} questions based STRICTLY on this document content.
+Please read the attached document and generate ${questionCount} questions based STRICTLY on its content.
 Remember: If the document doesn't contain enough information for ${questionCount} quality questions, generate fewer and STOP. Never invent information.
 
 Respond with ONLY a JSON array of questions. No markdown, no code blocks, just raw JSON starting with [ and ending with ].`;
@@ -1101,7 +1009,19 @@ Respond with ONLY a JSON array of questions. No markdown, no code blocks, just r
       }
     });
 
-    const result = await model.generateContent(prompt);
+    // Send file to Gemini as inline data (base64)
+    const fileData = uploadedFile.fileBuffer.toString('base64');
+    const mimeType = uploadedFile.fileType || 'application/pdf';
+    
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: fileData,
+          mimeType: mimeType
+        }
+      },
+      prompt
+    ]);
     const aiResponse = result.response.text();
     
     if (!aiResponse) {
