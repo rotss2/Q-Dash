@@ -10,6 +10,9 @@ export interface Profile {
 export type SurveyStatus = 'open' | 'closed';
 export type QuestionType = 'text' | 'choice' | 'likert';
 
+// NEW: Block type for strict element typing
+export type BlockType = 'question' | 'heading' | 'instruction' | 'page_break';
+
 export interface Survey {
   id: string;
   title: string;
@@ -32,9 +35,11 @@ export interface Survey {
 export interface Question {
   id: string;
   survey_id: string;
-  type: QuestionType;
+  block_type: BlockType;           // NEW: strict typing - determines rendering
+  type: QuestionType;              // Only used when block_type === 'question'
   question_text: string;
   options: string[] | null;
+  section_id?: string | null;      // NEW: for section-based pagination
   show_when_question_id?: string | null;
   show_when_answer_value?: string | null;
   order_index: number;
@@ -42,6 +47,17 @@ export interface Question {
   is_active?: boolean;
   version?: number;
   question_group_id?: string | null;
+  _questionNumber?: number;        // Runtime property for numbering (not in DB)
+}
+
+// NEW: Section type for organizing questions into pages
+export interface Section {
+  id: string;
+  survey_id: string;
+  title: string;
+  description?: string | null;
+  order_index: number;
+  created_at?: string;
 }
 
 export interface Response {

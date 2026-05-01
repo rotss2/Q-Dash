@@ -98,9 +98,11 @@ export interface Database {
         Row: {
           id: string
           survey_id: string
+          block_type: 'question' | 'heading' | 'instruction' | 'page_break'
           type: 'text' | 'choice' | 'likert'
           question_text: string
           options: string[] | null
+          section_id: string | null
           show_when_question_id: string | null
           show_when_answer_value: string | null
           order_index: number
@@ -112,9 +114,11 @@ export interface Database {
         Insert: {
           id?: string
           survey_id: string
+          block_type?: 'question' | 'heading' | 'instruction' | 'page_break'
           type: 'text' | 'choice' | 'likert'
           question_text: string
           options?: string[] | null
+          section_id?: string | null
           show_when_question_id?: string | null
           show_when_answer_value?: string | null
           order_index?: number
@@ -126,9 +130,11 @@ export interface Database {
         Update: {
           id?: string
           survey_id?: string
+          block_type?: 'question' | 'heading' | 'instruction' | 'page_break'
           type?: 'text' | 'choice' | 'likert'
           question_text?: string
           options?: string[] | null
+          section_id?: string | null
           show_when_question_id?: string | null
           show_when_answer_value?: string | null
           order_index?: number
@@ -226,6 +232,41 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "survey_sessions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      question_sections: {
+        Row: {
+          id: string
+          survey_id: string
+          title: string
+          description: string | null
+          order_index: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          survey_id: string
+          title: string
+          description?: string | null
+          order_index?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          survey_id?: string
+          title?: string
+          description?: string | null
+          order_index?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_sections_survey_id_fkey"
             columns: ["survey_id"]
             isOneToOne: false
             referencedRelation: "surveys"

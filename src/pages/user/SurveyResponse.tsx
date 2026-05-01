@@ -35,7 +35,6 @@ function SurveyContent() {
   const [blockReason, setBlockReason] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
   const [fingerprint, setFingerprint] = useState<string>('');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
 
   const answersMap = useMemo(
@@ -119,16 +118,62 @@ function SurveyContent() {
     return answerValues[question.show_when_question_id] === question.show_when_answer_value;
   };
 
-  const visibleQuestions = useMemo(
-    () => questions.filter((question) => shouldShowQuestion(question, answersMap)),
-    [questions, answersMap]
+  // Filter active questions only
+  const activeQuestions = useMemo(
+    () => questions.filter((q) => q.is_active !== false),
+    [questions]
   );
 
+  // Group by sections for pagination
+  const sections = useMemo(() => {
+    const result: { 
+      sectionId: string | null; 
+      title: string; 
+      items: Question[];
+      questionCount: number;
+    }[] = [];
+    
+    let currentSection: typeof result[0] | null = null;
+    let questionCounter = 0;
+    
+    activeQuestions.forEach((q) => {
+      // Check if this question should be shown (conditional logic)
+      if (!shouldShowQuestion(q, answersMap)) return;
+      
+      if (q.block_type === 'heading' || !currentSection) {
+        // Start new section
+        if (currentSection) result.push(currentSection);
+        currentSection = {
+          sectionId: q.section_id || q.id,
+          title: q.block_type === 'heading' ? q.question_text : 'Untitled Section',
+          items: [],
+          questionCount: 0
+        };
+      }
+      
+      if (q.block_type === 'question') {
+        questionCounter++;
+        currentSection.questionCount++;
+      }
+      
+      currentSection.items.push({ ...q, _questionNumber: q.block_type === 'question' ? questionCounter : undefined });
+    });
+    
+    if (currentSection) result.push(currentSection);
+    return result;
+  }, [activeQuestions, answersMap]);
+
+  // Section-based navigation
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  
+  const currentSection = sections[currentSectionIndex];
+  const isLastSection = currentSectionIndex >= sections.length - 1;
+  const isFirstSection = currentSectionIndex === 0;
+  
+  // Reset section index when sections change
   useEffect(() => {
-    if (currentQuestionIndex >= visibleQuestions.length) {
-      setCurrentQuestionIndex(Math.max(0, visibleQuestions.length - 1));
-    }
-  }, [currentQuestionIndex, visibleQuestions.length]);
+    setCurrentSectionIndex(0);
+  }, [sections.length]);
 
   // Initialize anonymous user ID on mount
   useEffect(() => {
@@ -330,22 +375,23 @@ function SurveyContent() {
       return;
     }
 
-    // Validate required fields for visible questions only
-    const missingRequired = visibleQuestions
+    // Validate required fields for all questions across all sections
+    const allQuestions = sections.flatMap(s => s.items).filter(q => q.block_type === 'question');
+    const missingRequired = allQuestions
       .filter((q) => q.required)
       .filter((q) => !getAnswer(q.id));
 
     if (missingRequired.length > 0) {
-      showToast(t('errorRequiredField'), 'error');
+      showToast(`${t('errorRequiredField')} (${missingRequired.length} questions)`, 'error');
       return;
     }
 
     setIsSubmitting(true);
 
     const now = new Date().toISOString();
-    const visibleQuestionIds = new Set(visibleQuestions.map((q) => q.id));
+    const allQuestionIds = new Set(allQuestions.map((q) => q.id));
     const responsesToInsert = answers
-      .filter((a) => visibleQuestionIds.has(a.question_id))
+      .filter((a) => allQuestionIds.has(a.question_id))
       .map((a) => ({
         survey_id: surveyId!,
         user_id: userId,
@@ -410,7 +456,8 @@ function SurveyContent() {
       
       // Deduplicate questions by question_text to handle legacy data
       const seenQuestions = new Set<string>();
-      const uniqueQuestions = visibleQuestions.filter((q) => {
+      const allQuestions = sections.flatMap(s => s.items);
+      const uniqueQuestions = allQuestions.filter((q) => {
         const normalized = q.question_text.trim().toLowerCase();
         if (seenQuestions.has(normalized)) {
           return false;
@@ -471,20 +518,27 @@ function SurveyContent() {
     setShowWelcome(false);
   };
 
-  const goToNext = () => {
-    const currentQ = visibleQuestions[currentQuestionIndex];
-    if (currentQ?.required && !getAnswer(currentQ.id)) {
-      showToast(t('errorRequiredField'), 'error');
+  const goToNextSection = () => {
+    // Validate all required questions in current section
+    const unansweredRequired = currentSection?.items.filter(
+      (item) => item.block_type === 'question' && item.required && !getAnswer(item.id)
+    );
+    
+    if (unansweredRequired && unansweredRequired.length > 0) {
+      showToast(`${t('errorRequiredField')} (${unansweredRequired.length} question${unansweredRequired.length > 1 ? 's' : ''})`, 'error');
       return;
     }
-    if (currentQuestionIndex < visibleQuestions.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
+    
+    if (!isLastSection) {
+      setCurrentSectionIndex((prev) => prev + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const goToPrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+  const goToPreviousSection = () => {
+    if (!isFirstSection) {
+      setCurrentSectionIndex((prev) => prev - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -711,7 +765,7 @@ function SurveyContent() {
     );
   }
 
-  if (visibleQuestions.length === 0) {
+  if (sections.length === 0) {
     return (
       <div className={`min-h-screen ${themeClasses.bg} flex items-center justify-center p-4`}>
         <div className="card max-w-md w-full text-center">
@@ -725,9 +779,7 @@ function SurveyContent() {
     );
   }
 
-  const currentQuestion = visibleQuestions[currentQuestionIndex];
-  const isLastQuestion = currentQuestionIndex === visibleQuestions.length - 1;
-  const progress = visibleQuestions.length > 0 ? ((currentQuestionIndex + 1) / visibleQuestions.length) * 100 : 0;
+  const progress = sections.length > 0 ? ((currentSectionIndex + 1) / sections.length) * 100 : 0;
 
   return (
     <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass} relative`}>
@@ -755,7 +807,7 @@ function SurveyContent() {
           {/* Progress Info */}
           <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
             <span className="font-medium">
-              {showWelcome ? 'Welcome' : `Question ${currentQuestionIndex + 1} of ${visibleQuestions.length}`}
+              {showWelcome ? 'Welcome' : `Section ${currentSectionIndex + 1} of ${sections.length}`}
             </span>
             {!showWelcome && (
               <span className="font-semibold text-gray-700">
@@ -812,11 +864,11 @@ function SurveyContent() {
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-start gap-2">
                     <span className="text-green-500 mt-0.5">✓</span>
-                    <span>This survey takes approximately {Math.ceil(visibleQuestions.length * 0.5)} minutes</span>
+                    <span>This survey takes approximately {Math.ceil(sections.reduce((acc, s) => acc + s.questionCount, 0) * 0.5)} minutes</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-green-500 mt-0.5">✓</span>
-                    <span>There are {visibleQuestions.length} question{visibleQuestions.length !== 1 ? 's' : ''} to complete</span>
+                    <span>There are {sections.reduce((acc, s) => acc + s.questionCount, 0)} question{sections.reduce((acc, s) => acc + s.questionCount, 0) !== 1 ? 's' : ''} to complete</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-green-500 mt-0.5">✓</span>
@@ -1012,11 +1064,11 @@ function SurveyContent() {
                 )}
               </div>
 
-              {/* Navigation */}
+              {/* Navigation - Section Based */}
               <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center">
-                {currentQuestionIndex > 0 && (
+                {!isFirstSection && (
                   <button
-                    onClick={goToPrevious}
+                    onClick={goToPreviousSection}
                     className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02] touch-manipulation"
                   >
                     <ChevronLeft className="w-5 h-5" />
@@ -1024,10 +1076,10 @@ function SurveyContent() {
                   </button>
                 )}
                 
-                {isLastQuestion ? (
+                {isLastSection ? (
                   <button
                     onClick={handleSubmit}
-                    disabled={isSubmitting || (currentQuestion.required && !getAnswer(currentQuestion.id))}
+                    disabled={isSubmitting}
                     className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
                   >
                     {isSubmitting ? (
@@ -1044,9 +1096,8 @@ function SurveyContent() {
                   </button>
                 ) : (
                   <button
-                    onClick={goToNext}
-                    disabled={currentQuestion.required && !getAnswer(currentQuestion.id)}
-                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
+                    onClick={goToNextSection}
+                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] shadow-lg touch-manipulation`}
                   >
                     {t('next')}
                     <ChevronRight className="w-6 h-6" />
