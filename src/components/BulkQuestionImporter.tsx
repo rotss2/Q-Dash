@@ -798,12 +798,35 @@ export default function BulkQuestionImporter({
     <div className="space-y-6">
       {/* Header */}
       <div className="border-b border-gray-200 pb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <FileText className="w-5 h-5 text-slate-700" />
-          <h2 className="text-lg font-semibold text-slate-900">Bulk Question Importer</h2>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-slate-700" />
+            <h2 className="text-lg font-semibold text-slate-900">Bulk Question Importer</h2>
+          </div>
+
+          {/* Prominent Auto Organize Button - Always Visible */}
+          <button
+            onClick={autoOrganizeAndAnalyze}
+            disabled={isAnalyzing || questions.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-violet-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
+            title="AI-powered: Auto-detect question types, extract options, and organize into sections"
+          >
+            {isAnalyzing ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Auto Organize
+              </>
+            )}
+          </button>
         </div>
         <p className="text-sm text-slate-600">
           Import multiple questions with validation, batch editing, and preview.
+          <span className="text-indigo-600 font-medium ml-1">Click "Auto Organize" to automatically detect types and organize sections!</span>
         </p>
       </div>
 
