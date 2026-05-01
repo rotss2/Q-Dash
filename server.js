@@ -697,6 +697,406 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
   }
 });
 
+// ============================================================================
+// DOCUMENT UPLOAD & AI QUESTION GENERATION
+// Context-Aware Document Processing with Strict Grounding
+// ============================================================================
+
+import OpenAI from 'openai';
+import pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
+import { z } from 'zod';
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
+
+// File size limit: 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// Text chunking configuration
+const CHUNK_SIZE = 4000; // Characters per chunk
+const CHUNK_OVERLAP = 500; // Overlap between chunks for context preservation
+
+// Question schema for validation
+const GeneratedQuestionSchema = z.array(z.object({
+  type: z.enum(['choice', 'text', 'likert']),
+  question_text: z.string().min(5).max(500),
+  options: z.array(z.string()).nullable(),
+  required: z.boolean().default(true),
+  sourceContext: z.string().optional(),
+}));
+
+/**
+ * Chunk text into smaller pieces for processing
+ * Uses sliding window approach with overlap for context preservation
+ */
+function chunkText(text, chunkSize = CHUNK_SIZE, overlap = CHUNK_OVERLAP) {
+  const chunks = [];
+  let start = 0;
+  
+  while (start < text.length) {
+    const end = Math.min(start + chunkSize, text.length);
+    // Try to end at a sentence boundary
+    let chunkEnd = end;
+    if (end < text.length) {
+      // Look for sentence ending punctuation within last 100 chars
+      const searchStart = Math.max(end - 100, start);
+      const searchText = text.slice(searchStart, end + 100);
+      const sentenceEnd = searchText.search(/[.!?]\s/);
+      if (sentenceEnd !== -1) {
+        chunkEnd = searchStart + sentenceEnd + 1;
+      }
+    }
+    
+    chunks.push(text.slice(start, chunkEnd).trim());
+    start = chunkEnd - overlap;
+    if (start >= chunkEnd) start = chunkEnd; // Prevent infinite loop
+  }
+  
+  return chunks;
+}
+
+/**
+ * Extract text from uploaded file based on file type
+ */
+async function extractTextFromFile(fileBuffer, fileName) {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  
+  try {
+    if (ext === 'pdf') {
+      const pdfData = await pdfParse(fileBuffer);
+      return {
+        text: pdfData.text,
+        pageCount: pdfData.numpages,
+        info: pdfData.info
+      };
+    } else if (ext === 'docx') {
+      const result = await mammoth.extractRawText({ buffer: fileBuffer });
+      return {
+        text: result.value,
+        pageCount: null,
+        info: { title: result.messages?.[0] || 'DOCX Document' }
+      };
+    } else if (ext === 'txt') {
+      return {
+        text: fileBuffer.toString('utf-8'),
+        pageCount: null,
+        info: { title: fileName }
+      };
+    } else {
+      throw new Error('Unsupported file type. Only PDF, DOCX, and TXT are supported.');
+    }
+  } catch (error) {
+    console.error('Text extraction error:', error);
+    throw new Error(`Failed to extract text: ${error.message}`);
+  }
+}
+
+/**
+ * Generate system prompt for AI with strict grounding constraints
+ */
+function generateSystemPrompt(config) {
+  const { questionTypes, complexity, strictGrounding } = config;
+  
+  const enabledTypes = [];
+  if (questionTypes.multipleChoice) enabledTypes.push('multiple choice');
+  if (questionTypes.boolean) enabledTypes.push('boolean (Yes/No)');
+  if (questionTypes.shortAnswer) enabledTypes.push('short answer');
+  if (questionTypes.likert) enabledTypes.push('Likert scale (1-5)');
+  
+  const complexityGuidelines = {
+    academic: 'Create questions that test academic understanding, requiring analysis of concepts, theories, and methodologies presented in the text.',
+    research: 'Generate research-grade questions suitable for scholarly evaluation. Questions should probe deeper understanding, require critical analysis, and assess comprehension of research findings, methodologies, and implications.',
+    analytical: 'Create evaluative questions that require synthesis of information, critical thinking, and application of concepts from the document.'
+  };
+  
+  return `You are an expert educational assessment designer specializing in creating research-grade questionnaires.
+
+## ABSOLUTE GROUNDING CONSTRAINT (CRITICAL)
+${strictGrounding ? `
+⚠️ STRICT GROUNDING ENFORCED ⚠️
+- Generate questions SOLELY based on the provided document text
+- ZERO external knowledge or assumptions allowed
+- If the document lacks sufficient information for a question, STOP and return fewer questions
+- NEVER hallucinate facts, statistics, or claims not explicitly in the text
+- Each question must be verifiable by referencing specific content in the document
+` : `
+Generate questions primarily based on the document, but you may use general knowledge to frame questions appropriately.
+`}
+
+## QUESTION TYPE REQUIREMENTS
+Generate ONLY these question types: ${enabledTypes.join(', ')}
+
+For each type:
+- Multiple Choice: 3-5 distinct options, one correct answer clearly supported by text
+- Boolean: Yes/No or True/False format, based on explicit claims in document
+- Short Answer: Questions requiring 1-3 sentence responses, testing comprehension
+- Likert Scale: Statements to rate on 1-5 scale (Strongly Disagree to Strongly Agree), based on evaluable claims
+
+## COMPLEXITY LEVEL: ${complexity.toUpperCase()}
+${complexityGuidelines[complexity]}
+
+## QUALITY CRITERIA
+1. Questions must be clear, unambiguous, and grammatically correct
+2. Avoid questions that can be answered without reading the document
+3. Include a mix of factual recall and analytical thinking
+4. Ensure questions cover different sections/aspects of the document
+5. For Likert scales, use statements that can be evaluated (not questions)
+
+## OUTPUT FORMAT
+Return a JSON array of question objects with this exact structure:
+[
+  {
+    "type": "choice" | "text" | "likert",
+    "question_text": "string (the question or statement)",
+    "options": ["option1", "option2", ...] or null for text/likert,
+    "required": true,
+    "sourceContext": "Brief excerpt from document this is based on"
+  }
+]
+
+## HALLUCINATION PREVENTION
+Before finalizing each question:
+1. Verify the answer/expertise required is explicitly in the document
+2. If insufficient content exists, generate fewer questions rather than fabricating
+3. Mark the source context for traceability`;
+}
+
+// Multer-like file handling using express.raw() and buffers
+app.post('/api/upload-document', express.raw({ 
+  type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'multipart/form-data'],
+  limit: MAX_FILE_SIZE 
+}), async (req, res) => {
+  try {
+    // Parse multipart form data manually
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes('multipart/form-data')) {
+      return res.status(400).json({ error: 'Expected multipart/form-data' });
+    }
+
+    // Simple multipart parser
+    const boundary = contentType.split('boundary=')[1];
+    if (!boundary) {
+      return res.status(400).json({ error: 'Missing boundary in content-type' });
+    }
+
+    const body = req.body;
+    const parts = body.toString('binary').split(`--${boundary}`);
+    
+    let fileBuffer = null;
+    let fileName = '';
+    let fileType = '';
+
+    for (const part of parts) {
+      if (part.includes('Content-Disposition') && part.includes('filename=')) {
+        const filenameMatch = part.match(/filename="([^"]+)"/);
+        if (filenameMatch) {
+          fileName = filenameMatch[1];
+          const contentTypeMatch = part.match(/Content-Type: ([^\r\n]+)/);
+          fileType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
+          
+          // Extract file content (after double CRLF)
+          const contentStart = part.indexOf('\r\n\r\n');
+          if (contentStart !== -1) {
+            let content = part.slice(contentStart + 4);
+            // Remove trailing CRLF before boundary
+            content = content.replace(/\r\n$/, '');
+            fileBuffer = Buffer.from(content, 'binary');
+          }
+        }
+      }
+    }
+
+    if (!fileBuffer) {
+      return res.status(400).json({ error: 'No file found in upload' });
+    }
+
+    console.log(`Processing upload: ${fileName} (${fileBuffer.length} bytes)`);
+
+    // Extract text from file
+    const extraction = await extractTextFromFile(fileBuffer, fileName);
+    
+    if (!extraction.text || extraction.text.trim().length === 0) {
+      return res.status(400).json({ error: 'Could not extract text from document. File may be empty, corrupted, or password-protected.' });
+    }
+
+    // Chunk the text if it's large
+    const chunks = chunkText(extraction.text);
+    
+    console.log(`Extracted ${extraction.text.length} chars, chunked into ${chunks.length} segments`);
+
+    return res.json({
+      success: true,
+      text: extraction.text,
+      chunks: chunks,
+      meta: {
+        fileName,
+        fileType,
+        size: fileBuffer.length,
+        pageCount: extraction.pageCount,
+        charCount: extraction.text.length,
+        chunkCount: chunks.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Document upload error:', error);
+    return res.status(500).json({ 
+      error: error.message || 'Failed to process document',
+      details: error.stack 
+    });
+  }
+});
+
+/**
+ * AI Question Generation Endpoint
+ * Implements strict grounding to prevent hallucination
+ */
+app.post('/api/generate-questions', express.json({ limit: '50mb' }), async (req, res) => {
+  try {
+    const { text, config, fileName } = req.body;
+    
+    if (!text || !Array.isArray(text) || text.length === 0) {
+      return res.status(400).json({ error: 'Text chunks are required' });
+    }
+    
+    if (!config) {
+      return res.status(400).json({ error: 'Configuration is required' });
+    }
+
+    const { questionCount, questionTypes } = config;
+    
+    // Validate OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+
+    console.log(`Generating ${questionCount} questions from ${text.length} chunks...`);
+
+    // Combine chunks intelligently to fit within token limits
+    // GPT-4 has ~8k-32k context, but we'll be conservative
+    const MAX_CONTEXT_CHARS = 12000; // Approx 3000 tokens for content
+    let combinedText = '';
+    
+    for (const chunk of text) {
+      if ((combinedText + chunk).length <= MAX_CONTEXT_CHARS) {
+        combinedText += '\n\n' + chunk;
+      } else {
+        break; // Stop adding chunks when approaching limit
+      }
+    }
+
+    const systemPrompt = generateSystemPrompt(config);
+    const userPrompt = `DOCUMENT: "${fileName || 'Research Document'}"
+
+CONTENT:
+${combinedText}
+
+Generate ${questionCount} questions based STRICTLY on this document content.
+Remember: If the document doesn't contain enough information for ${questionCount} quality questions, generate fewer and STOP. Never invent information.
+
+Respond with the JSON array of questions only.`;
+
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4-turbo-preview', // or 'gpt-4' for higher quality
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3, // Lower temperature for more deterministic output
+      response_format: { type: 'json_object' }, // Enforce JSON output
+      max_tokens: 4000
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content;
+    
+    if (!aiResponse) {
+      return res.status(500).json({ error: 'AI returned empty response' });
+    }
+
+    // Parse and validate the response
+    let parsedQuestions;
+    try {
+      const parsed = JSON.parse(aiResponse);
+      // AI might wrap questions in a 'questions' key or return array directly
+      parsedQuestions = Array.isArray(parsed) ? parsed : parsed.questions || [];
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      return res.status(500).json({ 
+        error: 'AI returned invalid JSON',
+        rawResponse: aiResponse.substring(0, 500)
+      });
+    }
+
+    // Validate with Zod schema
+    const validation = GeneratedQuestionSchema.safeParse(parsedQuestions);
+    
+    if (!validation.success) {
+      console.error('Validation error:', validation.error);
+      return res.status(500).json({ 
+        error: 'Generated questions failed validation',
+        details: validation.error.issues
+      });
+    }
+
+    const validQuestions = validation.data;
+
+    // Post-process: filter out questions that might be hallucinated
+    const groundedQuestions = validQuestions.filter(q => {
+      // Check if sourceContext is provided and exists in document
+      if (q.sourceContext && q.sourceContext.length > 10) {
+        const contextLower = q.sourceContext.toLowerCase();
+        const docLower = combinedText.toLowerCase();
+        
+        // Fuzzy match - context should appear in document
+        // We'll be lenient here as AI might paraphrase slightly
+        const keyPhrases = contextLower.split(' ').filter(w => w.length > 4);
+        const matchCount = keyPhrases.filter(phrase => 
+          docLower.includes(phrase)
+        ).length;
+        
+        const matchRatio = matchCount / keyPhrases.length;
+        return matchRatio > 0.3; // At least 30% of key phrases should match
+      }
+      return true; // Keep if no source context (conservative)
+    });
+
+    console.log(`Generated ${validQuestions.length} questions, ${groundedQuestions.length} passed grounding check`);
+
+    return res.json({
+      success: true,
+      questions: groundedQuestions,
+      meta: {
+        requested: questionCount,
+        generated: groundedQuestions.length,
+        usedTokens: completion.usage?.total_tokens || 0,
+        model: completion.model
+      }
+    });
+
+  } catch (error) {
+    console.error('Question generation error:', error);
+    
+    // Handle specific OpenAI errors
+    if (error.code === 'insufficient_quota') {
+      return res.status(429).json({ error: 'AI service quota exceeded. Please try again later.' });
+    }
+    if (error.code === 'rate_limit_exceeded') {
+      return res.status(429).json({ error: 'Too many requests. Please wait a moment.' });
+    }
+    if (error.code === 'context_length_exceeded') {
+      return res.status(400).json({ error: 'Document is too long. Try a shorter document or fewer chunks.' });
+    }
+    
+    return res.status(500).json({ 
+      error: error.message || 'Failed to generate questions'
+    });
+  }
+});
+
 // Check if dist exists
 const distPath = path.join(__dirname, 'dist');
 const indexPath = path.join(distPath, 'index.html');
