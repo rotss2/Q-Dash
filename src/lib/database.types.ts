@@ -185,6 +185,7 @@ export interface Database {
           id: string
           survey_id: string
           user_id: string
+          email: string | null
           fingerprint: string | null
           ip_address: string | null
           user_agent: string | null
@@ -195,6 +196,7 @@ export interface Database {
           id?: string
           survey_id: string
           user_id: string
+          email?: string | null
           fingerprint?: string | null
           ip_address?: string | null
           user_agent?: string | null
@@ -205,6 +207,7 @@ export interface Database {
           id?: string
           survey_id?: string
           user_id?: string
+          email?: string | null
           fingerprint?: string | null
           ip_address?: string | null
           user_agent?: string | null
