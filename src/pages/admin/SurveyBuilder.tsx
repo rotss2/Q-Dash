@@ -292,125 +292,159 @@ export default function SurveyBuilder() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Survey Details */}
-        <div className="card mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Survey Details</h2>
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-6">
-              <div className="flex-1">
+        <div className="space-y-6">
+          {/* Basic Information */}
+          <div className="card">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+              <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
+            </div>
+            <div className="space-y-4">
+              <div>
                 <label className="label">Survey Title *</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="input"
-                  placeholder="Enter survey title"
-                />
-              </div>
-              <div className="sm:w-52">
-                <label className="label">Brand Color</label>
-                <input
-                  type="color"
-                  value={themeColor}
-                  onChange={(e) => setThemeColor(e.target.value)}
-                  className="w-full h-12 rounded-lg border border-gray-200 p-0"
+                  className="input text-lg"
+                  placeholder="Enter a clear, descriptive title for your survey"
                 />
               </div>
               <div>
-                <label className="label">Theme Style</label>
-                <select
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value)}
-                  className="input w-full"
-                >
-                  <option value="default">Default (Modern)</option>
-                  <option value="warm">Warm (Orange/Peach)</option>
-                  <option value="cool">Cool (Purple/Indigo)</option>
-                  <option value="forest">Forest (Green/Earth)</option>
-                  <option value="dark">Dark Mode</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Font Family</label>
-                <select
-                  value={fontFamily}
-                  onChange={(e) => setFontFamily(e.target.value)}
-                  className="input w-full"
-                >
-                  <option value="default">Default (System)</option>
-                  <option value="serif">Serif (Times New Roman)</option>
-                  <option value="sans">Sans-serif (Clean)</option>
-                  <option value="mono">Monospace (Code)</option>
-                  <option value="rounded">Rounded (Friendly)</option>
-                  <option value="elegant">Elegant (Playfair)</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Background Theme</label>
-                <select
-                  value={backgroundTheme}
-                  onChange={(e) => setBackgroundTheme(e.target.value)}
-                  className="input w-full"
-                >
-                  <option value="default">Default (Plain)</option>
-                  <option value="ocean">🌊 Ocean (Waves)</option>
-                  <option value="sunset">🌅 Sunset (Warm)</option>
-                  <option value="forest">🌲 Forest (Nature)</option>
-                  <option value="galaxy">🌌 Galaxy (Cosmic)</option>
-                  <option value="minimal">✨ Minimal (Clean)</option>
-                </select>
+                <label className="label">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="input min-h-[80px]"
+                  placeholder="Provide context and explain the purpose of this survey"
+                />
               </div>
             </div>
+          </div>
 
-            <div>
-              <label className="label">Description</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="input min-h-[100px]"
-                placeholder="Enter survey description"
-              />
+          {/* Appearance */}
+          <div className="card">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
+              <h2 className="text-lg font-semibold text-gray-900">Appearance & Branding</h2>
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div>
-                <label className="label">Logo URL</label>
-                <input
-                  type="text"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  className="input"
-                  placeholder="https://..."
-                />
-                {logoUrl && (
-                  <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
-                    <img src={logoUrl} alt="Logo preview" className="h-10 w-10 rounded-md object-contain" />
-                    <span className="text-sm text-gray-600">Logo preview</span>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="space-y-4">
+                <div>
+                  <label className="label">Brand Color</label>
+                  <div className="flex gap-3">
+                    <input
+                      type="color"
+                      value={themeColor}
+                      onChange={(e) => setThemeColor(e.target.value)}
+                      className="h-12 w-20 rounded-lg border border-gray-200 p-0 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={themeColor}
+                      onChange={(e) => setThemeColor(e.target.value)}
+                      className="flex-1 input font-mono text-sm"
+                      placeholder="#111827"
+                    />
                   </div>
-                )}
+                </div>
+                <div>
+                  <label className="label">Logo URL</label>
+                  <input
+                    type="text"
+                    value={logoUrl}
+                    onChange={(e) => setLogoUrl(e.target.value)}
+                    className="input"
+                    placeholder="https://yoursite.com/logo.png"
+                  />
+                  {logoUrl && (
+                    <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+                      <img src={logoUrl} alt="Logo preview" className="h-10 w-10 rounded-md object-contain" />
+                      <span className="text-sm text-gray-600">Logo preview</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="label">Supported Languages</label>
-                <input
-                  type="text"
-                  value={supportedLanguages}
-                  onChange={(e) => setSupportedLanguages(e.target.value)}
-                  className="input"
-                  placeholder="en, es, fr"
-                />
-                <p className="text-xs text-gray-500 mt-1">Comma-separated locale codes for respondent language switching.</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="label">Theme Style</label>
+                  <select
+                    value={theme}
+                    onChange={(e) => setTheme(e.target.value)}
+                    className="input"
+                  >
+                    <option value="default">Default (Modern)</option>
+                    <option value="warm">Warm (Orange/Peach)</option>
+                    <option value="cool">Cool (Purple/Indigo)</option>
+                    <option value="forest">Forest (Green/Earth)</option>
+                    <option value="dark">Dark Mode</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Background Theme</label>
+                  <select
+                    value={backgroundTheme}
+                    onChange={(e) => setBackgroundTheme(e.target.value)}
+                    className="input"
+                  >
+                    <option value="default">Default (Plain)</option>
+                    <option value="ocean">🌊 Ocean (Waves)</option>
+                    <option value="sunset">🌅 Sunset (Warm)</option>
+                    <option value="forest">🌲 Forest (Nature)</option>
+                    <option value="galaxy">🌌 Galaxy (Cosmic)</option>
+                    <option value="minimal">✨ Minimal (Clean)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Font Family</label>
+                  <select
+                    value={fontFamily}
+                    onChange={(e) => setFontFamily(e.target.value)}
+                    className="input"
+                  >
+                    <option value="default">Default (System)</option>
+                    <option value="serif">Serif (Times New Roman)</option>
+                    <option value="sans">Sans-serif (Clean)</option>
+                    <option value="mono">Monospace (Code)</option>
+                    <option value="rounded">Rounded (Friendly)</option>
+                    <option value="elegant">Elegant (Playfair)</option>
+                  </select>
+                </div>
               </div>
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div>
-                <label className="label">Default Language</label>
-                <input
-                  type="text"
-                  value={defaultLanguage}
-                  onChange={(e) => setDefaultLanguage(e.target.value)}
-                  className="input"
-                  placeholder="en"
-                />
+          </div>
+
+          {/* Settings */}
+          <div className="card">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 bg-green-500 rounded-full"></div>
+              <h2 className="text-lg font-semibold text-gray-900">Settings & Scheduling</h2>
+            </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="space-y-4">
+                <div>
+                  <label className="label">Supported Languages</label>
+                  <input
+                    type="text"
+                    value={supportedLanguages}
+                    onChange={(e) => setSupportedLanguages(e.target.value)}
+                    className="input"
+                    placeholder="en, es, fr, de"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated locale codes for respondent language switching.</p>
+                </div>
+                <div>
+                  <label className="label">Default Language</label>
+                  <input
+                    type="text"
+                    value={defaultLanguage}
+                    onChange={(e) => setDefaultLanguage(e.target.value)}
+                    className="input"
+                    placeholder="en"
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <label className="label">Open Date</label>
                   <input
@@ -435,64 +469,107 @@ export default function SurveyBuilder() {
         </div>
 
         {/* Templates */}
-        <div className="card mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Start from a template</h3>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1 h-6 bg-orange-500 rounded-full"></div>
+            <h2 className="text-lg font-semibold text-gray-900">Start from a template</h2>
+            <span className="text-sm text-gray-500 ml-2">Save time with pre-built survey structures</span>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {SURVEY_TEMPLATES.map((template) => (
               <button
                 key={template.id}
                 onClick={() => applyTemplate(template.id)}
-                className="rounded-xl border border-gray-200 bg-white p-4 text-left hover:border-slate-900"
+                className="group relative rounded-xl border border-gray-200 bg-white p-5 text-left transition-all duration-200 hover:border-blue-300 hover:shadow-lg hover:-translate-y-1"
               >
-                <h4 className="text-sm font-semibold text-gray-900 mb-2">{template.title}</h4>
-                <p className="text-sm text-gray-500">{template.description}</p>
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    {template.id === 'customer-feedback' && (
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">💬</span>
+                      </div>
+                    )}
+                    {template.id === 'nps' && (
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">⭐</span>
+                      </div>
+                    )}
+                    {template.id === 'event-checkin' && (
+                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">📅</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                      {template.title}
+                    </h4>
+                    <p className="text-xs text-gray-500 leading-relaxed">{template.description}</p>
+                  </div>
+                </div>
+                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ArrowLeft className="w-4 h-4 text-blue-600 rotate-180" />
+                </div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Questions */}
-        <div className="space-y-4">
-          <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center">
+        <div className="card">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="w-1 h-6 bg-indigo-500 rounded-full"></div>
             <h2 className="text-lg font-semibold text-gray-900">Questions ({questions.length})</h2>
-            <div className="flex flex-wrap gap-2">
+            <span className="text-sm text-gray-500 ml-2">Add and organize your survey questions</span>
+          </div>
+          
+          {/* Add Question Section */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-2 mb-3">
+              <Plus className="w-4 h-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">Add Question</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <button
                 onClick={() => setShowBulkImporter(true)}
-                className="btn-secondary text-sm flex items-center gap-1"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
-                <FileText className="w-4 h-4" />
-                Bulk Import
+                <FileText className="w-4 h-4 text-gray-600" />
+                <span>Bulk Import</span>
               </button>
               <button
                 onClick={() => addQuestion('text')}
-                className="btn-secondary text-sm flex items-center gap-1"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
-                <Plus className="w-4 h-4" />
-                Text
+                <div className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center text-xs">T</div>
+                <span>Text</span>
               </button>
               <button
                 onClick={() => addQuestion('choice')}
-                className="btn-secondary text-sm flex items-center gap-1"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
-                <Plus className="w-4 h-4" />
-                Choice
+                <div className="w-4 h-4 bg-green-100 rounded flex items-center justify-center text-xs">✓</div>
+                <span>Multiple Choice</span>
               </button>
               <button
                 onClick={addBooleanQuestion}
-                className="btn-secondary text-sm flex items-center gap-1"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
-                <Plus className="w-4 h-4" />
-                Boolean
+                <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center text-xs">?</div>
+                <span>Yes/No</span>
               </button>
               <button
                 onClick={() => addQuestion('likert')}
-                className="btn-secondary text-sm flex items-center gap-1"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
-                <Plus className="w-4 h-4" />
-                Scaling
+                <div className="w-4 h-4 bg-orange-100 rounded flex items-center justify-center text-xs">1-5</div>
+                <span>Scaling</span>
               </button>
             </div>
           </div>
+          
+          {/* Questions List */}
+          <div className="space-y-4">
 
           {questions.map((question, index) => (
             <div key={question.id} className="card">
@@ -626,7 +703,8 @@ export default function SurveyBuilder() {
               </div>
             </div>
           ))}
-
+          </div>
+          
           {questions.length === 0 && !showBulkImporter && (
             <div className="card text-center py-12">
               <p className="text-gray-500 mb-4">No questions yet. Add your first question above.</p>
