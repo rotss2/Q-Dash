@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle, HelpCircle, Globe } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 
 interface SurveyTemplate {
@@ -425,25 +425,53 @@ export default function SurveyBuilder() {
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-4">
                 <div>
-                  <label className="label">Supported Languages</label>
-                  <input
-                    type="text"
-                    value={supportedLanguages}
-                    onChange={(e) => setSupportedLanguages(e.target.value)}
-                    className="input"
-                    placeholder="en, es, fr, de"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Comma-separated locale codes for respondent language switching.</p>
+                  <label className="label flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-gray-500" />
+                    Supported Languages
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {(['English', 'Spanish', 'French', 'German', 'Chinese'] as const).map((lang) => {
+                      const langMap: Record<string, string> = { 'English': 'en', 'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Chinese': 'zh' };
+                      const langCode = langMap[lang];
+                      const isSelected = supportedLanguages.split(',').map(l => l.trim()).includes(langCode);
+                      return (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => {
+                            const current = supportedLanguages.split(',').map(l => l.trim()).filter(Boolean);
+                            if (isSelected) {
+                              setSupportedLanguages(current.filter(l => l !== langCode).join(','));
+                            } else {
+                              setSupportedLanguages([...current, langCode].join(','));
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                              : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                          }`}
+                        >
+                          {lang}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500">Click to toggle languages for respondent switching.</p>
                 </div>
                 <div>
                   <label className="label">Default Language</label>
-                  <input
-                    type="text"
+                  <select
                     value={defaultLanguage}
                     onChange={(e) => setDefaultLanguage(e.target.value)}
                     className="input"
-                    placeholder="en"
-                  />
+                  >
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="zh">Chinese</option>
+                  </select>
                 </div>
               </div>
               <div className="space-y-4">
@@ -539,37 +567,46 @@ export default function SurveyBuilder() {
                 <FileText className="w-4 h-4 text-gray-600" />
                 <span>Bulk Import</span>
               </button>
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/emergency-demo', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' }
-                    });
-                    const data = await response.json();
-                    if (data.success && data.questions) {
-                      const newQuestions = data.questions.map((q: any, index: number) => ({
-                        id: generateId(),
-                        type: q.type,
-                        question_text: q.question_text,
-                        options: q.options || [],
-                        required: q.required,
-                        order_index: questions?.length || 0 + index,
-                        show_when_question_id: undefined,
-                        show_when_answer_value: undefined
-                      }));
-                      setQuestions([...questions, ...newQuestions]);
-                      showToast(`${newQuestions.length} emergency questions added`, 'success');
+              <div className="relative group">
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/emergency-demo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                      });
+                      const data = await response.json();
+                      if (data.success && data.questions) {
+                        const newQuestions = data.questions.map((q: any, index: number) => ({
+                          id: generateId(),
+                          type: q.type,
+                          question_text: q.question_text,
+                          options: q.options || [],
+                          required: q.required,
+                          order_index: questions?.length || 0 + index,
+                          show_when_question_id: undefined,
+                          show_when_answer_value: undefined
+                        }));
+                        setQuestions([...questions, ...newQuestions]);
+                        showToast(`${newQuestions.length} emergency questions added`, 'success');
+                      }
+                    } catch (error) {
+                      showToast('Emergency fallback failed', 'error');
                     }
-                  } catch (error) {
-                    showToast('Emergency fallback failed', 'error');
-                  }
-                }}
-                className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm"
-              >
-                <AlertCircle className="w-4 h-4 text-red-600" />
-                <span className="text-red-700">Emergency</span>
-              </button>
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm w-full"
+                >
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                  <span className="text-red-700">Emergency</span>
+                  <HelpCircle className="w-3 h-3 text-red-400 ml-auto" />
+                </button>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                  <p className="font-semibold mb-1">Emergency Question Bank</p>
+                  <p>Instantly adds pre-built critical safety questions for emergency response scenarios.</p>
+                  <div className="absolute bottom-0 left-6 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
+                </div>
+              </div>
               <button
                 onClick={() => addQuestion('text')}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
