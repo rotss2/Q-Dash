@@ -724,8 +724,8 @@ async function loadModules() {
     // Verify they're functions
     if (typeof pdfParse !== 'function') {
       console.error('pdf-parse export structure:', Object.keys(pdfParseModule));
-      // Try to find the function in the module
-      pdfParse = pdfParseModule.default || pdfParseModule.pdfParse || pdfParseModule;
+      // pdf-parse exports PDFParse (capital P) in some versions
+      pdfParse = pdfParseModule.PDFParse || pdfParseModule.pdfParse || pdfParseModule.default || pdfParseModule;
     }
     
     modulesLoaded = true;
