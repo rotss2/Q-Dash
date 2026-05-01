@@ -49,11 +49,16 @@ export const QUESTION_TYPE_REGISTRY: QuestionTypePattern[] = [
       /\b(Very Satisfied|Satisfied|Neutral|Dissatisfied|Very Dissatisfied)\b/i,
       /\b(1-5|1 to 5|scale.*1.*5)\b/i,
       /\b(Rate|Scale|Level)\b.*\b(1|2|3|4|5)\b/i,
+      // Standalone keywords that indicate Likert-type questions
+      /\bhow (satisfied|likely|confident|comfortable|important|useful|easy|difficult)\b/i,
+      /\bto what extent.*\b(agree|disagree)\b/i,
+      /\bhow would you rate\b/i,
+      /\bhow (often|frequently|much|well)\b/i,
     ],
     options: ['1', '2', '3', '4', '5'],
     validator: (text, _context) => {
-      // Should contain rating keywords
-      return /\b(rate|scale|level|agree|disagree|satisfied|dissatisfied)\b/i.test(text);
+      // Should contain rating/satisfaction/agreement keywords
+      return /\b(rate|scale|level|agree|disagree|satisfied|dissatisfied|likely|extent|often|frequently)\b/i.test(text);
     }
   },
   
