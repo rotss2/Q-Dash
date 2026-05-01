@@ -879,12 +879,16 @@ Before finalizing each question:
 3. Mark the source context for traceability`;
 }
 
-// Multer-like file handling using express.raw() and buffers
+// Multer-like file handling using express.raw()
 app.post('/api/upload-document', express.raw({ 
   type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'multipart/form-data'],
   limit: MAX_FILE_SIZE 
 }), async (req, res) => {
   try {
+    console.log('Upload request received');
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Body length:', req.body?.length);
+    
     // Parse multipart form data manually
     const contentType = req.headers['content-type'];
     if (!contentType || !contentType.includes('multipart/form-data')) {
@@ -892,40 +896,60 @@ app.post('/api/upload-document', express.raw({
     }
 
     // Simple multipart parser
-    const boundary = contentType.split('boundary=')[1];
-    if (!boundary) {
+    const boundaryMatch = contentType.match(/boundary=([^;\s]+)/);
+    if (!boundaryMatch) {
       return res.status(400).json({ error: 'Missing boundary in content-type' });
     }
+    
+    let boundary = boundaryMatch[1];
+    // Remove quotes if present
+    boundary = boundary.replace(/^"|"$/g, '');
+    
+    console.log('Boundary:', boundary);
 
     const body = req.body;
-    const parts = body.toString('binary').split(`--${boundary}`);
+    const bodyString = body.toString('binary');
+    const parts = bodyString.split(`--${boundary}`);
+    
+    console.log('Number of parts:', parts.length);
     
     let fileBuffer = null;
     let fileName = '';
     let fileType = '';
 
-    for (const part of parts) {
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      console.log(`Part ${i} length:`, part.length);
+      
       if (part.includes('Content-Disposition') && part.includes('filename=')) {
         const filenameMatch = part.match(/filename="([^"]+)"/);
         if (filenameMatch) {
           fileName = filenameMatch[1];
-          const contentTypeMatch = part.match(/Content-Type: ([^\r\n]+)/);
+          console.log('Found file:', fileName);
+          
+          const contentTypeMatch = part.match(/Content-Type:\s*([^\r\n]+)/i);
           fileType = contentTypeMatch ? contentTypeMatch[1].trim() : 'application/octet-stream';
+          console.log('File type:', fileType);
           
           // Extract file content (after double CRLF)
           const contentStart = part.indexOf('\r\n\r\n');
           if (contentStart !== -1) {
             let content = part.slice(contentStart + 4);
-            // Remove trailing CRLF before boundary
+            // Remove trailing CRLF and boundary markers
+            content = content.replace(/\r\n--$/, '');
             content = content.replace(/\r\n$/, '');
             fileBuffer = Buffer.from(content, 'binary');
+            console.log('Extracted buffer size:', fileBuffer.length);
+          } else {
+            console.log('No content start found in part');
           }
         }
       }
     }
 
     if (!fileBuffer) {
-      return res.status(400).json({ error: 'No file found in upload' });
+      console.error('No file buffer extracted from upload');
+      return res.status(400).json({ error: 'No file found in upload. Please ensure you selected a valid PDF, DOCX, or TXT file.' });
     }
 
     console.log(`Processing upload: ${fileName} (${fileBuffer.length} bytes)`);
