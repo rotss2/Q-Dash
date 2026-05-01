@@ -324,25 +324,6 @@ export default function SurveyAnalytics() {
     };
   };
 
-  // Cross-tabulation Analysis
-  const calculateCrossTab = (q1Id: string, q2Id: string) => {
-    const matrix: { [key: string]: { [key: string]: number } } = {};
-    const responses1 = filteredResponses.filter(r => r.question_id === q1Id);
-    
-    responses1.forEach(r1 => {
-      const matching = filteredResponses.find(r2 => 
-        r2.user_id === r1.user_id && r2.submitted_at === r1.submitted_at && r2.question_id === q2Id
-      );
-      if (matching) {
-        const val1 = r1.answer;
-        const val2 = matching.answer;
-        if (!matrix[val1]) matrix[val1] = {};
-        matrix[val1][val2] = (matrix[val1][val2] || 0) + 1;
-      }
-    });
-    return matrix;
-  };
-
   // Correlation Analysis (Pearson)
   const calculateCorrelation = (q1Id: string, q2Id: string): number | null => {
     const x = getLikertResponses(q1Id);
