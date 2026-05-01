@@ -689,10 +689,10 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
 
     console.log('Response count:', responseCount, 'Count error:', countError);
 
-    // Now fetch the actual responses
+    // Now fetch the actual responses with user profile data
     const { data: responses, error: responsesError } = await supabaseAdmin
       .from('responses')
-      .select('*')
+      .select('*, profile:profiles(email)')
       .eq('survey_id', surveyId)
       .order('submitted_at', { ascending: false });
 
