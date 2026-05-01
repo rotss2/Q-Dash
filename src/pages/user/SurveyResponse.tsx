@@ -6,7 +6,7 @@ import { getAnonymousUserId } from '../../lib/fingerprint';
 import { Survey, Question } from '../../types';
 import { LanguageProvider, useLanguage } from '../../hooks/useLanguage';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
-import { Send, CheckCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { CheckCircle, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { ThemedBackground } from '../../components/ThemedBackground';
 import { AvatarMascot } from '../../components/AvatarMascot';
 
@@ -786,7 +786,7 @@ function SurveyContent() {
 
                 {currentQuestion.type === 'choice' && currentQuestion.options && (
                   <div className="space-y-3" role="radiogroup" aria-label={currentQuestion.question_text}>
-                    {currentQuestion.options.map((option, index) => {
+                    {currentQuestion.options.map((option) => {
                       const isSelected = getAnswer(currentQuestion.id) === option;
                       return (
                         <button
@@ -901,7 +901,7 @@ function SurveyContent() {
                 )}
               </div>
             </div>
-          )}
+          ))}
         </div>
       </main>
 
