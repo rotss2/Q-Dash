@@ -718,11 +718,16 @@ async function loadModules() {
   
   try {
     // Use createRequire for CommonJS compatibility
-    pdfParse = require('pdf-parse');
-    mammoth = require('mammoth');
+    const pdfParseModule = require('pdf-parse');
+    const mammothModule = require('mammoth');
+    
+    // Extract default exports (handle both ESM and CJS)
+    pdfParse = pdfParseModule.default || pdfParseModule;
+    mammoth = mammothModule.default || mammothModule;
     
     // Log what we got for debugging
     console.log('pdf-parse loaded, type:', typeof pdfParse);
+    console.log('pdf-parse keys:', typeof pdfParse === 'object' ? Object.keys(pdfParse) : 'N/A');
     console.log('mammoth loaded, type:', typeof mammoth);
     
     modulesLoaded = true;
