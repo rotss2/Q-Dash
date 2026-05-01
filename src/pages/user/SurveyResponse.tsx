@@ -519,7 +519,7 @@ function SurveyContent() {
 
   if (hasSubmitted && submissionPreview) {
     return (
-      <div className={`min-h-screen flex flex-col ${themeClasses.background} touch-manipulation select-none`} style={{ WebkitUserSelect: 'none', userSelect: 'none' }}>
+      <div className={`min-h-screen flex flex-col ${themeClasses.bg} touch-manipulation select-none`} style={{ WebkitUserSelect: 'none', userSelect: 'none' }}>
         {/* Animated Background Theme */}
         <ThemedBackground theme={survey?.background_theme || 'default'} />
         
