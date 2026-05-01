@@ -8,7 +8,6 @@ import { LanguageProvider, useLanguage } from '../../hooks/useLanguage';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
 import { CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Download, Printer } from 'lucide-react';
 import { ThemedBackground } from '../../components/ThemedBackground';
-import { AvatarMascot } from '../../components/AvatarMascot';
 import html2pdf from 'html2pdf.js';
 
 interface Answer {
@@ -526,12 +525,16 @@ function SurveyContent() {
         
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="card max-w-2xl w-full text-center space-y-6">
-            {/* Success Animation */}
-            <div className="relative">
-              <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
-                <CheckCircle className="w-12 h-12 text-white" />
-              </div>
-              <div className="absolute inset-0 w-24 h-24 bg-green-400 rounded-full mx-auto animate-ping opacity-20"></div>
+            {/* Success Logo */}
+            <div className="flex flex-col items-center">
+              <img 
+                src="/logo.png" 
+                alt="SurveyTest" 
+                className="h-24 sm:h-28 md:h-32 w-auto object-contain drop-shadow-lg"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
             </div>
             
             <div>
@@ -582,13 +585,13 @@ function SurveyContent() {
 
             {/* Response Preview - PDF/Print Version */}
             <div ref={summaryRef} className="bg-white rounded-xl p-6 text-left border border-gray-200 print:shadow-none print:border-0">
-              {/* PDF Header with Logo */}
+              {/* PDF Header with Logo - Centered */}
               <div className="border-b-2 border-gray-100 pb-4 mb-6 print:pb-4">
-                <div className="flex items-center gap-4 mb-4">
+                <div className="flex flex-col items-center text-center gap-3 mb-4">
                   <img 
                     src="/logo.png" 
                     alt="SurveyTest" 
-                    className="h-16 w-auto object-contain print:h-12"
+                    className="h-16 sm:h-20 w-auto object-contain print:h-14"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
@@ -1052,16 +1055,6 @@ function SurveyContent() {
         </div>
       </footer>
       
-      {/* Avatar Mascot - Docked to bottom corner, only show during questions */}
-      {!showWelcome && (
-        <div className="fixed bottom-4 right-4 z-20">
-          <AvatarMascot 
-            progress={progress} 
-            currentQuestion={currentQuestionIndex + 1} 
-            totalQuestions={visibleQuestions.length} 
-          />
-        </div>
-      )}
     </div>
   );
 }
