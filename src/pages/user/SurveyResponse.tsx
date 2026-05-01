@@ -409,9 +409,20 @@ function SurveyContent() {
       // Layer 1: Save to localStorage to block future attempts
       localStorage.setItem(`survey-completed-${surveyId}`, 'true');
       
+      // Deduplicate questions by question_text to handle legacy data
+      const seenQuestions = new Set<string>();
+      const uniqueQuestions = visibleQuestions.filter((q) => {
+        const normalized = q.question_text.trim().toLowerCase();
+        if (seenQuestions.has(normalized)) {
+          return false;
+        }
+        seenQuestions.add(normalized);
+        return true;
+      });
+
       setSubmissionPreview({
         email: email.trim() || undefined,
-        answers: visibleQuestions.map((q) => ({
+        answers: uniqueQuestions.map((q) => ({
           questionText: q.question_text,
           answer: getAnswer(q.id)
         }))
