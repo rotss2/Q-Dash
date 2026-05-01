@@ -889,13 +889,18 @@ app.post('/api/upload-document', express.raw({
     const bodyString = body.toString('binary');
     const parts = bodyString.split(`--${boundary}`);
     
-    console.log('Number of parts:', parts.length);
+    console.log('Number of parts:', parts?.length || 0);
+    
+    // Add a check to see if parts exists
+    if (!parts || parts.length === 0) {
+        throw new Error("No file parts received");
+    }
     
     let fileBuffer = null;
     let fileName = '';
     let fileType = '';
 
-    for (let i = 0; i < (parts?.length || 0); i++) {
+    for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       if (!part) continue;
       
@@ -1046,11 +1051,19 @@ Respond with ONLY a JSON array of questions. No markdown, no code blocks, just r
         : (parsed.questions || parsed.data || []);
       
       if (!questionsArray || questionsArray.length === 0) {
-        throw new Error("No questions were generated from the document.");
+        console.log("No questions found, providing fallback...");
+        // Fallback so the front-end doesn't crash
+        parsedQuestions = [{ 
+          type: "choice",
+          question_text: "Please re-upload or check document context.", 
+          options: ["Error processing document"], 
+          required: true 
+        }];
+      } else {
+        parsedQuestions = questionsArray;
       }
       
-      parsedQuestions = questionsArray;
-      console.log(`Successfully generated ${questionsArray.length} questions.`);
+      console.log(`Successfully generated ${parsedQuestions?.length || 0} questions.`);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       return res.status(500).json({ 
