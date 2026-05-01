@@ -702,15 +702,13 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
 // Context-Aware Document Processing with Strict Grounding
 // ============================================================================
 
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 import { z } from 'zod';
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+// Initialize Gemini (FREE TIER)
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
 
 // File size limit: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -968,9 +966,9 @@ app.post('/api/generate-questions', express.json({ limit: '50mb' }), async (req,
 
     const { questionCount, questionTypes } = config;
     
-    // Validate OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    // Validate Gemini API key
+    if (!process.env.GOOGLE_GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Google Gemini API key not configured. Get free key at https://aistudio.google.com/app/apikey' });
     }
 
     console.log(`Generating ${questionCount} questions from ${text.length} chunks...`);
@@ -988,8 +986,9 @@ app.post('/api/generate-questions', express.json({ limit: '50mb' }), async (req,
       }
     }
 
-    const systemPrompt = generateSystemPrompt(config);
-    const userPrompt = `DOCUMENT: "${fileName || 'Research Document'}"
+    const prompt = `${generateSystemPrompt(config)}
+
+DOCUMENT: "${fileName || 'Research Document'}"
 
 CONTENT:
 ${combinedText}
@@ -997,21 +996,19 @@ ${combinedText}
 Generate ${questionCount} questions based STRICTLY on this document content.
 Remember: If the document doesn't contain enough information for ${questionCount} quality questions, generate fewer and STOP. Never invent information.
 
-Respond with the JSON array of questions only.`;
+Respond with ONLY a JSON array of questions. No markdown, no code blocks, just raw JSON starting with [ and ending with ].`;
 
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview', // or 'gpt-4' for higher quality
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.3, // Lower temperature for more deterministic output
-      response_format: { type: 'json_object' }, // Enforce JSON output
-      max_tokens: 4000
+    // Call Gemini API (FREE TIER)
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash', // or 'gemini-1.5-pro' for better quality
+      generationConfig: {
+        temperature: 0.3, // Low creativity for strict grounding
+        maxOutputTokens: 4000,
+      }
     });
 
-    const aiResponse = completion.choices[0]?.message?.content;
+    const result = await model.generateContent(prompt);
+    const aiResponse = result.response.text();
     
     if (!aiResponse) {
       return res.status(500).json({ error: 'AI returned empty response' });
@@ -1072,22 +1069,21 @@ Respond with the JSON array of questions only.`;
       meta: {
         requested: questionCount,
         generated: groundedQuestions.length,
-        usedTokens: completion.usage?.total_tokens || 0,
-        model: completion.model
+        model: 'gemini-1.5-flash'
       }
     });
 
   } catch (error) {
     console.error('Question generation error:', error);
     
-    // Handle specific OpenAI errors
-    if (error.code === 'insufficient_quota') {
-      return res.status(429).json({ error: 'AI service quota exceeded. Please try again later.' });
+    // Handle specific Gemini errors
+    if (error.message?.includes('quota')) {
+      return res.status(429).json({ error: 'Gemini API quota exceeded (1,500 requests/day limit). Please try again tomorrow.' });
     }
-    if (error.code === 'rate_limit_exceeded') {
-      return res.status(429).json({ error: 'Too many requests. Please wait a moment.' });
+    if (error.message?.includes('rate limit')) {
+      return res.status(429).json({ error: 'Too many requests (60/minute limit). Please wait a moment.' });
     }
-    if (error.code === 'context_length_exceeded') {
+    if (error.message?.includes('token')) {
       return res.status(400).json({ error: 'Document is too long. Try a shorter document or fewer chunks.' });
     }
     
