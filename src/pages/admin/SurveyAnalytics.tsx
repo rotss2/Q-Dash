@@ -127,20 +127,17 @@ export default function SurveyAnalytics() {
   };
 
   const calculateAggregations = (): ResponseAggregation[] => {
+    // Only use questions from API (already filtered to block_type === 'question')
+    // Do NOT add questions from responses as they are partial objects without block_type
     const questionMap = new Map(questions.map((q) => [q.id, q]));
-    responses.forEach((r) => {
-      if (r.question && !questionMap.has(r.question_id)) {
-        questionMap.set(r.question_id, r.question);
-      }
-    });
 
-    // Filter to only include actual questions (exclude page_break, heading, instruction blocks)
-    return Array.from(questionMap.values())
-      .filter((question) => question.block_type === 'question')
-      .map((question) => {
-      const questionResponses = filteredResponses.filter((r) => r.question_id === question.id);
+    return Array.from(questionMap.values()).map((question) => {
+      // Only count responses for questions that exist in our valid questions map
+      const questionResponses = filteredResponses.filter(
+        (r) => r.question_id === question.id && questionMap.has(r.question_id)
+      );
       const answers: { [key: string]: number } = {};
-      
+
       questionResponses.forEach((r) => {
         answers[r.answer] = (answers[r.answer] || 0) + 1;
       });
