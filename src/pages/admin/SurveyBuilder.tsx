@@ -81,6 +81,11 @@ export default function SurveyBuilder() {
   const [showBulkImporter, setShowBulkImporter] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  
+  // Connector tool state
+  const [connectMode, setConnectMode] = useState(false);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [connections, setConnections] = useState<{from: string; to: string; id: string}[]>([]);
 
   useEffect(() => {
     if (isEditing && surveyId) {
@@ -335,6 +340,47 @@ export default function SurveyBuilder() {
       hasHeadingBefore: backwardHeading !== -1,
       hasHeadingAfter: forwardHeading !== -1
     };
+  };
+
+  // Connector functions
+  const toggleConnectMode = () => {
+    setConnectMode(!connectMode);
+    setSelectedSource(null);
+    if (!connectMode) {
+      showToast('Connect Mode: Click two items to connect them', 'info');
+    }
+  };
+
+  const handleItemClickForConnect = (questionId: string) => {
+    if (!connectMode) return;
+    
+    if (!selectedSource) {
+      setSelectedSource(questionId);
+      showToast('Source selected. Click another item to connect.', 'info');
+    } else if (selectedSource === questionId) {
+      setSelectedSource(null);
+      showToast('Source deselected.', 'info');
+    } else {
+      // Create connection
+      const newConnection = {
+        from: selectedSource,
+        to: questionId,
+        id: `${selectedSource}-${questionId}-${Date.now()}`
+      };
+      setConnections([...connections, newConnection]);
+      setSelectedSource(null);
+      showToast('Connected!', 'success');
+    }
+  };
+
+  const removeConnection = (connectionId: string) => {
+    setConnections(connections.filter(c => c.id !== connectionId));
+  };
+
+  const clearAllConnections = () => {
+    setConnections([]);
+    setSelectedSource(null);
+    showToast('All connections cleared', 'info');
   };
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
@@ -743,6 +789,29 @@ export default function SurveyBuilder() {
                 <ToggleRight className="w-4 h-4 text-green-600" />
                 <span className="font-medium text-indigo-900">Toggle All Required</span>
               </button>
+              <button
+                onClick={toggleConnectMode}
+                className={`flex items-center gap-2 px-3 py-2 border rounded-lg transition-colors text-sm ${connectMode ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-white border-pink-200 hover:bg-pink-50 hover:border-pink-300'}`}
+                title="Click to connect questions and blocks together"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span className="font-medium">{connectMode ? 'Exit Connect' : 'Connect Mode'}</span>
+                {connectMode && <span className="ml-1 text-xs">({connections.length} links)</span>}
+              </button>
+              {connections.length > 0 && (
+                <button
+                  onClick={clearAllConnections}
+                  className="flex items-center gap-2 px-3 py-2 bg-white border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300 transition-colors text-sm"
+                  title="Remove all connections"
+                >
+                  <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span className="font-medium text-red-600">Clear Links</span>
+                </button>
+              )}
             </div>
             <p className="text-xs text-indigo-600 mt-2">
               💡 <strong>How to use:</strong> Click buttons above to quickly add formatted elements. Drag questions by the handle (⋮⋮) to reorder. Edit text fields to customize.
@@ -877,17 +946,72 @@ export default function SurveyBuilder() {
             <div className="absolute left-[22px] sm:left-[26px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-300 via-purple-300 to-indigo-300 rounded-full hidden sm:block"></div>
             
             {/* Connection nodes for each question */}
+          {/* Connection lines layer - renders all manual connections */}
+          <svg className="absolute inset-0 w-full h-full z-20" style={{minHeight: '100%'}}>
+            <defs>
+              <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#f97316" />
+              </marker>
+            </defs>
+            {connections.map((conn) => {
+              const fromIndex = questions.findIndex(q => q.id === conn.from);
+              const toIndex = questions.findIndex(q => q.id === conn.to);
+              if (fromIndex === -1 || toIndex === -1) return null;
+              
+              // Calculate positions (approximate)
+              const fromY = fromIndex * 200 + 100; // Approximate card height
+              const toY = toIndex * 200 + 100;
+              const fromX = 300;
+              const toX = 300;
+              
+              return (
+                <g key={conn.id} className="group cursor-pointer" onClick={() => removeConnection(conn.id)}>
+                  <path
+                    d={`M ${fromX} ${fromY} Q ${fromX + 100} ${(fromY + toY) / 2} ${toX} ${toY}`}
+                    fill="none"
+                    stroke="#f97316"
+                    strokeWidth="3"
+                    markerEnd="url(#arrowhead)"
+                    strokeDasharray="5,5"
+                    className="hover:stroke-red-500 transition-colors"
+                  />
+                  {/* Invisible wider path for easier clicking */}
+                  <path
+                    d={`M ${fromX} ${fromY} Q ${fromX + 100} ${(fromY + toY) / 2} ${toX} ${toY}`}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth="15"
+                    className="cursor-pointer"
+                  />
+                  {/* Delete hint label */}
+                  <text
+                    x={(fromX + toX) / 2 + 50}
+                    y={(fromY + toY) / 2}
+                    className="opacity-0 group-hover:opacity-100 text-[10px] fill-red-500 font-medium transition-opacity pointer-events-none"
+                  >
+                    Click to remove
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+
           {questions.map((question, index) => {
             const groupInfo = getGroupInfo(index);
+            const isSource = selectedSource === question.id;
+            const isConnected = connections.some(c => c.from === question.id || c.to === question.id);
+            const connectionCount = connections.filter(c => c.from === question.id || c.to === question.id).length;
+            
             return (
             <div 
               key={question.id} 
-              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''}`}
-              draggable
+              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${connectMode ? 'cursor-pointer' : ''} ${isSource ? 'ring-4 ring-orange-400 bg-orange-50' : ''} ${isConnected && !isSource ? 'ring-2 ring-orange-200' : ''}`}
+              draggable={!connectMode}
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, index)}
+              onClick={() => handleItemClickForConnect(question.id)}
             >
               {/* Connection node - visual dot on the timeline */}
               <div className="absolute left-[18px] sm:left-[22px] top-8 w-2.5 h-2.5 rounded-full bg-indigo-500 border-2 border-white shadow-sm hidden sm:block z-10"></div>
@@ -992,6 +1116,27 @@ export default function SurveyBuilder() {
                 </div>
 
                 <div className="flex-1 space-y-4">
+                  {/* Connect Mode Badges */}
+                  {connectMode && (
+                    <div className="flex items-center gap-2">
+                      {isSource && (
+                        <span className="px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded-full animate-pulse">
+                          SOURCE - Click target to connect
+                        </span>
+                      )}
+                      {connectionCount > 0 && !isSource && (
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full border border-orange-200">
+                          {connectionCount} connection{connectionCount > 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {!isSource && !isConnected && (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">
+                          Click to {selectedSource ? 'connect here' : 'select as source'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Block Type Badge */}
                   <div className="flex flex-wrap items-center gap-3">
                     {question.block_type === 'heading' && (
