@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
@@ -299,47 +299,81 @@ export default function SurveyBuilder() {
     setDragOverIndex(null);
   };
 
-  // Helper: Check if a question belongs to a group (connected to a heading)
-  const getGroupInfo = (index: number) => {
-    const currentQ = questions[index];
+  // Optimized: Pre-calculate all group info in one pass (O(n) instead of O(n²))
+  interface GroupInfo {
+    isGrouped: boolean;
+    groupStartIndex: number;
+    isGroupStart: boolean;
+    hasHeadingBefore: boolean;
+    hasHeadingAfter: boolean;
+  }
+  
+  const groupInfoMap = useMemo<Map<number, GroupInfo>>(() => {
+    const map = new Map<number, GroupInfo>();
     
-    // If this is a heading, it's the group start
-    if (currentQ?.block_type === 'heading') {
-      return { isGrouped: true, groupStartIndex: index, isGroupStart: true };
-    }
-    
-    // Look backward for a heading
-    let backwardHeading = -1;
-    for (let i = index - 1; i >= 0; i--) {
-      if (questions[i].block_type === 'page_break') break;
+    // First pass: find all heading positions
+    const headingPositions: number[] = [];
+    for (let i = 0; i < questions.length; i++) {
       if (questions[i].block_type === 'heading') {
-        backwardHeading = i;
-        break;
+        headingPositions.push(i);
       }
     }
     
-    // Look forward for a heading
-    let forwardHeading = -1;
-    for (let i = index + 1; i < questions.length; i++) {
-      if (questions[i].block_type === 'page_break') break;
-      if (questions[i].block_type === 'heading') {
-        forwardHeading = i;
-        break;
+    // Second pass: assign group info to each question
+    for (let i = 0; i < questions.length; i++) {
+      const currentQ = questions[i];
+      
+      if (currentQ?.block_type === 'heading') {
+        map.set(i, { isGrouped: true, groupStartIndex: i, isGroupStart: true, hasHeadingBefore: false, hasHeadingAfter: false });
+        continue;
       }
+      
+      // Find nearest headings before and after
+      let backwardHeading = -1;
+      let forwardHeading = -1;
+      
+      for (const headingPos of headingPositions) {
+        if (headingPos < i) {
+          // Check if there's a page break between this heading and current position
+          let hasPageBreak = false;
+          for (let j = headingPos + 1; j < i; j++) {
+            if (questions[j].block_type === 'page_break') {
+              hasPageBreak = true;
+              break;
+            }
+          }
+          if (!hasPageBreak) backwardHeading = headingPos;
+        } else if (headingPos > i && forwardHeading === -1) {
+          // Check if there's a page break between current position and this heading
+          let hasPageBreak = false;
+          for (let j = i + 1; j < headingPos; j++) {
+            if (questions[j].block_type === 'page_break') {
+              hasPageBreak = true;
+              break;
+            }
+          }
+          if (!hasPageBreak) forwardHeading = headingPos;
+        }
+      }
+      
+      const hasNearbyHeading = backwardHeading !== -1 || forwardHeading !== -1;
+      const groupStart = backwardHeading !== -1 ? backwardHeading : forwardHeading;
+      
+      map.set(i, {
+        isGrouped: hasNearbyHeading && groupStart !== -1,
+        groupStartIndex: groupStart,
+        isGroupStart: false,
+        hasHeadingBefore: backwardHeading !== -1,
+        hasHeadingAfter: forwardHeading !== -1
+      });
     }
     
-    // Determine group membership
-    // If there's a heading nearby (before or after), we're in a group
-    const hasNearbyHeading = backwardHeading !== -1 || forwardHeading !== -1;
-    const groupStart = backwardHeading !== -1 ? backwardHeading : forwardHeading;
-    
-    return {
-      isGrouped: hasNearbyHeading && groupStart !== -1,
-      groupStartIndex: groupStart,
-      isGroupStart: false,
-      hasHeadingBefore: backwardHeading !== -1,
-      hasHeadingAfter: forwardHeading !== -1
-    };
+    return map;
+  }, [questions]);
+
+  // Helper: Get group info from pre-calculated map
+  const getGroupInfo = (index: number): GroupInfo => {
+    return groupInfoMap.get(index) || { isGrouped: false, groupStartIndex: -1, isGroupStart: false, hasHeadingBefore: false, hasHeadingAfter: false };
   };
 
   // Connector functions
