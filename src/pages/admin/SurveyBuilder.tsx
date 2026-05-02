@@ -981,7 +981,7 @@ export default function SurveyBuilder() {
             
             {/* Connection nodes for each question */}
           {/* Connection lines layer - renders all manual connections */}
-          <svg className="absolute inset-0 w-full h-full z-20" style={{minHeight: '100%'}}>
+          <svg className="absolute inset-0 w-full h-full z-20 pointer-events-none" style={{minHeight: '100%'}}>
             <defs>
               <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
                 <polygon points="0 0, 10 3.5, 0 7" fill="#f97316" />
@@ -999,7 +999,7 @@ export default function SurveyBuilder() {
               const toX = 300;
               
               return (
-                <g key={conn.id} className="group cursor-pointer" onClick={() => removeConnection(conn.id)}>
+                <g key={conn.id} className={`${connectMode ? 'cursor-pointer pointer-events-auto' : 'pointer-events-none'}`} onClick={connectMode ? () => removeConnection(conn.id) : undefined}>
                   <path
                     d={`M ${fromX} ${fromY} Q ${fromX + 100} ${(fromY + toY) / 2} ${toX} ${toY}`}
                     fill="none"
@@ -1008,14 +1008,6 @@ export default function SurveyBuilder() {
                     markerEnd="url(#arrowhead)"
                     strokeDasharray="5,5"
                     className="hover:stroke-red-500 transition-colors"
-                  />
-                  {/* Invisible wider path for easier clicking */}
-                  <path
-                    d={`M ${fromX} ${fromY} Q ${fromX + 100} ${(fromY + toY) / 2} ${toX} ${toY}`}
-                    fill="none"
-                    stroke="transparent"
-                    strokeWidth="15"
-                    className="cursor-pointer"
                   />
                   {/* Delete hint label */}
                   <text
@@ -1045,7 +1037,7 @@ export default function SurveyBuilder() {
               onDragOver={(e) => handleDragOver(e, index)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, index)}
-              onClick={() => handleItemClickForConnect(question.id)}
+              onClick={connectMode ? () => handleItemClickForConnect(question.id) : undefined}
             >
               {/* Connection node - visual dot on the timeline */}
               <div className="absolute left-[18px] sm:left-[22px] top-8 w-2.5 h-2.5 rounded-full bg-indigo-500 border-2 border-white shadow-sm hidden sm:block z-10"></div>
