@@ -326,7 +326,7 @@ function SurveyContent() {
     if (showWelcome || hasSubmitted) return;
     if (!survey?.anti_cheating_enabled) return;
 
-    let blurTimeout: NodeJS.Timeout;
+    let blurTimeout: ReturnType<typeof setTimeout>;
     
     const handleVisibilityChange = () => {
       if (document.hidden) {
