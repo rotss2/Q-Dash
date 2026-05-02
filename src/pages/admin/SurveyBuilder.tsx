@@ -294,27 +294,46 @@ export default function SurveyBuilder() {
     setDragOverIndex(null);
   };
 
-  // Helper: Check if a question belongs to a group (under a heading)
+  // Helper: Check if a question belongs to a group (connected to a heading)
   const getGroupInfo = (index: number) => {
-    // Find the most recent heading or page break before this index
-    let groupStartIndex = -1;
-    let hasHeading = false;
+    const currentQ = questions[index];
     
+    // If this is a heading, it's the group start
+    if (currentQ?.block_type === 'heading') {
+      return { isGrouped: true, groupStartIndex: index, isGroupStart: true };
+    }
+    
+    // Look backward for a heading
+    let backwardHeading = -1;
     for (let i = index - 1; i >= 0; i--) {
-      if (questions[i].block_type === 'page_break') {
-        break; // Page break ends all groups
-      }
+      if (questions[i].block_type === 'page_break') break;
       if (questions[i].block_type === 'heading') {
-        groupStartIndex = i;
-        hasHeading = true;
+        backwardHeading = i;
         break;
       }
     }
     
+    // Look forward for a heading
+    let forwardHeading = -1;
+    for (let i = index + 1; i < questions.length; i++) {
+      if (questions[i].block_type === 'page_break') break;
+      if (questions[i].block_type === 'heading') {
+        forwardHeading = i;
+        break;
+      }
+    }
+    
+    // Determine group membership
+    // If there's a heading nearby (before or after), we're in a group
+    const hasNearbyHeading = backwardHeading !== -1 || forwardHeading !== -1;
+    const groupStart = backwardHeading !== -1 ? backwardHeading : forwardHeading;
+    
     return {
-      isGrouped: hasHeading && index > groupStartIndex,
-      groupStartIndex,
-      isGroupStart: questions[index]?.block_type === 'heading'
+      isGrouped: hasNearbyHeading && groupStart !== -1,
+      groupStartIndex: groupStart,
+      isGroupStart: false,
+      hasHeadingBefore: backwardHeading !== -1,
+      hasHeadingAfter: forwardHeading !== -1
     };
   };
 
@@ -891,17 +910,22 @@ export default function SurveyBuilder() {
                 </div>
               )}
               
-              {/* Visual Group Frame - surrounds grouped items */}
-              {groupInfo.isGrouped && !groupInfo.isGroupStart && (
+              {/* Visual Group Frame - surrounds all grouped items */}
+              {groupInfo.isGrouped && (
                 <div className="absolute left-10 sm:left-12 right-0 top-0 bottom-0 border-l-2 border-indigo-200 bg-indigo-50/20 rounded-r-lg pointer-events-none"></div>
               )}
               
-              {/* Group connector line for heading */}
-              {groupInfo.isGroupStart && index < questions.length - 1 && getGroupInfo(index + 1).isGrouped && (
+              {/* Connector line UP to heading before */}
+              {(groupInfo.hasHeadingBefore || (groupInfo.isGroupStart && index > 0 && getGroupInfo(index - 1).hasHeadingAfter)) && (
+                <div className="absolute left-10 sm:left-12 top-[-16px] bottom-full w-0.5 bg-indigo-300 z-0"></div>
+              )}
+              
+              {/* Connector line DOWN to heading after */}
+              {(groupInfo.hasHeadingAfter || (groupInfo.isGroupStart && index < questions.length - 1 && getGroupInfo(index + 1).hasHeadingBefore)) && (
                 <div className="absolute left-10 sm:left-12 top-full bottom-[-16px] w-0.5 bg-indigo-300 z-0"></div>
               )}
               
-              <div className={`card relative ml-0 sm:ml-2 ${groupInfo.isGrouped && !groupInfo.isGroupStart ? 'border-indigo-200 bg-white' : ''} ${groupInfo.isGroupStart ? 'ring-2 ring-indigo-400 shadow-md' : ''}`}>
+              <div className={`card relative ml-0 sm:ml-2 ${groupInfo.isGrouped ? 'border-indigo-200' : ''} ${groupInfo.isGroupStart ? 'ring-2 ring-indigo-400 shadow-md bg-white' : groupInfo.isGrouped ? 'bg-white/80' : ''}`}>
               {/* Insert toolbar - appears on hover */}
               <div className="flex items-center gap-1 mb-1 opacity-0 hover:opacity-100 transition-opacity -mt-2">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent to-gray-300"></div>
