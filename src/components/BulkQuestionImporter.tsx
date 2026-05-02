@@ -10,6 +10,7 @@ interface ParsedQuestion {
   id: string;
   text: string;
   type: QuestionType;
+  block_type?: 'question' | 'heading' | 'instruction' | 'page_break';
   options: string[];
   required?: boolean;
   validationError?: string;

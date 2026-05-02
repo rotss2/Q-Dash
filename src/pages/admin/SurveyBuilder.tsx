@@ -15,9 +15,11 @@ interface SurveyTemplate {
 
 interface FormQuestion {
   id: string;
+  block_type: 'question' | 'heading' | 'instruction' | 'page_break';
   type: QuestionType;
   question_text: string;
   options: string[];
+  section_id?: string | null;
   show_when_question_id?: string;
   show_when_answer_value?: string;
   required: boolean;
@@ -30,9 +32,9 @@ const SURVEY_TEMPLATES: SurveyTemplate[] = [
     title: 'Customer Feedback',
     description: 'Collect quick feedback from customers about your product or service.',
     questions: [
-      { type: 'text', question_text: 'What did you like most about your experience?', options: [], required: true, order_index: 0 },
-      { type: 'choice', question_text: 'How satisfied are you with our service?', options: ['Very satisfied', 'Satisfied', 'Neutral', 'Dissatisfied', 'Very dissatisfied'], required: true, order_index: 1 },
-      { type: 'text', question_text: 'What can we improve?', options: [], required: false, order_index: 2 }
+      { block_type: 'question', type: 'text', question_text: 'What did you like most about your experience?', options: [], required: true, order_index: 0 },
+      { block_type: 'question', type: 'choice', question_text: 'How satisfied are you with our service?', options: ['Very satisfied', 'Satisfied', 'Neutral', 'Dissatisfied', 'Very dissatisfied'], required: true, order_index: 1 },
+      { block_type: 'question', type: 'text', question_text: 'What can we improve?', options: [], required: false, order_index: 2 }
     ]
   },
   {
@@ -40,8 +42,8 @@ const SURVEY_TEMPLATES: SurveyTemplate[] = [
     title: 'Net Promoter Score',
     description: 'Measure customer loyalty and likelihood to recommend your company.',
     questions: [
-      { type: 'likert', question_text: 'How likely are you to recommend us to a friend?', options: ['1', '2', '3', '4', '5'], required: true, order_index: 0 },
-      { type: 'text', question_text: 'Tell us why you chose that score.', options: [], required: false, order_index: 1 }
+      { block_type: 'question', type: 'likert', question_text: 'How likely are you to recommend us to a friend?', options: ['1', '2', '3', '4', '5'], required: true, order_index: 0 },
+      { block_type: 'question', type: 'text', question_text: 'Tell us why you chose that score.', options: [], required: false, order_index: 1 }
     ]
   },
   {
@@ -49,9 +51,9 @@ const SURVEY_TEMPLATES: SurveyTemplate[] = [
     title: 'Event Check-In',
     description: 'Gather attendee impressions and improvement ideas after your event.',
     questions: [
-      { type: 'choice', question_text: 'How did you hear about the event?', options: ['Email', 'Social media', 'Friend', 'Website', 'Other'], required: true, order_index: 0 },
-      { type: 'likert', question_text: 'How would you rate the event overall?', options: ['1', '2', '3', '4', '5'], required: true, order_index: 1 },
-      { type: 'text', question_text: 'Any comments for our team?', options: [], required: false, order_index: 2 }
+      { block_type: 'question', type: 'choice', question_text: 'How did you hear about the event?', options: ['Email', 'Social media', 'Friend', 'Website', 'Other'], required: true, order_index: 0 },
+      { block_type: 'question', type: 'likert', question_text: 'How would you rate the event overall?', options: ['1', '2', '3', '4', '5'], required: true, order_index: 1 },
+      { block_type: 'question', type: 'text', question_text: 'Any comments for our team?', options: [], required: false, order_index: 2 }
     ]
   }
 ];
@@ -108,7 +110,13 @@ export default function SurveyBuilder() {
     setSupportedLanguages((data.survey.supported_languages || ['en']).join(','));
     setOpenDate(data.survey.open_date ? new Date(data.survey.open_date).toISOString().slice(0, 16) : '');
     setCloseDate(data.survey.close_date ? new Date(data.survey.close_date).toISOString().slice(0, 16) : '');
-    setQuestions(data.questions || []);
+    // Ensure backwards compatibility: add default block_type for older surveys
+    const questionsWithBlockType = (data.questions || []).map(q => ({
+      ...q,
+      block_type: q.block_type || 'question',
+      section_id: q.section_id || null
+    }));
+    setQuestions(questionsWithBlockType);
     setIsLoading(false);
   };
 
@@ -129,18 +137,20 @@ export default function SurveyBuilder() {
       ...question,
       id: generateId(),
       order_index: index,
+      section_id: null,
       show_when_question_id: undefined,
       show_when_answer_value: undefined
     })));
   };
 
-  const addQuestion = (type: QuestionType, options: string[] = []) => {
+  const addQuestion = (type: QuestionType, options: string[] = [], blockType: FormQuestion['block_type'] = 'question') => {
     const newQuestion: FormQuestion = {
       id: generateId(),
+      block_type: blockType,
       type,
       question_text: '',
       options: options.length > 0 ? options : type === 'choice' ? ['Option 1', 'Option 2'] : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
-      required: true,
+      required: blockType === 'question',
       order_index: questions?.length || 0
     };
     setQuestions([...questions, newQuestion]);
@@ -589,11 +599,13 @@ export default function SurveyBuilder() {
                       if (data.success && data.questions) {
                         const newQuestions = data.questions.map((q: any, index: number) => ({
                           id: generateId(),
+                          block_type: q.block_type || 'question',
                           type: q.type,
                           question_text: q.question_text,
                           options: q.options || [],
                           required: q.required,
                           order_index: questions?.length || 0 + index,
+                          section_id: null,
                           show_when_question_id: undefined,
                           show_when_answer_value: undefined
                         }));
@@ -646,6 +658,34 @@ export default function SurveyBuilder() {
                 <span>Scaling</span>
               </button>
             </div>
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-medium text-gray-600">Structure Blocks</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <button
+                  onClick={() => addQuestion('text', [], 'heading')}
+                  className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:border-indigo-300 transition-colors text-sm"
+                >
+                  <div className="w-4 h-4 bg-indigo-100 rounded flex items-center justify-center text-xs">H</div>
+                  <span className="text-indigo-700">Heading</span>
+                </button>
+                <button
+                  onClick={() => addQuestion('text', [], 'instruction')}
+                  className="flex items-center gap-2 px-3 py-2 bg-cyan-50 border border-cyan-200 rounded-lg hover:bg-cyan-100 hover:border-cyan-300 transition-colors text-sm"
+                >
+                  <div className="w-4 h-4 bg-cyan-100 rounded flex items-center justify-center text-xs">i</div>
+                  <span className="text-cyan-700">Instruction</span>
+                </button>
+                <button
+                  onClick={() => addQuestion('text', [], 'page_break')}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 transition-colors text-sm"
+                >
+                  <div className="w-4 h-4 bg-gray-200 rounded flex items-center justify-center text-xs">↵</div>
+                  <span className="text-gray-700">Page Break</span>
+                </button>
+              </div>
+            </div>
           </div>
           
           {/* Questions List */}
@@ -673,60 +713,89 @@ export default function SurveyBuilder() {
                 </div>
 
                 <div className="flex-1 space-y-4">
+                  {/* Block Type Badge */}
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded break-words">
-                      {question.type === 'text'
-                    ? 'Text'
-                    : question.type === 'choice'
-                      ? (question.options.length === 2 && question.options.includes('Yes') && question.options.includes('No') ? 'Boolean' : 'Multiple Choice')
-                      : 'Scaling'}
-                    </span>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={question.required}
-                        onChange={(e) => updateQuestion(question.id, { required: e.target.checked })}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      Required
-                    </label>
+                    {question.block_type === 'heading' && (
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">
+                        Heading
+                      </span>
+                    )}
+                    {question.block_type === 'instruction' && (
+                      <span className="px-2 py-1 bg-cyan-100 text-cyan-700 text-xs font-medium rounded">
+                        Instruction
+                      </span>
+                    )}
+                    {question.block_type === 'page_break' && (
+                      <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded">
+                        Page Break
+                      </span>
+                    )}
+                    {question.block_type === 'question' && (
+                      <>
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded break-words">
+                          {question.type === 'text'
+                        ? 'Text'
+                        : question.type === 'choice'
+                          ? (question.options.length === 2 && question.options.includes('Yes') && question.options.includes('No') ? 'Boolean' : 'Multiple Choice')
+                          : 'Scaling'}
+                        </span>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={question.required}
+                            onChange={(e) => updateQuestion(question.id, { required: e.target.checked })}
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          Required
+                        </label>
+                      </>
+                    )}
                   </div>
 
+                  {/* Text Input with placeholder based on block type */}
                   <input
                     type="text"
                     value={question.question_text}
                     onChange={(e) => updateQuestion(question.id, { question_text: e.target.value })}
-                    className="input min-w-0"
-                    placeholder="Enter your question"
+                    className={`input min-w-0 ${question.block_type === 'heading' ? 'text-lg font-semibold text-indigo-900' : question.block_type === 'instruction' ? 'text-cyan-900' : ''}`}
+                    placeholder={
+                      question.block_type === 'heading' ? 'Enter section heading title...' :
+                      question.block_type === 'instruction' ? 'Enter instruction or information text...' :
+                      question.block_type === 'page_break' ? 'Page break (optional label)...' :
+                      'Enter your question'
+                    }
                   />
 
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div>
-                      <label className="label">Show this question only if</label>
-                      <select
-                        value={question.show_when_question_id || ''}
-                        onChange={(e) => updateQuestion(question.id, { show_when_question_id: e.target.value || undefined })}
-                        className="input"
-                      >
-                        <option value="">No condition</option>
-                        {questions.slice(0, index).map((prevQ) => (
-                          <option key={prevQ.id} value={prevQ.id}>{prevQ.question_text || `Question ${prevQ.order_index + 1}`}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="label">Answer must equal</label>
-                      <input
-                        type="text"
-                        value={question.show_when_answer_value || ''}
-                        onChange={(e) => updateQuestion(question.id, { show_when_answer_value: e.target.value || undefined })}
-                        className="input"
-                        placeholder="Expected answer value"
-                      />
-                    </div>
-                  </div>
+                  {/* Conditional logic and options only for question blocks */}
+                  {question.block_type === 'question' && (
+                    <>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div>
+                          <label className="label">Show this question only if</label>
+                          <select
+                            value={question.show_when_question_id || ''}
+                            onChange={(e) => updateQuestion(question.id, { show_when_question_id: e.target.value || undefined })}
+                            className="input"
+                          >
+                            <option value="">No condition</option>
+                            {questions.slice(0, index).map((prevQ) => (
+                              <option key={prevQ.id} value={prevQ.id}>{prevQ.question_text || `Question ${prevQ.order_index + 1}`}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label">Answer must equal</label>
+                          <input
+                            type="text"
+                            value={question.show_when_answer_value || ''}
+                            onChange={(e) => updateQuestion(question.id, { show_when_answer_value: e.target.value || undefined })}
+                            className="input"
+                            placeholder="Expected answer value"
+                          />
+                        </div>
+                      </div>
 
-                  {question.type === 'choice' && (
+                      {question.type === 'choice' && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-700">Options</p>
                       {question.options.map((option, optIndex) => (
@@ -772,6 +841,8 @@ export default function SurveyBuilder() {
                       </div>
                     </div>
                   )}
+                  </>
+                )}
                 </div>
 
                 <button
@@ -829,6 +900,7 @@ export default function SurveyBuilder() {
                 onImport={(importedQuestions) => {
                   const newQuestions: FormQuestion[] = importedQuestions.map((q, index) => {
                     const type: QuestionType = q.type;
+                    const blockType: FormQuestion['block_type'] = q.block_type || 'question';
                     const options = type === 'choice'
                       ? q.options.length > 0 ? q.options : ['Option 1', 'Option 2']
                       : type === 'likert'
@@ -837,11 +909,13 @@ export default function SurveyBuilder() {
 
                     return {
                       id: generateId(),
+                      block_type: blockType,
                       type,
                       question_text: q.text,
                       options,
-                      required: true,
-                      order_index: questions?.length || 0 + index
+                      required: blockType === 'question',
+                      order_index: questions?.length || 0 + index,
+                      section_id: null
                     };
                   });
                   setQuestions([...questions, ...newQuestions]);
