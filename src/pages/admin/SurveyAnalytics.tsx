@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiDelete } from '../../lib/api';
@@ -43,6 +43,21 @@ export default function SurveyAnalytics() {
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+
+  // Filter out test/placeholder questions by text pattern for display
+  const validQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      const text = q.question_text?.trim().toLowerCase() || '';
+      // Skip test placeholders, page breaks, headings, etc.
+      if (text === 'test') return false;
+      if (text === 'page break') return false;
+      if (text.includes('new section heading')) return false;
+      if (text.includes('instructions:')) return false;
+      if (text.startsWith('part ') && text.includes(':')) return false; // Section headers like "PART 1: EASE OF USE"
+      if (text === '') return false;
+      return true;
+    });
+  }, [questions]);
 
   useEffect(() => {
     if (surveyId) {
@@ -127,29 +142,12 @@ export default function SurveyAnalytics() {
   };
 
   const calculateAggregations = (): ResponseAggregation[] => {
-    // Only use questions from API (already filtered to block_type === 'question')
-    // Do NOT add questions from responses as they are partial objects without block_type
-    const questionMap = new Map(questions.map((q) => [q.id, q]));
-
-    // Filter out test/placeholder questions by text pattern
-    const isValidQuestion = (q: Question): boolean => {
-      const text = q.question_text?.trim().toLowerCase() || '';
-      // Skip test placeholders, page breaks, headings, etc.
-      if (text === 'test') return false;
-      if (text === 'page break') return false;
-      if (text.includes('new section heading')) return false;
-      if (text.includes('instructions:')) return false;
-      if (text.startsWith('part ') && text.includes(':')) return false; // Section headers like "PART 1: EASE OF USE"
-      if (text === '') return false;
-      return true;
-    };
+    const questionMap = new Map(validQuestions.map((q) => [q.id, q]));
 
     return Array.from(questionMap.values())
-      .filter(isValidQuestion)
       .map((question) => {
-        // Only count responses for questions that exist in our valid questions map
         const questionResponses = filteredResponses.filter(
-          (r) => r.question_id === question.id && questionMap.has(r.question_id)
+          (r) => r.question_id === question.id
         );
         const answers: { [key: string]: number } = {};
 
@@ -247,10 +245,10 @@ export default function SurveyAnalytics() {
   };
 
   const exportToCSV = () => {
-    if (!questions.length || !responses.length) return;
+    if (!validQuestions.length || !responses.length) return;
 
     // Build CSV rows
-    const headers = ['User', 'Submitted At', ...questions.map(q => q.question_text)];
+    const headers = ['User', 'Submitted At', ...validQuestions.map(q => q.question_text)];
     
     // Group responses by user_id and submitted_at
     const grouped: { [key: string]: { userLabel: string; submitted_at: string; answers: { [qid: string]: string } } } = {};
@@ -270,7 +268,7 @@ export default function SurveyAnalytics() {
     const rows = Object.values(grouped).map(g => [
       g.userLabel,
       new Date(g.submitted_at).toLocaleString(),
-      ...questions.map(q => g.answers[q.id] || '')
+      ...validQuestions.map(q => g.answers[q.id] || '')
     ]);
 
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -289,7 +287,7 @@ export default function SurveyAnalytics() {
   const exportToJSON = () => {
     const data = {
       survey,
-      questions,
+      questions: validQuestions,
       responses: filteredResponses.map(r => ({
         ...r,
         user_label: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`
@@ -465,10 +463,10 @@ export default function SurveyAnalytics() {
 
   // Export to Excel (CSV with multiple sheets simulated)
   const exportToExcel = () => {
-    if (!questions.length || !responses.length) return;
+    if (!validQuestions.length || !responses.length) return;
     
     // Sheet 1: Raw Data
-    const rawHeaders = ['User ID', 'Submitted At', ...questions.map(q => q.question_text)];
+    const rawHeaders = ['User ID', 'Submitted At', ...validQuestions.map(q => q.question_text)];
     const grouped: any = {};
     filteredResponses.forEach(r => {
       const key = `${r.user_id}_${r.submitted_at}`;
@@ -480,11 +478,11 @@ export default function SurveyAnalytics() {
     const rawRows = Object.values(grouped).map((g: any) => [
       g.userId,
       new Date(g.submittedAt).toLocaleString(),
-      ...questions.map(q => g.answers[q.id] || '')
+      ...validQuestions.map(q => g.answers[q.id] || '')
     ]);
 
     // Sheet 2: Statistics Summary
-    const statsRows = questions
+    const statsRows = validQuestions
       .filter(q => q.type === 'likert')
       .map(q => {
         const stats = calculateQuestionStats(q.id, q.type);
@@ -522,11 +520,11 @@ export default function SurveyAnalytics() {
 
   // Export SPSS-compatible CSV
   const exportToSPSS = () => {
-    if (!questions.length || !responses.length) return;
+    if (!validQuestions.length || !responses.length) return;
     
     // SPSS requires numeric codes for categorical data
     const questionCodes: { [key: string]: { [key: string]: number } } = {};
-    questions.forEach(q => {
+    validQuestions.forEach(q => {
       const uniqueAnswers = [...new Set(filteredResponses.filter(r => r.question_id === q.id).map(r => r.answer))];
       questionCodes[q.id] = {};
       uniqueAnswers.forEach((ans, idx) => {
@@ -534,8 +532,8 @@ export default function SurveyAnalytics() {
       });
     });
 
-    const headers = ['user_id', 'submitted_at', ...questions.map(q => `Q${q.id.slice(0, 6)}`)];
-    const valueLabels = questions.map(q => {
+    const headers = ['user_id', 'submitted_at', ...validQuestions.map(q => `Q${q.id.slice(0, 6)}`)];
+    const valueLabels = validQuestions.map(q => {
       const codes = questionCodes[q.id];
       return `${q.question_text}: ${Object.entries(codes).map(([ans, code]) => `${code}=${ans}`).join(', ')}`;
     });
@@ -552,7 +550,7 @@ export default function SurveyAnalytics() {
     const rows = Object.values(grouped).map((g: any) => [
       g.userId,
       new Date(g.submittedAt).toISOString(),
-      ...questions.map(q => g.answers[q.id] || '')
+      ...validQuestions.map(q => g.answers[q.id] || '')
     ]);
 
     const csv = [
@@ -975,7 +973,7 @@ export default function SurveyAnalytics() {
                     <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
-                      {questions.map(q => (
+                      {validQuestions.map(q => (
                         <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase break-words max-w-[14rem]">
                           {q.question_text}
                         </th>
@@ -1005,7 +1003,7 @@ export default function SurveyAnalytics() {
                       <tr key={key}>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{getUserIdentifier(submission)}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{new Date(submission.submitted_at).toLocaleString()}</td>
-                        {questions.map((q) => (
+                        {validQuestions.map((q) => (
                           <td key={q.id} className="px-4 py-3 text-sm text-gray-900">{submission.answers[q.id] || '-'}</td>
                         ))}
                         <td className="px-4 py-3 text-sm text-gray-500">
