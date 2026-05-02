@@ -26,6 +26,8 @@ function SurveyContent() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [userAge, setUserAge] = useState('');
+  const [userGender, setUserGender] = useState('');
   const [submissionPreview, setSubmissionPreview] = useState<{ email?: string; answers: { questionText: string; answer: string }[] } | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -542,11 +544,27 @@ function SurveyContent() {
   };
 
   const handleGetStarted = () => {
+    // Validate age (required)
+    if (!userAge || userAge.trim() === '') {
+      showToast('Please enter your age to continue', 'error');
+      return;
+    }
+    const ageNum = parseInt(userAge, 10);
+    if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+      showToast('Please enter a valid age between 1 and 120', 'error');
+      return;
+    }
+    
+    // Validate email if provided (optional)
     if (email && !validateEmail(email)) {
       setEmailError('Please enter a valid Gmail address (e.g., user@gmail.com)');
       return;
     }
     setEmailError('');
+    
+    // Store demographics in session for analytics
+    console.log('Demographics:', { age: ageNum, gender: userGender || 'not-specified' });
+    
     setShowWelcome(false);
   };
 
@@ -863,7 +881,7 @@ function SurveyContent() {
         <div className="w-full max-w-lg">
           {showWelcome ? (
             // Welcome Screen
-            <div className="card space-y-6 text-center">
+            <div className="card space-y-8 text-center mb-8">
               {/* Survey Logo - Prominent Header */}
               <div className="flex flex-col items-center gap-3">
                 <img 
@@ -889,29 +907,73 @@ function SurveyContent() {
                 )}
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 text-left">
-                <h3 className="font-semibold text-gray-900 mb-3">What to expect:</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
+              {/* Demographics / Profiling Section */}
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-6 text-left space-y-6">
+                <h3 className="font-semibold text-indigo-900 text-lg mb-4 flex items-center gap-2">
+                  <span className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-sm">👤</span>
+                  Quick Profile
+                </h3>
+                
+                {/* Age - Required */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Age <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={userAge}
+                    onChange={(e) => setUserAge(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-400 transition-colors"
+                    placeholder="Enter your age"
+                    required
+                  />
+                  <p className="text-xs text-slate-500">Required to help us understand our audience</p>
+                </div>
+                
+                {/* Gender - Optional */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700">
+                    Gender <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <select
+                    value={userGender}
+                    onChange={(e) => setUserGender(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-slate-900 focus:outline-none focus:border-indigo-400 transition-colors bg-white"
+                  >
+                    <option value="">Select gender (optional)</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="non-binary">Non-binary</option>
+                    <option value="prefer-not-to-say">Prefer not to say</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-6 text-left space-y-4">
+                <h3 className="font-semibold text-gray-900 text-lg">What to expect:</h3>
+                <ul className="space-y-3 text-sm text-gray-600">
+                  <li className="flex items-start gap-3">
+                    <span className="text-green-500 mt-0.5 text-lg">✓</span>
                     <span>This survey takes approximately {Math.ceil(sections.reduce((acc, s) => acc + s.questionCount, 0) * 0.5)} minutes</span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
+                  <li className="flex items-start gap-3">
+                    <span className="text-green-500 mt-0.5 text-lg">✓</span>
                     <span>There are {sections.reduce((acc, s) => acc + s.questionCount, 0)} question{sections.reduce((acc, s) => acc + s.questionCount, 0) !== 1 ? 's' : ''} to complete</span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
+                  <li className="flex items-start gap-3">
+                    <span className="text-green-500 mt-0.5 text-lg">✓</span>
                     <span>Your responses are completely confidential</span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
+                  <li className="flex items-start gap-3">
+                    <span className="text-green-500 mt-0.5 text-lg">✓</span>
                     <span>You can navigate back to review previous answers</span>
                   </li>
                 </ul>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 space-y-4">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Gmail ({t('optional').toLowerCase()})
                 </label>
@@ -934,7 +996,7 @@ function SurveyContent() {
                   </p>
                 ) : (
                   <p className="mt-2 text-xs text-slate-500">
-                    {t('optional')}. Leave blank to proceed anonymously. Must be a valid @gmail.com address.
+                    Optional. Leave blank to proceed anonymously. Must be a valid @gmail.com address.
                   </p>
                 )}
               </div>
