@@ -330,7 +330,7 @@ function SurveyContent() {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         blurTimeout = setTimeout(() => {
-          triggerSecurityViolation('tab-switch', 'You switched to another tab or window');
+          triggerSecurityViolation('tab-switch', "Don't switch tabs or windows!");
         }, 500);
       } else {
         clearTimeout(blurTimeout);
@@ -339,7 +339,7 @@ function SurveyContent() {
 
     const handleBlur = () => {
       blurTimeout = setTimeout(() => {
-        triggerSecurityViolation('window-blur', 'Window focus was lost - possible Alt+Tab');
+        triggerSecurityViolation('window-blur', "Don't Alt+Tab! Stay focused on the survey.");
       }, 300);
     };
 
@@ -367,7 +367,7 @@ function SurveyContent() {
       // Print Screen
       if (e.key === 'PrintScreen' || e.keyCode === 44) {
         e.preventDefault();
-        triggerSecurityViolation('screenshot', 'Print Screen key detected');
+        triggerSecurityViolation('screenshot', "Don't take screenshots!");
         return false;
       }
       
@@ -401,25 +401,25 @@ function SurveyContent() {
       
       // Ctrl+C (Copy)
       if (e.ctrlKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
-        triggerSecurityViolation('copy', 'Copying content is not allowed');
+        triggerSecurityViolation('copy', "Don't copy!");
       }
       
       // Ctrl+P (Print)
       if (e.ctrlKey && (e.key === 'P' || e.key === 'p' || e.keyCode === 80)) {
         e.preventDefault();
-        triggerSecurityViolation('print', 'Printing is not allowed during the survey');
+        triggerSecurityViolation('print', "Don't print!");
         return false;
       }
     };
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      triggerSecurityViolation('right-click', 'Right-click is disabled');
+      triggerSecurityViolation('right-click', "Don't right-click!");
       return false;
     };
 
     const handleBeforePrint = () => {
-      triggerSecurityViolation('print', 'Print dialog detected');
+      triggerSecurityViolation('print', "Don't print!");
     };
 
     document.addEventListener('keydown', handleKeyDown);
@@ -440,7 +440,7 @@ function SurveyContent() {
     const handleSelection = () => {
       const selection = window.getSelection();
       if (selection && selection.toString().length > 0) {
-        triggerSecurityViolation('text-select', 'Text selection is not allowed');
+        triggerSecurityViolation('text-select', "Don't select text!");
         selection.removeAllRanges();
       }
     };
