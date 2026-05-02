@@ -282,17 +282,43 @@ function SurveyContent() {
   }, []);
 
   // Check localStorage for previous submission (Frontend Layer 1)
+  // Also verify with server to handle admin reset scenario
   useEffect(() => {
-    if (!surveyId) return;
-    
+    if (!surveyId || !userId) return;
+
     const storageKey = `survey-completed-${surveyId}`;
     const hasCompleted = localStorage.getItem(storageKey);
-    
+
     if (hasCompleted === 'true') {
-      setIsBlocked(true);
-      setBlockReason('You have already completed this survey on this device.');
+      // Verify with server - admin may have reset responses
+      const verifyCompletion = async () => {
+        try {
+          const { data: hasCompletedOnServer } = await supabase.rpc('has_user_completed_survey', {
+            p_survey_id: surveyId,
+            p_user_id: userId,
+          });
+
+          if (hasCompletedOnServer) {
+            // Server confirms - still blocked
+            setIsBlocked(true);
+            setBlockReason('You have already completed this survey on this device.');
+          } else {
+            // Server says not completed (admin reset) - clear localStorage and allow access
+            localStorage.removeItem(storageKey);
+            setIsBlocked(false);
+            setBlockReason('');
+          }
+        } catch (error) {
+          // If verification fails, trust localStorage and block
+          console.error('Failed to verify completion status:', error);
+          setIsBlocked(true);
+          setBlockReason('You have already completed this survey on this device.');
+        }
+      };
+
+      verifyCompletion();
     }
-  }, [surveyId]);
+  }, [surveyId, userId]);
 
   // Start live session when user begins survey
   useEffect(() => {
