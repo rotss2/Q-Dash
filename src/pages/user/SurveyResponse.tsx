@@ -908,26 +908,26 @@ function SurveyContent() {
             </h1>
           </div>
           
-          {/* Progress Info */}
-          <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
-            <span className="font-medium">
-              {showWelcome ? 'Welcome' : `Section ${currentSectionIndex + 1} of ${sections.length}`}
-            </span>
-            {!showWelcome && (
-              <span className="font-semibold text-gray-700">
-                {Math.round(progress)}% complete
-              </span>
-            )}
-          </div>
-          
-          {/* Progress Bar - no animation for performance */}
+          {/* Progress Info - hidden during welcome screen */}
           {!showWelcome && (
-            <div className={`h-3 ${themeClasses.progress} rounded-full overflow-hidden will-change-transform`}>
-              <div 
-                className={`h-full ${themeClasses.progressFill} transition-all duration-300 ease-out`}
-                style={{ width: `${progress}%`, willChange: 'width' }}
-              />
-            </div>
+            <>
+              <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
+                <span className="font-medium">
+                  Section {currentSectionIndex + 1} of {sections.length}
+                </span>
+                <span className="font-semibold text-gray-700">
+                  {Math.round(progress)}% complete
+                </span>
+              </div>
+              
+              {/* Progress Bar - no animation for performance */}
+              <div className={`h-3 ${themeClasses.progress} rounded-full overflow-hidden will-change-transform`}>
+                <div 
+                  className={`h-full ${themeClasses.progressFill} transition-all duration-300 ease-out`}
+                  style={{ width: `${progress}%`, willChange: 'width' }}
+                />
+              </div>
+            </>
           )}
         </div>
       </header>
