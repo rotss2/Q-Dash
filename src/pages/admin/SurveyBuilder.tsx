@@ -158,6 +158,22 @@ export default function SurveyBuilder() {
     setQuestions([...questions, newQuestion]);
   };
 
+  // Insert a block at a specific position
+  const insertBlockAt = (index: number, blockType: FormQuestion['block_type']) => {
+    const newQuestion: FormQuestion = {
+      id: generateId(),
+      block_type: blockType,
+      type: 'text',
+      question_text: blockType === 'heading' ? 'New Section Heading' : blockType === 'instruction' ? 'Instructions or information text...' : 'Page Break',
+      options: [],
+      required: false,
+      order_index: index
+    };
+    const newQuestions = [...questions];
+    newQuestions.splice(index, 0, newQuestion);
+    setQuestions(newQuestions.map((q, i) => ({ ...q, order_index: i })));
+  };
+
   // Add a section header
   const addSectionHeader = () => {
     const newQuestion: FormQuestion = {
@@ -818,6 +834,34 @@ export default function SurveyBuilder() {
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, index)}
             >
+              {/* Insert toolbar - appears on hover */}
+              <div className="flex items-center gap-1 mb-1 opacity-0 hover:opacity-100 transition-opacity -mt-2">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent to-gray-300"></div>
+                <span className="text-[10px] text-gray-400 uppercase">Insert</span>
+                <button
+                  onClick={() => insertBlockAt(index, 'heading')}
+                  className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] rounded hover:bg-indigo-100 border border-indigo-200"
+                  title="Insert heading here"
+                >
+                  H
+                </button>
+                <button
+                  onClick={() => insertBlockAt(index, 'instruction')}
+                  className="px-2 py-0.5 bg-cyan-50 text-cyan-600 text-[10px] rounded hover:bg-cyan-100 border border-cyan-200"
+                  title="Insert instruction here"
+                >
+                  i
+                </button>
+                <button
+                  onClick={() => insertBlockAt(index, 'page_break')}
+                  className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded hover:bg-gray-200 border border-gray-300"
+                  title="Insert page break here"
+                >
+                  ↵
+                </button>
+                <div className="flex-1 h-px bg-gradient-to-l from-transparent to-gray-300"></div>
+              </div>
+
               <div className="flex items-start gap-4">
                 <div className="flex flex-col gap-1 items-center">
                   {/* Drag Handle */}
