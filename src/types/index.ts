@@ -29,6 +29,7 @@ export interface Survey {
   supported_languages?: string[] | null;
   open_date?: string | null;
   close_date?: string | null;
+  anti_cheating_enabled?: boolean | null;  // Toggle for anti-cheating features
   created_at: string;
 }
 

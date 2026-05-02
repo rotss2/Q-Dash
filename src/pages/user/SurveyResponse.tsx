@@ -324,6 +324,7 @@ function SurveyContent() {
   // ANTI-CHEATING: Detect tab/window switching
   useEffect(() => {
     if (showWelcome || hasSubmitted) return;
+    if (!survey?.anti_cheating_enabled) return;
 
     let blurTimeout: NodeJS.Timeout;
     
@@ -357,11 +358,12 @@ function SurveyContent() {
       window.removeEventListener('focus', handleFocus);
       clearTimeout(blurTimeout);
     };
-  }, [showWelcome, hasSubmitted]);
+  }, [showWelcome, hasSubmitted, survey]);
 
   // ANTI-CHEATING: Detect print screen, dev tools, right-click
   useEffect(() => {
     if (showWelcome || hasSubmitted) return;
+    if (!survey?.anti_cheating_enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Print Screen
@@ -431,11 +433,12 @@ function SurveyContent() {
       document.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('beforeprint', handleBeforePrint);
     };
-  }, [showWelcome, hasSubmitted]);
+  }, [showWelcome, hasSubmitted, survey]);
 
   // ANTI-CHEATING: Detect text selection
   useEffect(() => {
     if (showWelcome || hasSubmitted) return;
+    if (!survey?.anti_cheating_enabled) return;
 
     const handleSelection = () => {
       const selection = window.getSelection();
@@ -450,7 +453,7 @@ function SurveyContent() {
     return () => {
       document.removeEventListener('selectionchange', handleSelection);
     };
-  }, [showWelcome, hasSubmitted]);
+  }, [showWelcome, hasSubmitted, survey]);
 
   // Security violation handler
   const triggerSecurityViolation = (type: string, message: string) => {
@@ -1103,7 +1106,7 @@ function SurveyContent() {
       )}
 
       {/* Floating Security Badge */}
-      {!showWelcome && !hasSubmitted && (
+      {!showWelcome && !hasSubmitted && survey?.anti_cheating_enabled && (
         <div className="fixed bottom-4 left-4 z-30 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 shadow-lg flex items-center gap-2">
           <Eye className="w-4 h-4 text-green-600" />
           <span className="text-xs font-medium text-gray-600">Secure Mode Active</span>
@@ -1116,7 +1119,7 @@ function SurveyContent() {
       )}
 
       {/* Anti-Photo Watermark Overlay */}
-      {!showWelcome && !hasSubmitted && (
+      {!showWelcome && !hasSubmitted && survey?.anti_cheating_enabled && (
         <>
           {/* User ID Watermark - appears in photos */}
           <div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden opacity-[0.08]">

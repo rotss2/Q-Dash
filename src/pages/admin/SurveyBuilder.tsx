@@ -76,6 +76,7 @@ export default function SurveyBuilder() {
   const [supportedLanguages, setSupportedLanguages] = useState('en,es');
   const [openDate, setOpenDate] = useState('');
   const [closeDate, setCloseDate] = useState('');
+  const [antiCheatingEnabled, setAntiCheatingEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showBulkImporter, setShowBulkImporter] = useState(false);
@@ -120,6 +121,7 @@ export default function SurveyBuilder() {
     setSupportedLanguages((data.survey.supported_languages || ['en']).join(','));
     setOpenDate(data.survey.open_date ? new Date(data.survey.open_date).toISOString().slice(0, 16) : '');
     setCloseDate(data.survey.close_date ? new Date(data.survey.close_date).toISOString().slice(0, 16) : '');
+    setAntiCheatingEnabled(data.survey.anti_cheating_enabled || false);
     // Ensure backwards compatibility: add default block_type for older surveys
     const questionsWithBlockType = (data.questions || []).map(q => ({
       ...q,
@@ -474,6 +476,7 @@ export default function SurveyBuilder() {
         supported_languages: supportedLanguages.split(',').map((lang) => lang.trim()).filter(Boolean),
         open_date: openDate ? new Date(openDate).toISOString() : null,
         close_date: closeDate ? new Date(closeDate).toISOString() : null,
+        anti_cheating_enabled: antiCheatingEnabled,
         questions
       };
 
@@ -791,6 +794,41 @@ export default function SurveyBuilder() {
                     <option value="zh">🇨🇳 Chinese</option>
                     <option value="fil">🇵🇭 Filipino</option>
                   </select>
+                </div>
+                
+                {/* Anti-Cheating Toggle */}
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                        <span className="text-xl">🛡️</span>
+                      </div>
+                      <div>
+                        <label className="font-semibold text-gray-900 block">Anti-Cheating Protection</label>
+                        <p className="text-sm text-gray-500">Prevent screenshots, copying, and tab switching</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAntiCheatingEnabled(!antiCheatingEnabled)}
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
+                        antiCheatingEnabled ? 'bg-red-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                          antiCheatingEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {antiCheatingEnabled && (
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-700">
+                        <span className="font-semibold">Features enabled:</span> Screenshot detection, copy/paste blocking, tab switching alerts, developer tools blocking, and traceable watermarks.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
