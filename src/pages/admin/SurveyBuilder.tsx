@@ -294,6 +294,30 @@ export default function SurveyBuilder() {
     setDragOverIndex(null);
   };
 
+  // Helper: Check if a question belongs to a group (under a heading)
+  const getGroupInfo = (index: number) => {
+    // Find the most recent heading or page break before this index
+    let groupStartIndex = -1;
+    let hasHeading = false;
+    
+    for (let i = index - 1; i >= 0; i--) {
+      if (questions[i].block_type === 'page_break') {
+        break; // Page break ends all groups
+      }
+      if (questions[i].block_type === 'heading') {
+        groupStartIndex = i;
+        hasHeading = true;
+        break;
+      }
+    }
+    
+    return {
+      isGrouped: hasHeading && index > groupStartIndex,
+      groupStartIndex,
+      isGroupStart: questions[index]?.block_type === 'heading'
+    };
+  };
+
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === dropIndex) return;
@@ -834,7 +858,9 @@ export default function SurveyBuilder() {
             <div className="absolute left-[22px] sm:left-[26px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-300 via-purple-300 to-indigo-300 rounded-full hidden sm:block"></div>
             
             {/* Connection nodes for each question */}
-          {questions.map((question, index) => (
+          {questions.map((question, index) => {
+            const groupInfo = getGroupInfo(index);
+            return (
             <div 
               key={question.id} 
               className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''}`}
@@ -865,7 +891,17 @@ export default function SurveyBuilder() {
                 </div>
               )}
               
-              <div className="card relative ml-0 sm:ml-2">
+              {/* Visual Group Frame - surrounds grouped items */}
+              {groupInfo.isGrouped && !groupInfo.isGroupStart && (
+                <div className="absolute left-10 sm:left-12 right-0 top-0 bottom-0 border-l-2 border-indigo-200 bg-indigo-50/20 rounded-r-lg pointer-events-none"></div>
+              )}
+              
+              {/* Group connector line for heading */}
+              {groupInfo.isGroupStart && index < questions.length - 1 && getGroupInfo(index + 1).isGrouped && (
+                <div className="absolute left-10 sm:left-12 top-full bottom-[-16px] w-0.5 bg-indigo-300 z-0"></div>
+              )}
+              
+              <div className={`card relative ml-0 sm:ml-2 ${groupInfo.isGrouped && !groupInfo.isGroupStart ? 'border-indigo-200 bg-white' : ''} ${groupInfo.isGroupStart ? 'ring-2 ring-indigo-400 shadow-md' : ''}`}>
               {/* Insert toolbar - appears on hover */}
               <div className="flex items-center gap-1 mb-1 opacity-0 hover:opacity-100 transition-opacity -mt-2">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent to-gray-300"></div>
@@ -1073,7 +1109,8 @@ export default function SurveyBuilder() {
               </div>
               </div>
             </div>
-          ))}
+          );
+          })}
           </div>
           
           {questions.length === 0 && !showBulkImporter && (
