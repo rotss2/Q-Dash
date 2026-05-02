@@ -674,18 +674,34 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
 
     console.log('Response count:', responseCount, 'Count error:', countError);
 
-    // Now fetch the actual responses
-    const { data: responses, error: responsesError } = await supabaseAdmin
-      .from('responses')
-      .select('*')
-      .eq('survey_id', surveyId)
-      .order('submitted_at', { ascending: false });
+    // Now fetch the actual responses - use throwOnError to catch any issues
+    let responses = [];
+    let responsesError = null;
+    try {
+      const result = await supabaseAdmin
+        .from('responses')
+        .select('*')
+        .eq('survey_id', surveyId)
+        .order('submitted_at', { ascending: false })
+        .limit(1000);
+      
+      responses = result.data || [];
+      responsesError = result.error;
+      
+      if (responsesError) {
+        console.error('Responses query error:', responsesError);
+      }
+    } catch (e) {
+      console.error('Exception fetching responses:', e);
+      responsesError = e;
+    }
 
     if (responsesError) {
-      console.error('Responses error:', responsesError);
-      return res.status(500).json({ error: responsesError.message });
+      return res.status(500).json({ error: responsesError.message || 'Failed to fetch responses' });
     }
-    console.log('Found responses:', responses?.length || 0);
+    
+    console.log('Found responses:', responses.length);
+    console.log('Response IDs:', responses.map(r => r.id).slice(0, 5));
 
     // Get all unique user_ids from responses
     const allUserIds = [...new Set((responses || []).map(r => r.user_id))];
