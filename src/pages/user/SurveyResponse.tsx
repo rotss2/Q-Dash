@@ -870,6 +870,16 @@ function SurveyContent() {
               </p>
             </div>
 
+            {/* Session ID - Visible for tracking leaked screenshots */}
+            <div className="bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4">
+              <p className="text-xs text-gray-500 text-center uppercase tracking-wider font-semibold">
+                Session ID (Screenshots are traceable)
+              </p>
+              <p className="text-center font-mono text-sm text-gray-700 mt-1">
+                {userId.substring(0, 12).toUpperCase()}
+              </p>
+            </div>
+
             {/* Success Stats - BIGGER & BOLDER */}
             <div className="grid grid-cols-3 gap-6 py-8">
               <div className="text-center bg-green-50 rounded-2xl p-4 border border-green-100">
@@ -1103,6 +1113,36 @@ function SurveyContent() {
             </span>
           )}
         </div>
+      )}
+
+      {/* Anti-Photo Watermark Overlay */}
+      {!showWelcome && !hasSubmitted && (
+        <>
+          {/* User ID Watermark - appears in photos */}
+          <div className="fixed inset-0 z-[100] pointer-events-none overflow-hidden opacity-[0.08]">
+            {/* Repeated watermark pattern */}
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div
+                key={i}
+                className="absolute text-red-900 font-mono text-sm font-bold rotate-[-45deg] whitespace-nowrap"
+                style={{
+                  top: `${(i % 5) * 25}%`,
+                  left: `${Math.floor(i / 5) * 25}%`,
+                  transform: 'rotate(-45deg)',
+                }}
+              >
+                {userId.substring(0, 8).toUpperCase()} • NO PHOTOS • CONFIDENTIAL
+              </div>
+            ))}
+          </div>
+          
+          {/* Photo Warning Banner */}
+          <div className="fixed top-16 left-0 right-0 z-[90] bg-red-600/90 backdrop-blur-sm text-white text-center py-1.5 px-4 pointer-events-none">
+            <p className="text-xs font-semibold tracking-wide uppercase">
+              ⚠️ Taking photos of this survey is prohibited and traceable ⚠️
+            </p>
+          </div>
+        </>
       )}
 
       {/* Animated Background Theme */}
