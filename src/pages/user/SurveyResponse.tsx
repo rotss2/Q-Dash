@@ -137,25 +137,70 @@ function SurveyContent() {
     
     let currentSection: typeof result[0] | null = null;
     let questionCounter = 0;
+    let sectionCounter = 0;
     
+    // First pass: collect all visible questions with their indices
+    const visibleQuestions: Question[] = [];
     activeQuestions.forEach((q) => {
-      // Check if this question should be shown (conditional logic)
-      if (!shouldShowQuestion(q, answersMap)) return;
-      
+      if (shouldShowQuestion(q, answersMap)) {
+        visibleQuestions.push(q);
+      }
+    });
+    
+    // Second pass: group into sections
+    visibleQuestions.forEach((q, index) => {
       // Start new section on heading, page_break, or first item
       if (q.block_type === 'heading' || q.block_type === 'page_break' || !currentSection) {
         // End previous section
-        if (currentSection) result.push(currentSection);
+        if (currentSection && currentSection.items.length > 0) {
+          result.push(currentSection);
+        }
         
-        // Start new section (skip if it's just a page_break with no content yet)
+        // Skip if it's just a page_break with no content yet and no previous section
         if (q.block_type === 'page_break' && !currentSection) {
-          // Don't create empty section for standalone page break at start
           return;
+        }
+        
+        sectionCounter++;
+        
+        // Determine section title
+        let sectionTitle: string;
+        if (q.block_type === 'heading') {
+          // Use the heading text as the section title
+          sectionTitle = q.question_text;
+        } else if (q.block_type === 'page_break') {
+          // Look ahead for the next heading to use as title
+          let foundHeading = false;
+          for (let i = index + 1; i < visibleQuestions.length; i++) {
+            if (visibleQuestions[i].block_type === 'heading') {
+              sectionTitle = visibleQuestions[i].question_text;
+              foundHeading = true;
+              break;
+            }
+            if (visibleQuestions[i].block_type === 'page_break') break;
+          }
+          if (!foundHeading) {
+            sectionTitle = `Part ${sectionCounter}`;
+          }
+        } else {
+          // First item is not a heading - check if there's a heading soon after
+          let foundHeading = false;
+          for (let i = index; i < visibleQuestions.length && i < index + 3; i++) {
+            if (visibleQuestions[i].block_type === 'heading') {
+              sectionTitle = visibleQuestions[i].question_text;
+              foundHeading = true;
+              break;
+            }
+            if (visibleQuestions[i].block_type === 'page_break') break;
+          }
+          if (!foundHeading) {
+            sectionTitle = `Part ${sectionCounter}`;
+          }
         }
         
         currentSection = {
           sectionId: q.section_id || q.id,
-          title: q.block_type === 'heading' ? q.question_text : 'Untitled Section',
+          title: sectionTitle!,
           items: [],
           questionCount: 0
         };
@@ -163,6 +208,9 @@ function SurveyContent() {
       
       // Skip page_break blocks (they don't display, just split sections)
       if (q.block_type === 'page_break') return;
+      
+      // Skip headings - they're used as section titles, not items
+      if (q.block_type === 'heading') return;
       
       if (q.block_type === 'question') {
         questionCounter++;
@@ -174,8 +222,16 @@ function SurveyContent() {
       }
     });
     
-    if (currentSection) result.push(currentSection);
-    return result;
+    // Push final section if it has items
+    if (currentSection) {
+      const section = currentSection as { sectionId: string | null; title: string; items: Question[]; questionCount: number };
+      if (section.items.length > 0) {
+        result.push(section);
+      }
+    }
+    
+    // Remove empty sections
+    return result.filter(s => s.items.length > 0);
   }, [activeQuestions, answersMap]);
 
   // Calculate progress based on actual answered questions (not structural blocks)
@@ -1044,15 +1100,6 @@ function SurveyContent() {
                 {/* Render All Items in Section */}
                 <div className="space-y-10">
                   {currentSection.items.map((item) => {
-                    // HEADING - No number, just styled text
-                    if (item.block_type === 'heading') {
-                      return (
-                        <div key={item.id} className="border-l-4 border-blue-500 pl-4 py-3 mb-6">
-                          <h3 className="text-xl font-bold text-slate-900">{item.question_text}</h3>
-                        </div>
-                      );
-                    }
-                    
                     // INSTRUCTION - Info box, no number
                     if (item.block_type === 'instruction') {
                       return (
@@ -1062,7 +1109,7 @@ function SurveyContent() {
                       );
                     }
                     
-                    // QUESTION - Numbered with input
+                    // QUESTION - Numbered with input (headings are now section titles, not items)
                     if (item.block_type === 'question') {
                       return (
                         <div key={item.id} className="space-y-5 mb-8 pb-6 border-b border-gray-100 last:border-0">
