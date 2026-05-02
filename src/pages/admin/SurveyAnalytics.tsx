@@ -327,30 +327,94 @@ export default function SurveyAnalytics() {
     return Math.sqrt(variance);
   };
 
-  const getNumericResponses = (questionId: string): number[] => {
-    return filteredResponses
-      .filter(r => r.question_id === questionId)
-      .map(r => {
-        const num = parseFloat(r.answer);
-        return isNaN(num) ? null : num;
-      })
-      .filter((n): n is number => n !== null);
-  };
-
-  const getLikertResponses = (questionId: string): number[] => {
+  // Map text answers to numeric values for correlation analysis
+  const answerToNumeric = (answer: string, questionType: string, options?: string[]): number | null => {
+    if (!answer || answer.trim() === '') return null;
+    
+    const trimmed = answer.trim().toLowerCase();
+    
+    // Likert scale mappings
     const likertMap: { [key: string]: number } = {
       'strongly disagree': 1, 'disagree': 2, 'neutral': 3, 'agree': 4, 'strongly agree': 5,
       '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
-      'very dissatisfied': 1, 'dissatisfied': 2, 'somewhat dissatisfied': 2, 'somewhat satisfied': 4, 'satisfied': 4, 'very satisfied': 5
+      'very dissatisfied': 1, 'dissatisfied': 2, 'somewhat dissatisfied': 2, 
+      'somewhat satisfied': 4, 'satisfied': 4, 'very satisfied': 5,
+      'very poor': 1, 'poor': 2, 'fair': 3, 'good': 4, 'excellent': 5,
+      'never': 1, 'rarely': 2, 'sometimes': 3, 'often': 4, 'always': 5,
+      'yes': 1, 'no': 0
     };
+    
+    // Check likert map first
+    if (likertMap[trimmed] !== undefined) {
+      return likertMap[trimmed];
+    }
+    
+    // For choice questions, map option index to numeric value (1-based)
+    if (questionType === 'choice' && options && options.length > 0) {
+      const optionIndex = options.findIndex(opt => opt.toLowerCase().trim() === trimmed);
+      if (optionIndex !== -1) {
+        // Map to 1-based scale, or use the position relative to total options
+        return optionIndex + 1;
+      }
+    }
+    
+    // Try parsing as direct number
+    const parsed = parseFloat(answer);
+    if (!isNaN(parsed)) {
+      return parsed;
+    }
+    
+    return null;
+  };
+
+  const getLikertResponses = (questionId: string, questionType: string = 'likert', options?: string[]): number[] => {
     return filteredResponses
       .filter(r => r.question_id === questionId)
-      .map(r => likertMap[r.answer.toLowerCase().trim()] || parseFloat(r.answer))
-      .filter((n): n is number => !isNaN(n));
+      .map(r => answerToNumeric(r.answer, questionType, options))
+      .filter((n): n is number => n !== null);
+  };
+
+  // Get paired responses for correlation (only users who answered both questions)
+  const getPairedResponses = (q1Id: string, q2Id: string): { x: number[]; y: number[] } => {
+    const q1 = questions.find(q => q.id === q1Id);
+    const q2 = questions.find(q => q.id === q2Id);
+    
+    if (!q1 || !q2) return { x: [], y: [] };
+    
+    // Group responses by user_id
+    const userResponses: { [userId: string]: { [questionId: string]: number } } = {};
+    
+    filteredResponses.forEach(r => {
+      if (r.question_id !== q1Id && r.question_id !== q2Id) return;
+      
+      const question = r.question_id === q1Id ? q1 : q2;
+      const numValue = answerToNumeric(r.answer, question.type, question.options || undefined);
+      
+      if (numValue !== null) {
+        if (!userResponses[r.user_id]) {
+          userResponses[r.user_id] = {};
+        }
+        userResponses[r.user_id][r.question_id] = numValue;
+      }
+    });
+    
+    // Extract paired values (users who answered both questions)
+    const x: number[] = [];
+    const y: number[] = [];
+    
+    Object.values(userResponses).forEach(userData => {
+      if (userData[q1Id] !== undefined && userData[q2Id] !== undefined) {
+        x.push(userData[q1Id]);
+        y.push(userData[q2Id]);
+      }
+    });
+    
+    return { x, y };
   };
 
   const calculateQuestionStats = (questionId: string, questionType: string) => {
-    const values = questionType === 'likert' ? getLikertResponses(questionId) : getNumericResponses(questionId);
+    const question = questions.find(q => q.id === questionId);
+    const values = getLikertResponses(questionId, questionType, question?.options || undefined);
     if (values.length === 0) return null;
     return {
       n: values.length,
@@ -363,11 +427,12 @@ export default function SurveyAnalytics() {
     };
   };
 
-  // Correlation Analysis (Pearson)
+  // Correlation Analysis (Pearson) - properly paired by user
   const calculateCorrelation = (q1Id: string, q2Id: string): number | null => {
-    const x = getLikertResponses(q1Id);
-    const y = getLikertResponses(q2Id);
-    if (x.length !== y.length || x.length < 2) return null;
+    const { x, y } = getPairedResponses(q1Id, q2Id);
+    
+    // Need at least 2 paired responses to calculate correlation
+    if (x.length < 2 || y.length < 2 || x.length !== y.length) return null;
     
     const n = x.length;
     const sumX = x.reduce((a, b) => a + b, 0);
@@ -814,7 +879,7 @@ export default function SurveyAnalytics() {
             </div>
 
             {/* Correlation Matrix */}
-            {questions.filter(q => q.type === 'likert').length >= 2 && (
+            {questions.filter(q => q.type === 'likert' || q.type === 'choice').length >= 2 && (
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-green-600" />
@@ -825,30 +890,30 @@ export default function SurveyAnalytics() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Questions</th>
-                        {questions.filter(q => q.type === 'likert').map(q => (
+                        {questions.filter(q => q.type === 'likert' || q.type === 'choice').map(q => (
                           <th key={q.id} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase max-w-[8rem] truncate">
-                            Q{questions.filter(q2 => q2.type === 'likert').indexOf(q) + 1}
+                            Q{questions.filter(q2 => q2.type === 'likert' || q2.type === 'choice').indexOf(q) + 1}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {questions.filter(q => q.type === 'likert').map((q1, i) => (
+                      {questions.filter(q => q.type === 'likert' || q.type === 'choice').map((q1, i) => (
                         <tr key={q1.id}>
                           <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
                             Q{i + 1}: {q1.question_text}
                           </td>
-                          {questions.filter(q => q.type === 'likert').map((q2, j) => {
+                          {questions.filter(q => q.type === 'likert' || q.type === 'choice').map((q2, j) => {
                             if (i === j) {
-                              return <td key={q2.id} className="px-4 py-3 text-center text-sm text-gray-400 bg-gray-50">—</td>;
+                              return <td key={q2.id} className="px-4 py-3 text-center text-sm text-gray-300 bg-gray-50">—</td>;
                             }
                             const corr = calculateCorrelation(q1.id, q2.id);
-                            const color = corr === null ? 'text-gray-400' : 
+                            const color = corr === null ? 'text-gray-300' :
                               Math.abs(corr) >= 0.7 ? 'text-green-600 font-bold' :
-                              Math.abs(corr) >= 0.4 ? 'text-blue-600' : 'text-gray-600';
+                              Math.abs(corr) >= 0.4 ? 'text-blue-600 font-semibold' : 'text-gray-500';
                             return (
                               <td key={q2.id} className={`px-4 py-3 text-center text-sm ${color}`}>
-                                {corr !== null ? corr.toFixed(3) : 'N/A'}
+                                {corr !== null ? corr.toFixed(2) : '—'}
                               </td>
                             );
                           })}
