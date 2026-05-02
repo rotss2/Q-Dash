@@ -321,41 +321,60 @@ function SurveyContent() {
     };
   }, [surveyId, userId, hasSubmitted]);
 
-  // ANTI-CHEATING: Detect tab/window switching
+  // ANTI-CHEATING: Detect tab/window/app switching (Desktop + Mobile)
   useEffect(() => {
     if (showWelcome || hasSubmitted) return;
     if (!survey?.anti_cheating_enabled) return;
 
     let blurTimeout: ReturnType<typeof setTimeout>;
+    let wasHidden = false;
     
     const handleVisibilityChange = () => {
-      if (document.hidden) {
+      if (document.hidden || document.visibilityState === 'hidden') {
+        wasHidden = true;
         blurTimeout = setTimeout(() => {
-          triggerSecurityViolation('tab-switch', "Don't switch tabs or windows!");
-        }, 500);
-      } else {
+          triggerSecurityViolation('tab-switch', "Don't leave the survey!");
+        }, 100);
+      } else if (wasHidden) {
+        wasHidden = false;
+        // User came back - still log that they left
+        triggerSecurityViolation('returned', 'You left and returned to the survey');
         clearTimeout(blurTimeout);
       }
     };
 
     const handleBlur = () => {
       blurTimeout = setTimeout(() => {
-        triggerSecurityViolation('window-blur', "Don't Alt+Tab! Stay focused on the survey.");
-      }, 300);
+        triggerSecurityViolation('window-blur', "Don't switch windows! Stay focused.");
+      }, 100);
     };
 
     const handleFocus = () => {
       clearTimeout(blurTimeout);
     };
 
+    // Mobile-specific: detect app switching
+    const handlePageHide = () => {
+      triggerSecurityViolation('app-switch', "Don't switch apps!");
+    };
+
+    const handleBeforeUnload = () => {
+      // Try to log before leaving
+      console.warn('[SECURITY] User attempted to leave page');
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       clearTimeout(blurTimeout);
     };
   }, [showWelcome, hasSubmitted, survey]);
@@ -401,9 +420,18 @@ function SurveyContent() {
         return false;
       }
       
-      // Ctrl+C (Copy)
+      // Ctrl+C (Copy) - Desktop
       if (e.ctrlKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+        e.preventDefault();
         triggerSecurityViolation('copy', "Don't copy!");
+        return false;
+      }
+      
+      // Cmd+C (Copy) - Mac
+      if (e.metaKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+        e.preventDefault();
+        triggerSecurityViolation('copy', "Don't copy!");
+        return false;
       }
       
       // Ctrl+P (Print)
@@ -416,7 +444,23 @@ function SurveyContent() {
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       triggerSecurityViolation('right-click', "Don't right-click!");
+      return false;
+    };
+
+    // Mobile touch copy prevention
+    const handleTouchStart = (e: TouchEvent) => {
+      // Prevent long-press context menu on mobile
+      if (e.touches.length > 1) {
+        e.preventDefault();
+        triggerSecurityViolation('multi-touch', "Don't use multi-touch!");
+      }
+    };
+
+    const handleSelectStart = (e: Event) => {
+      e.preventDefault();
+      triggerSecurityViolation('select', "Don't select text!");
       return false;
     };
 
@@ -426,11 +470,15 @@ function SurveyContent() {
 
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('selectstart', handleSelectStart);
     window.addEventListener('beforeprint', handleBeforePrint);
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('selectstart', handleSelectStart);
       window.removeEventListener('beforeprint', handleBeforePrint);
     };
   }, [showWelcome, hasSubmitted, survey]);
@@ -1061,7 +1109,10 @@ function SurveyContent() {
       style={{ 
         WebkitUserSelect: 'none', 
         userSelect: 'none',
-        WebkitTouchCallout: 'none'
+        WebkitTouchCallout: 'none',
+        WebkitTextSizeAdjust: 'none',
+        touchAction: 'pan-y',
+        overscrollBehavior: 'none'
       }}
     >
       {/* Security Warning Modal */}
