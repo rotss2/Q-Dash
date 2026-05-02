@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle, HelpCircle, Globe, Calendar, GripVertical, Type, Info, Star, ToggleRight } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle, Globe, Calendar, GripVertical, Type, Info, Star, ToggleRight } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 
 interface SurveyTemplate {
@@ -507,24 +507,34 @@ export default function SurveyBuilder() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between py-4 md:py-0 md:h-16">
             <button
               onClick={() => navigate('/admin')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              className="group flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
-              Back to Dashboard
+              <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-gray-200 transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+              </div>
+              <span className="font-medium">Back to Dashboard</span>
             </button>
-            <button
-              onClick={saveSurvey}
-              disabled={isSaving}
-              className="btn-primary flex items-center gap-2 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : (isEditing ? 'Update Survey' : 'Create Survey')}
-            </button>
+            <div className="flex items-center gap-3">
+              {isEditing && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
+                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                  Editing Mode
+                </span>
+              )}
+              <button
+                onClick={saveSurvey}
+                disabled={isSaving}
+                className="btn-primary flex items-center gap-2 disabled:opacity-50 shadow-sm hover:shadow transition-shadow"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? 'Saving...' : (isEditing ? 'Update Survey' : 'Create Survey')}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -534,29 +544,39 @@ export default function SurveyBuilder() {
         <div className="space-y-6">
           {/* Basic Information */}
           <div className="card">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-              <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
-            </div>
-            <div className="space-y-4">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <span className="text-xl">📋</span>
+              </div>
               <div>
-                <label className="label">Survey Title *</label>
+                <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
+                <p className="text-sm text-gray-500">Define your survey identity</p>
+              </div>
+            </div>
+            <div className="space-y-5">
+              <div>
+                <label className="label flex items-center gap-1">
+                  Survey Title
+                  <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="input text-lg"
-                  placeholder="Enter a clear, descriptive title for your survey"
+                  className="input text-lg font-medium"
+                  placeholder="e.g., Customer Satisfaction Survey 2024"
                 />
+                <p className="text-xs text-gray-500 mt-1.5">Give your survey a clear, descriptive title</p>
               </div>
               <div>
                 <label className="label">Description</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="input min-h-[80px]"
-                  placeholder="Provide context and explain the purpose of this survey"
+                  className="input min-h-[100px] resize-y"
+                  placeholder="Briefly explain the purpose of this survey to your respondents..."
                 />
+                <p className="text-xs text-gray-500 mt-1.5">Optional context shown to respondents before they start</p>
               </div>
             </div>
           </div>
@@ -565,95 +585,169 @@ export default function SurveyBuilder() {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Appearance */}
             <div className="card">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-6 bg-purple-500 rounded-full"></div>
-                <h2 className="text-lg font-semibold text-gray-900">Appearance & Branding</h2>
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <span className="text-xl">🎨</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Appearance & Branding</h2>
+                  <p className="text-sm text-gray-500">Customize the visual style</p>
+                </div>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
                   <label className="label">Brand Color</label>
-                  <div className="flex gap-3">
-                    <input
-                      type="color"
-                      value={themeColor}
-                      onChange={(e) => setThemeColor(e.target.value)}
-                      className="h-12 w-20 rounded-lg border border-gray-200 p-0 cursor-pointer"
-                    />
+                  <div className="flex gap-3 items-center">
+                    <div className="relative">
+                      <input
+                        type="color"
+                        value={themeColor}
+                        onChange={(e) => setThemeColor(e.target.value)}
+                        className="h-12 w-12 rounded-xl border-2 border-gray-200 p-0 cursor-pointer overflow-hidden shadow-sm"
+                      />
+                      <div 
+                        className="absolute inset-0 rounded-xl border-2 border-gray-300 pointer-events-none"
+                        style={{ borderColor: themeColor }}
+                      ></div>
+                    </div>
                     <input
                       type="text"
                       value={themeColor}
                       onChange={(e) => setThemeColor(e.target.value)}
-                      className="flex-1 input font-mono text-sm"
+                      className="flex-1 input font-mono text-sm uppercase"
                       placeholder="#111827"
                     />
                   </div>
                 </div>
                 <div>
                   <label className="label">Logo URL</label>
-                  <input
-                    type="text"
-                    value={logoUrl}
-                    onChange={(e) => setLogoUrl(e.target.value)}
-                    className="input"
-                    placeholder="https://yoursite.com/logo.png"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value)}
+                      className="input pl-10"
+                      placeholder="https://yoursite.com/logo.png"
+                    />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🖼️</span>
+                  </div>
                   {logoUrl && (
-                    <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
-                      <img src={logoUrl} alt="Logo preview" className="h-10 w-10 rounded-md object-contain" />
-                      <span className="text-sm text-gray-600">Logo preview</span>
+                    <div className="mt-3 flex items-center gap-4 p-4 rounded-xl border border-gray-200 bg-gray-50/50">
+                      <div className="w-14 h-14 rounded-lg bg-white border border-gray-200 flex items-center justify-center p-2 shadow-sm">
+                        <img src={logoUrl} alt="Logo preview" className="max-w-full max-h-full object-contain" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Logo Preview</p>
+                        <p className="text-xs text-gray-500">This will appear on the survey header</p>
+                      </div>
                     </div>
                   )}
                 </div>
-                <div>
-                  <label className="label">Theme Style</label>
-                  <select
-                    value={theme}
-                    onChange={(e) => setTheme(e.target.value)}
-                    className="input"
-                  >
-                    <option value="default">Default (Modern)</option>
-                    <option value="warm">Warm (Orange/Peach)</option>
-                    <option value="cool">Cool (Purple/Indigo)</option>
-                    <option value="forest">Forest (Green/Earth)</option>
-                    <option value="dark">Dark Mode</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Theme Style</label>
+                    <select
+                      value={theme}
+                      onChange={(e) => setTheme(e.target.value)}
+                      className="input"
+                    >
+                      <option value="default">🎯 Modern</option>
+                      <option value="warm">🌅 Warm</option>
+                      <option value="cool">❄️ Cool</option>
+                      <option value="forest">🌲 Forest</option>
+                      <option value="dark">🌙 Dark</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Font</label>
+                    <select
+                      value={fontFamily}
+                      onChange={(e) => setFontFamily(e.target.value)}
+                      className="input"
+                    >
+                      <option value="default">System</option>
+                      <option value="serif">Serif</option>
+                      <option value="sans">Sans-serif</option>
+                      <option value="mono">Monospace</option>
+                      <option value="rounded">Rounded</option>
+                      <option value="elegant">Elegant</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
-                  <label className="label">Background Theme</label>
-                  <select
-                    value={backgroundTheme}
-                    onChange={(e) => setBackgroundTheme(e.target.value)}
-                    className="input"
-                  >
-                    <option value="default">Default (Plain)</option>
-                    <option value="ocean">🌊 Ocean (Waves)</option>
-                    <option value="sunset">🌅 Sunset (Warm)</option>
-                    <option value="forest">🌲 Forest (Nature)</option>
-                    <option value="galaxy">🌌 Galaxy (Cosmic)</option>
-                    <option value="minimal">✨ Minimal (Clean)</option>
-                  </select>
+                  <label className="label">Background</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: 'default', icon: '⬜', label: 'Plain' },
+                      { value: 'ocean', icon: '🌊', label: 'Ocean' },
+                      { value: 'sunset', icon: '🌅', label: 'Sunset' },
+                      { value: 'forest', icon: '🌲', label: 'Forest' },
+                      { value: 'galaxy', icon: '🌌', label: 'Galaxy' },
+                      { value: 'minimal', icon: '✨', label: 'Minimal' }
+                    ].map((bg) => (
+                      <button
+                        key={bg.value}
+                        onClick={() => setBackgroundTheme(bg.value)}
+                        className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                          backgroundTheme === bg.value
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }`}
+                      >
+                        <span className="text-2xl">{bg.icon}</span>
+                        <span className="text-xs font-medium text-gray-700">{bg.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Settings */}
+            <div className="card">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                  <span className="text-xl">⚙️</span>
                 </div>
                 <div>
-                  <label className="label">Font Family</label>
-                  <select
-                    value={fontFamily}
-                    onChange={(e) => setFontFamily(e.target.value)}
-                    className="input"
-                  >
-                    <option value="default">Default (System)</option>
-                    <option value="serif">Serif (Times New Roman)</option>
-                    <option value="sans">Sans-serif (Clean)</option>
-                    <option value="mono">Monospace (Code)</option>
-                    <option value="rounded">Rounded (Friendly)</option>
-                    <option value="elegant">Elegant (Playfair)</option>
-                  </select>
+                  <h2 className="text-lg font-semibold text-gray-900">Survey Settings</h2>
+                  <p className="text-sm text-gray-500">Configure availability & language</p>
+                </div>
+              </div>
+              <div className="space-y-5">
+                <div>
+                  <label className="label flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    Schedule
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-medium">Open</span>
+                      <input
+                        type="datetime-local"
+                        value={openDate}
+                        onChange={(e) => setOpenDate(e.target.value)}
+                        className="input w-full pl-12 text-sm"
+                      />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-medium">Close</span>
+                      <input
+                        type="datetime-local"
+                        value={closeDate}
+                        onChange={(e) => setCloseDate(e.target.value)}
+                        className="input w-full pl-12 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1.5">Set when the survey is available to respondents</p>
                 </div>
                 <div>
                   <label className="label flex items-center gap-2">
                     <Globe className="w-4 h-4 text-gray-500" />
                     Supported Languages
                   </label>
-                  <div className="flex flex-wrap gap-2 mb-2">
+                  <div className="flex flex-wrap gap-2">
                     {(['English', 'Spanish', 'French', 'German', 'Chinese', 'Filipino'] as const).map((lang) => {
                       const langMap: Record<string, string> = { 'English': 'en', 'Spanish': 'es', 'French': 'fr', 'German': 'de', 'Chinese': 'zh', 'Filipino': 'fil' };
                       const langCode = langMap[lang];
@@ -670,9 +764,9 @@ export default function SurveyBuilder() {
                               setSupportedLanguages([...current, langCode].join(','));
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                             isSelected
-                              ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                              ? 'bg-blue-100 text-blue-700 border border-blue-300 shadow-sm'
                               : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
                           }`}
                         >
@@ -681,7 +775,7 @@ export default function SurveyBuilder() {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-gray-500">Click to toggle languages for respondent switching.</p>
+                  <p className="text-xs text-gray-500 mt-1.5">Click to enable multiple language support</p>
                 </div>
                 <div>
                   <label className="label">Default Language</label>
@@ -690,45 +784,13 @@ export default function SurveyBuilder() {
                     onChange={(e) => setDefaultLanguage(e.target.value)}
                     className="input"
                   >
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="zh">Chinese</option>
-                    <option value="fil">Filipino</option>
+                    <option value="en">🇺🇸 English</option>
+                    <option value="es">🇪🇸 Spanish</option>
+                    <option value="fr">🇫🇷 French</option>
+                    <option value="de">🇩🇪 German</option>
+                    <option value="zh">🇨🇳 Chinese</option>
+                    <option value="fil">🇵🇭 Filipino</option>
                   </select>
-                </div>
-                <div>
-                  <label className="label flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    Open Date
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="datetime-local"
-                      value={openDate}
-                      onChange={(e) => setOpenDate(e.target.value)}
-                      className="input w-full pr-10"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">When the survey becomes available to respondents.</p>
-                </div>
-                <div>
-                  <label className="label flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    Close Date
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="datetime-local"
-                      value={closeDate}
-                      onChange={(e) => setCloseDate(e.target.value)}
-                      className="input w-full pr-10"
-                    />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">When the survey stops accepting responses.</p>
                 </div>
               </div>
             </div>
@@ -737,45 +799,51 @@ export default function SurveyBuilder() {
 
         {/* Templates */}
         <div className="card">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-6 bg-orange-500 rounded-full"></div>
-            <h2 className="text-lg font-semibold text-gray-900">Start from a template</h2>
-            <span className="text-sm text-gray-500 ml-2">Save time with pre-built survey structures</span>
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+            <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+              <span className="text-xl">📄</span>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-gray-900">Start from a Template</h2>
+              <p className="text-sm text-gray-500">Save time with pre-built survey structures</p>
+            </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {SURVEY_TEMPLATES.map((template) => (
               <button
                 key={template.id}
                 onClick={() => applyTemplate(template.id)}
-                className="group relative rounded-xl border border-gray-200 bg-white p-5 text-left transition-all duration-200 hover:border-blue-300 hover:shadow-lg hover:-translate-y-1"
+                className="group relative rounded-xl border-2 border-gray-100 bg-white p-5 text-left transition-all duration-200 hover:border-blue-300 hover:shadow-lg hover:-translate-y-0.5"
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0">
                     {template.id === 'template-feedback' && (
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <span className="text-lg">💬</span>
+                      <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-sm">
+                        <span className="text-2xl">💬</span>
                       </div>
                     )}
                     {template.id === 'template-nps' && (
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <span className="text-lg">⭐</span>
+                      <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shadow-sm">
+                        <span className="text-2xl">⭐</span>
                       </div>
                     )}
                     {template.id === 'template-event' && (
-                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <span className="text-lg">📅</span>
+                      <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-sm">
+                        <span className="text-2xl">📅</span>
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-1.5 group-hover:text-blue-600 transition-colors">
                       {template.title}
                     </h4>
-                    <p className="text-xs text-gray-500 leading-relaxed">{template.description}</p>
+                    <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{template.description}</p>
                   </div>
                 </div>
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ArrowLeft className="w-4 h-4 text-blue-600 rotate-180" />
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0.5">
+                  <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center">
+                    <ArrowLeft className="w-4 h-4 text-blue-600 rotate-180" />
+                  </div>
                 </div>
               </button>
             ))}
@@ -784,209 +852,235 @@ export default function SurveyBuilder() {
 
         {/* Questions */}
         <div className="card">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-1 h-6 bg-indigo-500 rounded-full"></div>
-            <h2 className="text-lg font-semibold text-gray-900">Questions ({questions?.length || 0})</h2>
-            <span className="text-sm text-gray-500 ml-2">Add and organize your survey questions</span>
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <span className="text-xl">❓</span>
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-gray-900">Survey Questions</h2>
+              <p className="text-sm text-gray-500">{questions?.length || 0} items total • Build your survey flow</p>
+            </div>
           </div>
           
-          {/* Editor Tools - Section Headers & Legends */}
-          <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-4 h-4 bg-indigo-600 rounded"></div>
-              <span className="text-sm font-bold text-indigo-900 uppercase tracking-wide">Quick Add Tools</span>
+          {/* Editor Tools - Quick Add */}
+          <div className="mb-6 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-200/50 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
+                  <span className="text-white text-sm font-bold">+</span>
+                </div>
+                <span className="text-sm font-bold text-indigo-900">Quick Add Tools</span>
+              </div>
+              <p className="hidden sm:block text-xs text-indigo-600/70">
+                Click to insert at selected position
+              </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            
+            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
               <button
                 onClick={addSectionHeader}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-indigo-100 hover:border-indigo-300 hover:shadow-md transition-all"
                 title="Add a section title like 'PART A: EASE OF USE'"
               >
-                <Type className="w-4 h-4 text-indigo-600" />
-                <span className="font-medium text-indigo-900">Section Header</span>
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+                  <Type className="w-5 h-5 text-indigo-600" />
+                </div>
+                <span className="text-xs font-medium text-gray-700">Heading</span>
               </button>
+              
               <button
                 onClick={addLegend}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-purple-100 hover:border-purple-300 hover:shadow-md transition-all"
                 title="Add instructions like '1 = Strongly Disagree...'"
               >
-                <Info className="w-4 h-4 text-purple-600" />
-                <span className="font-medium text-indigo-900">Legend/Notes</span>
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                  <Info className="w-5 h-5 text-purple-600" />
+                </div>
+                <span className="text-xs font-medium text-gray-700">Legend</span>
               </button>
+              
               <button
                 onClick={addRatingScale}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-md transition-all"
                 title="Add a 1-5 rating scale question"
               >
-                <Star className="w-4 h-4 text-blue-600" />
-                <span className="font-medium text-indigo-900">Rating Scale</span>
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                  <Star className="w-5 h-5 text-blue-600" />
+                </div>
+                <span className="text-xs font-medium text-gray-700">Rating Scale</span>
               </button>
+              
               <button
                 onClick={toggleAllRequired}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm"
+                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-green-100 hover:border-green-300 hover:shadow-md transition-all"
                 title="Toggle all questions between required and optional"
               >
-                <ToggleRight className="w-4 h-4 text-green-600" />
-                <span className="font-medium text-indigo-900">Toggle All Required</span>
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                  <ToggleRight className="w-5 h-5 text-green-600" />
+                </div>
+                <span className="text-xs font-medium text-gray-700">Toggle Required</span>
               </button>
+              
               <button
                 onClick={toggleConnectMode}
-                className={`flex items-center gap-2 px-3 py-2 border rounded-lg transition-colors text-sm ${connectMode ? 'bg-orange-100 border-orange-300 text-orange-700' : 'bg-white border-pink-200 hover:bg-pink-50 hover:border-pink-300'}`}
+                className={`group flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${connectMode ? 'bg-orange-50 border-orange-300 shadow-md' : 'bg-white border-pink-100 hover:border-pink-300 hover:shadow-md'}`}
                 title="Click to connect questions and blocks together"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                <span className="font-medium">{connectMode ? 'Exit Connect' : 'Connect Mode'}</span>
-                {connectMode && <span className="ml-1 text-xs">({connections.length} links)</span>}
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${connectMode ? 'bg-orange-200' : 'bg-pink-100 group-hover:bg-pink-200'}`}>
+                  <svg className={`w-5 h-5 ${connectMode ? 'text-orange-600' : 'text-pink-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                </div>
+                <span className="text-xs font-medium text-gray-700">
+                  {connectMode ? `Links (${connections.length})` : 'Connect'}
+                </span>
               </button>
+              
               {connections.length > 0 && (
                 <button
                   onClick={clearAllConnections}
-                  className="flex items-center gap-2 px-3 py-2 bg-white border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300 transition-colors text-sm"
+                  className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-red-100 hover:border-red-300 hover:shadow-md transition-all"
                   title="Remove all connections"
                 >
-                  <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  <span className="font-medium text-red-600">Clear Links</span>
+                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
+                    <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <span className="text-xs font-medium text-gray-700">Clear Links</span>
                 </button>
               )}
             </div>
-            <p className="text-xs text-indigo-600 mt-2">
-              💡 <strong>How to use:</strong> Click buttons above to quickly add formatted elements. Drag questions by the handle (⋮⋮) to reorder. Edit text fields to customize.
-            </p>
           </div>
 
           {/* Add Question Section */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <div className="flex items-center gap-2 mb-3">
-              <Plus className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Add Question</span>
+          <div className="mb-6 p-5 bg-gray-50/80 rounded-2xl border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-gray-700" />
+                </div>
+                <span className="text-sm font-bold text-gray-800">Add Elements</span>
+              </div>
+              {activeQuestionIndex !== null && (
+                <span className="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 font-medium">
+                  Inserting after Q{activeQuestionIndex + 1}
+                </span>
+              )}
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <button
-                onClick={() => setShowBulkImporter(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
-              >
-                <FileText className="w-4 h-4 text-gray-600" />
-                <span>Bulk Import</span>
-              </button>
-              <div className="relative group">
+            
+            {/* Question Types */}
+            <div className="mb-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Question Types</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <button
-                  onClick={async () => {
-                    try {
-                      const response = await fetch('/api/emergency-demo', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                      });
-                      const data = await response.json();
-                      if (data.success && data.questions) {
-                        const newQuestions = data.questions.map((q: any, index: number) => ({
-                          id: generateId(),
-                          block_type: q.block_type || 'question',
-                          type: q.type,
-                          question_text: q.question_text,
-                          options: q.options || [],
-                          required: q.required,
-                          order_index: questions?.length || 0 + index,
-                          section_id: null,
-                          show_when_question_id: undefined,
-                          show_when_answer_value: undefined
-                        }));
-                        setQuestions([...questions, ...newQuestions]);
-                        showToast(`${newQuestions.length} emergency questions added`, 'success');
-                      }
-                    } catch (error) {
-                      showToast('Emergency fallback failed', 'error');
-                    }
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 transition-colors text-sm w-full"
+                  onClick={() => addQuestion('text', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all"
                 >
-                  <AlertCircle className="w-4 h-4 text-red-600" />
-                  <span className="text-red-700">Emergency</span>
-                  <HelpCircle className="w-3 h-3 text-red-400 ml-auto" />
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <span className="text-blue-600 text-xs font-bold">T</span>
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-sm font-medium text-gray-800">Text</span>
+                    <span className="block text-xs text-gray-500">Open-ended answer</span>
+                  </div>
                 </button>
-                {/* Tooltip */}
-                <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                  <p className="font-semibold mb-1">Emergency Question Bank</p>
-                  <p>Instantly adds pre-built critical safety questions for emergency response scenarios.</p>
-                  <div className="absolute bottom-0 left-6 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
+                
+                <button
+                  onClick={() => addQuestion('choice', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-green-300 hover:shadow-md transition-all"
+                >
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <span className="text-green-600 text-xs font-bold">✓</span>
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-sm font-medium text-gray-800">Multiple Choice</span>
+                    <span className="block text-xs text-gray-500">Select from options</span>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => addBooleanQuestion(activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all"
+                >
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                    <span className="text-purple-600 text-xs font-bold">?</span>
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-sm font-medium text-gray-800">Yes / No</span>
+                    <span className="block text-xs text-gray-500">Binary choice</span>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => addQuestion('likert', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-orange-300 hover:shadow-md transition-all"
+                >
+                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                    <span className="text-orange-600 text-xs font-bold">1-5</span>
+                  </div>
+                  <div className="text-left">
+                    <span className="block text-sm font-medium text-gray-800">Rating Scale</span>
+                    <span className="block text-xs text-gray-500">1 to 5 scale</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+            
+            {/* Utility Buttons */}
+            <div className="pt-4 border-t border-gray-200">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Utility & Import</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowBulkImporter(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all text-sm"
+                >
+                  <FileText className="w-4 h-4 text-gray-600" />
+                  <span className="font-medium">Bulk Import</span>
+                </button>
+                
+                <div className="relative group">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/emergency-demo', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' }
+                        });
+                        const data = await response.json();
+                        if (data.success && data.questions) {
+                          const newQuestions = data.questions.map((q: any, index: number) => ({
+                            id: generateId(),
+                            block_type: q.block_type || 'question',
+                            type: q.type,
+                            question_text: q.question_text,
+                            options: q.options || [],
+                            required: q.required,
+                            order_index: questions?.length || 0 + index,
+                            section_id: null,
+                            show_when_question_id: undefined,
+                            show_when_answer_value: undefined
+                          }));
+                          setQuestions([...questions, ...newQuestions]);
+                          showToast(`${newQuestions.length} emergency questions added`, 'success');
+                        }
+                      } catch (error) {
+                        showToast('Emergency fallback failed', 'error');
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 hover:border-amber-300 transition-all text-sm"
+                  >
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <span className="font-medium text-amber-800">Emergency Demo</span>
+                  </button>
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                    <p className="font-semibold mb-1">Emergency Question Bank</p>
+                    <p>Instantly adds pre-built critical safety questions for emergency response scenarios.</p>
+                    <div className="absolute bottom-0 left-6 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={() => addQuestion('text', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
-              >
-                <div className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center text-xs">T</div>
-                <span>Text</span>
-              </button>
-              <button
-                onClick={() => addQuestion('choice', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
-              >
-                <div className="w-4 h-4 bg-green-100 rounded flex items-center justify-center text-xs">✓</div>
-                <span>Multiple Choice</span>
-              </button>
-              <button
-                onClick={() => addBooleanQuestion(activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
-              >
-                <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center text-xs">?</div>
-                <span>Yes/No</span>
-              </button>
-              <button
-                onClick={() => addQuestion('likert', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
-              >
-                <div className="w-4 h-4 bg-orange-100 rounded flex items-center justify-center text-xs">1-5</div>
-                <span>Scaling</span>
-              </button>
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-600">Structure Blocks</span>
-                {activeQuestionIndex !== null && (
-                  <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                    Insert after Q{activeQuestionIndex + 1}
-                  </span>
-                )}
-              </div>
-              <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-                <button
-                  onClick={() => addQuestion('text', [], 'heading', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:border-indigo-300 transition-colors text-sm"
-                >
-                  <div className="w-4 h-4 bg-indigo-100 rounded flex items-center justify-center text-xs flex-shrink-0">H</div>
-                  <span className="text-indigo-700">Heading</span>
-                </button>
-                <button
-                  onClick={() => addQuestion('text', [], 'instruction', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-cyan-50 border border-cyan-200 rounded-lg hover:bg-cyan-100 hover:border-cyan-300 transition-colors text-sm"
-                >
-                  <div className="w-4 h-4 bg-cyan-100 rounded flex items-center justify-center text-xs flex-shrink-0">i</div>
-                  <span className="text-cyan-700">Instruction</span>
-                </button>
-                <button
-                  onClick={() => addQuestion('text', [], 'instruction', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-colors text-sm"
-                >
-                  <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center text-xs flex-shrink-0">★</div>
-                  <span className="text-purple-700">Legend/Notes</span>
-                </button>
-                <button
-                  onClick={() => addQuestion('text', [], 'page_break', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 transition-colors text-sm"
-                >
-                  <div className="w-4 h-4 bg-gray-200 rounded flex items-center justify-center text-xs flex-shrink-0">↵</div>
-                  <span className="text-gray-700">Page Break</span>
-                </button>
-              </div>
-              {activeQuestionIndex === null && (
-                <p className="text-[10px] text-gray-400 mt-2">
-                  💡 Click a question first to select where to insert blocks
-                </p>
-              )}
             </div>
           </div>
           
