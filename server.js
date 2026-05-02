@@ -10,24 +10,40 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@qdash.app';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Q-Dash111_2005';
-const ADMIN_USER_ID = process.env.ADMIN_USER_ID || 'c6ae1256-0bda-4a98-8fcc-8765446f9d32';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'replace-with-a-strong-secret';
+// Required environment variables (no fallbacks for security)
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID;
+const SESSION_SECRET = process.env.SESSION_SECRET;
 const COOKIE_NAME = 'qid_admin';
 const COOKIE_MAX_AGE = 8 * 60 * 60 * 1000; // 8 hours
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// Validate required environment variables
+const requiredVars = [
+  { name: 'ADMIN_EMAIL', value: ADMIN_EMAIL },
+  { name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD },
+  { name: 'ADMIN_USER_ID', value: ADMIN_USER_ID },
+  { name: 'SESSION_SECRET', value: SESSION_SECRET },
+  { name: 'VITE_SUPABASE_URL', value: SUPABASE_URL },
+  { name: 'SUPABASE_SERVICE_ROLE_KEY', value: SUPABASE_SERVICE_ROLE_KEY }
+];
+
+const missingVars = requiredVars.filter(v => !v.value).map(v => v.name);
+
+if (missingVars.length > 0) {
+  console.error('FATAL ERROR: Missing required environment variables:');
+  missingVars.forEach(name => console.error(`  - ${name}`));
+  console.error('\nPlease set all required environment variables before starting the server.');
+  process.exit(1);
+}
 
 let supabaseAdmin = null;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('ERROR: Supabase credentials not set. Database features will be unavailable.');
-  console.error('Please set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
-} else {
-  try {
-    supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+try {
+  supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -44,7 +60,6 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   } catch (err) {
     console.error('Failed to initialize Supabase client:', err.message);
   }
-}
 
 function parseCookies(cookieHeader) {
   if (!cookieHeader) return {};
@@ -119,6 +134,11 @@ app.post('/api/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid passkey.' });
   }
 
+  // Guard: Check if Supabase is configured
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: 'Service unavailable. Database not configured.' });
+  }
+
   // Ensure admin user exists in profiles table
   try {
     const { data: existingProfile } = await supabaseAdmin
@@ -183,8 +203,6 @@ app.get('/api/me', (req, res) => {
 
 app.get('/api/admin/surveys', requireAdmin, async (req, res) => {
   try {
-    console.log('Loading surveys for admin:', req.adminUser.id, req.adminUser.email);
-    
     const { data, error } = await supabaseAdmin
       .from('surveys')
       .select('*')
@@ -193,11 +211,6 @@ app.get('/api/admin/surveys', requireAdmin, async (req, res) => {
     if (error) {
       console.error('Supabase error loading surveys:', error);
       return res.status(500).json({ error: error.message });
-    }
-
-    console.log('Surveys loaded:', data?.length || 0, 'surveys found');
-    if (data && data.length > 0) {
-      console.log('First survey:', { id: data[0].id, title: data[0].title, admin_id: data[0].admin_id });
     }
 
     return res.json({ surveys: data || [] });
@@ -241,8 +254,6 @@ app.get('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
   const { title, description, questions } = req.body || {};
-
-  console.log('Creating survey:', { title, adminId: req.adminUser.id, questionCount: questions?.length });
 
   if (!title || !Array.isArray(questions) || questions.length === 0) {
     return res.status(400).json({ error: 'Survey title and questions are required.' });
@@ -300,23 +311,6 @@ app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
       return res.status(500).json({ error: questionError.message });
     }
 
-    console.log('Survey created successfully:', survey.id, 'admin_id:', survey.admin_id, 'status:', survey.status);
-    
-    // Verify it can be loaded immediately
-    const { data: verifySurvey, error: verifyError } = await supabaseAdmin
-      .from('surveys')
-      .select('id, title, admin_id, status')
-      .eq('id', survey.id)
-      .maybeSingle();
-    
-    if (verifyError) {
-      console.error('Verification load FAILED:', verifyError);
-    } else if (verifySurvey) {
-      console.log('Verification load SUCCESS:', verifySurvey);
-    } else {
-      console.error('CRITICAL: Survey created but cannot be verified - may be invisible!');
-    }
-    
     return res.json({ survey });
   } catch (error) {
     console.error('Admin survey create failed:', error);
@@ -500,7 +494,6 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
   const surveyId = req.params.surveyId;
-  console.log('Deleting survey:', surveyId, 'by admin:', req.adminUser.id);
 
   try {
     // First check if survey exists and belongs to this admin
@@ -516,23 +509,14 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
     }
 
     if (!survey) {
-      console.log('Survey already deleted or not found:', surveyId);
       return res.status(404).json({ error: 'Survey not found or already deleted' });
     }
-
-    console.log('Found survey to delete:', survey);
 
     // Delete related responses first (cascade)
     const { error: responsesError } = await supabaseAdmin
       .from('responses')
       .delete()
       .eq('survey_id', surveyId);
-
-    if (responsesError) {
-      console.error('Failed to delete responses:', responsesError);
-    } else {
-      console.log('Deleted responses for survey:', surveyId);
-    }
 
     // Delete related questions
     const { error: questionsError } = await supabaseAdmin
@@ -545,10 +529,7 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
       return res.status(500).json({ error: 'Failed to delete questions: ' + questionsError.message });
     }
 
-    console.log('Deleted questions for survey:', surveyId);
-
-    // Finally delete the survey using RPC for guaranteed execution
-    console.log('Executing survey delete for:', surveyId);
+    // Finally delete the survey
     
     const { error: deleteError } = await supabaseAdmin
       .from('surveys')
@@ -560,22 +541,20 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
       return res.status(500).json({ error: deleteError.message });
     }
 
-    console.log('Delete query executed for:', surveyId);
-
     // CRITICAL: Verify deletion immediately
     const { data: verifyData, error: verifyError } = await supabaseAdmin
       .from('surveys')
-      .select('id, title')
+      .select('id')
       .eq('id', surveyId)
       .maybeSingle();
-
+        
     if (verifyError) {
       console.error('Verification query failed:', verifyError);
       return res.status(500).json({ error: 'Failed to verify deletion: ' + verifyError.message });
     }
 
     if (verifyData) {
-      console.error('CRITICAL P0 FAILURE: Survey still exists after delete!', verifyData);
+      console.error('CRITICAL: Survey still exists after delete!');
       
       // Attempt force delete via raw query as fallback
       const { error: rpcError } = await supabaseAdmin.rpc('force_delete_survey', {
@@ -585,8 +564,7 @@ app.delete('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
       if (rpcError) {
         console.error('Force delete RPC also failed:', rpcError);
         return res.status(500).json({ 
-          error: 'CRITICAL: Survey could not be deleted. Database integrity compromised.',
-          details: 'Survey ID ' + surveyId + ' still exists after delete attempt'
+          error: 'CRITICAL: Survey could not be deleted. Database integrity compromised.'
         });
       }
       
@@ -775,6 +753,89 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
   }
 });
 
+// Reset all responses for a survey (admin only)
+app.post('/api/admin/surveys/:surveyId/reset-responses', requireAdmin, async (req, res) => {
+  try {
+    const { surveyId } = req.params;
+
+    if (!surveyId) {
+      return res.status(400).json({
+        error: 'Survey ID is required.'
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({
+        error: 'Database is not configured.'
+      });
+    }
+
+    // Verify survey exists
+    const { data: survey, error: surveyError } = await supabaseAdmin
+      .from('surveys')
+      .select('id, title')
+      .eq('id', surveyId)
+      .single();
+
+    if (surveyError || !survey) {
+      return res.status(404).json({
+        error: 'Survey not found.'
+      });
+    }
+
+    // Delete all responses for this survey
+    const { error: responsesError } = await supabaseAdmin
+      .from('responses')
+      .delete()
+      .eq('survey_id', surveyId);
+
+    if (responsesError) {
+      console.error('Failed to delete survey responses:', responsesError);
+      return res.status(500).json({
+        error: 'Failed to delete survey responses.'
+      });
+    }
+
+    // Delete all survey sessions for this survey
+    const { error: sessionsError } = await supabaseAdmin
+      .from('survey_sessions')
+      .delete()
+      .eq('survey_id', surveyId);
+
+    if (sessionsError) {
+      console.error('Failed to delete survey sessions:', sessionsError);
+      return res.status(500).json({
+        error: 'Failed to delete survey sessions.'
+      });
+    }
+
+    // Reset the cached response count
+    const { error: updateError } = await supabaseAdmin
+      .from('surveys')
+      .update({ total_responses: 0 })
+      .eq('id', surveyId);
+
+    if (updateError) {
+      console.error('Failed to reset total_responses:', updateError);
+      return res.status(500).json({
+        error: 'Responses were deleted, but failed to reset the response counter.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Survey responses have been reset.',
+      surveyId,
+      surveyTitle: survey.title
+    });
+  } catch (error) {
+    console.error('Reset survey responses failed:', error);
+    return res.status(500).json({
+      error: 'Failed to reset survey responses.'
+    });
+  }
+});
+
 // ============================================================================
 // DOCUMENT UPLOAD & AI QUESTION GENERATION
 // Context-Aware Document Processing with Strict Grounding
@@ -909,6 +970,25 @@ app.post('/api/rule-based-questions', express.json(), (req, res) => {
   });
 });
 
+// SCHEDULER STATE (must be declared before health endpoint)
+const SCHEDULER_INTERVAL_MS = 60 * 1000; // Run every minute
+let schedulerRuns = 0;
+let lastSchedulerError = null;
+
+// Health check endpoint that includes scheduler status
+app.get('/api/health', (_req, res) => {
+  return res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    scheduler: {
+      active: true,
+      runs: schedulerRuns,
+      intervalSeconds: SCHEDULER_INTERVAL_MS / 1000,
+      lastError: lastSchedulerError ? lastSchedulerError.message : null
+    }
+  });
+});
+
 // Check if dist exists
 const distPath = path.join(__dirname, 'dist');
 const indexPath = path.join(distPath, 'index.html');
@@ -919,6 +999,7 @@ console.log('Index.html exists:', fs.existsSync(indexPath));
 
 app.use(express.static(distPath));
 
+// Catch-all route for frontend SPA (must be after all API routes)
 app.get('*', (req, res) => {
   if (!fs.existsSync(indexPath)) {
     return res.status(500).send('Error: Frontend not built. Run npm run build first.');
@@ -930,10 +1011,6 @@ app.get('*', (req, res) => {
 // SURVEY SCHEDULING ENGINE
 // Automatically opens/closes surveys based on open_date and close_date
 // ============================================================================
-
-const SCHEDULER_INTERVAL_MS = 60 * 1000; // Run every minute
-let schedulerRuns = 0;
-let lastSchedulerError = null;
 
 async function runSurveyScheduler() {
   if (!supabaseAdmin) {
@@ -993,20 +1070,6 @@ function startScheduler() {
   // Then schedule periodic runs
   setInterval(runSurveyScheduler, SCHEDULER_INTERVAL_MS);
 }
-
-// Health check endpoint that includes scheduler status
-app.get('/api/health', (_req, res) => {
-  return res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    scheduler: {
-      active: true,
-      runs: schedulerRuns,
-      intervalSeconds: SCHEDULER_INTERVAL_MS / 1000,
-      lastError: lastSchedulerError ? lastSchedulerError.message : null
-    }
-  });
-});
 
 // ============================================================================
 // SERVER STARTUP

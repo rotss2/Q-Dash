@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
-import { apiGet, apiDelete } from '../../lib/api';
+import { apiGet, apiPost, apiDelete } from '../../lib/api';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
-import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Download, Table, FileCode, BarChart3 } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Download, Table, FileCode, BarChart3, RotateCcw } from 'lucide-react';
 import IntelligenceDashboard from '../../components/IntelligenceDashboard';
 import ResearchConclusion from '../../components/ResearchConclusion';
 import {
@@ -42,6 +42,7 @@ export default function SurveyAnalytics() {
   const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'conclusion' | 'raw' | 'statistics'>('analytics');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     if (surveyId) {
@@ -85,6 +86,44 @@ export default function SurveyAnalytics() {
 
     setResponses(typedResponses);
     setIsLoading(false);
+  };
+
+  const handleResetResponses = async () => {
+    if (!surveyId) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to reset all responses for this survey? This will delete all submitted answers and allow respondents to answer again. This action cannot be undone.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsResetting(true);
+
+      const { data, error } = await apiPost<{ success: boolean; message: string }>(
+        `/api/admin/surveys/${surveyId}/reset-responses`,
+        {}
+      );
+
+      if (error || !data?.success) {
+        throw new Error(error || 'Failed to reset responses.');
+      }
+
+      showToast('Survey responses have been reset.', 'success');
+
+      // Refresh the page data after reset
+      await loadData();
+    } catch (error) {
+      console.error('Failed to reset survey responses:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to reset responses.',
+        'error'
+      );
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const calculateAggregations = (): ResponseAggregation[] => {
@@ -665,6 +704,19 @@ export default function SurveyAnalytics() {
                   className="input-sm"
                   placeholder="To"
                 />
+              </div>
+              <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-gray-100 mt-2">
+                <span className="text-xs uppercase tracking-wide text-red-400">Danger Zone</span>
+                <button
+                  type="button"
+                  onClick={handleResetResponses}
+                  disabled={isResetting || responses.length === 0}
+                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-1.5"
+                  title="Clear all responses and allow respondents to answer again"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  {isResetting ? 'Resetting...' : 'Reset Responses'}
+                </button>
               </div>
             </div>
           </div>
