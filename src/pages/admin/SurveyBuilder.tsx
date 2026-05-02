@@ -795,45 +795,77 @@ export default function SurveyBuilder() {
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-medium text-gray-600">Structure Blocks</span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
                 <button
                   onClick={() => addQuestion('text', [], 'heading')}
-                  className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:border-indigo-300 transition-colors text-sm"
+                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:border-indigo-300 transition-colors text-sm"
                 >
-                  <div className="w-4 h-4 bg-indigo-100 rounded flex items-center justify-center text-xs">H</div>
+                  <div className="w-4 h-4 bg-indigo-100 rounded flex items-center justify-center text-xs flex-shrink-0">H</div>
                   <span className="text-indigo-700">Heading</span>
                 </button>
                 <button
                   onClick={() => addQuestion('text', [], 'instruction')}
-                  className="flex items-center gap-2 px-3 py-2 bg-cyan-50 border border-cyan-200 rounded-lg hover:bg-cyan-100 hover:border-cyan-300 transition-colors text-sm"
+                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-cyan-50 border border-cyan-200 rounded-lg hover:bg-cyan-100 hover:border-cyan-300 transition-colors text-sm"
                 >
-                  <div className="w-4 h-4 bg-cyan-100 rounded flex items-center justify-center text-xs">i</div>
+                  <div className="w-4 h-4 bg-cyan-100 rounded flex items-center justify-center text-xs flex-shrink-0">i</div>
                   <span className="text-cyan-700">Instruction</span>
                 </button>
                 <button
-                  onClick={() => addQuestion('text', [], 'page_break')}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 transition-colors text-sm"
+                  onClick={addLegend}
+                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-colors text-sm"
                 >
-                  <div className="w-4 h-4 bg-gray-200 rounded flex items-center justify-center text-xs">↵</div>
+                  <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center text-xs flex-shrink-0">★</div>
+                  <span className="text-purple-700">Legend/Notes</span>
+                </button>
+                <button
+                  onClick={() => addQuestion('text', [], 'page_break')}
+                  className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 transition-colors text-sm"
+                >
+                  <div className="w-4 h-4 bg-gray-200 rounded flex items-center justify-center text-xs flex-shrink-0">↵</div>
                   <span className="text-gray-700">Page Break</span>
                 </button>
               </div>
             </div>
           </div>
           
-          {/* Questions List */}
-          <div className="space-y-4">
-
+          {/* Questions List with Visual Flow */}
+          <div className="relative space-y-0">
+            {/* Visual connector line - runs through all questions */}
+            <div className="absolute left-[22px] sm:left-[26px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-300 via-purple-300 to-indigo-300 rounded-full hidden sm:block"></div>
+            
+            {/* Connection nodes for each question */}
           {questions.map((question, index) => (
             <div 
               key={question.id} 
-              className={`card transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''}`}
+              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''}`}
               draggable
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, index)}
             >
+              {/* Connection node - visual dot on the timeline */}
+              <div className="absolute left-[18px] sm:left-[22px] top-8 w-2.5 h-2.5 rounded-full bg-indigo-500 border-2 border-white shadow-sm hidden sm:block z-10"></div>
+              
+              {/* Section grouping indicator - shows when this is start of a new section */}
+              {question.block_type === 'heading' && index > 0 && (
+                <div className="absolute left-0 right-0 -top-3 flex items-center justify-center">
+                  <div className="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full border border-indigo-200 font-medium">
+                    New Section
+                  </div>
+                </div>
+              )}
+              
+              {/* Page break connector */}
+              {question.block_type === 'page_break' && (
+                <div className="absolute left-0 right-0 top-0 flex items-center justify-center -mt-2">
+                  <div className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded-full border border-gray-300 font-medium flex items-center gap-1">
+                    <span>↵</span> Page Break
+                  </div>
+                </div>
+              )}
+              
+              <div className="card relative ml-0 sm:ml-2">
               {/* Insert toolbar - appears on hover */}
               <div className="flex items-center gap-1 mb-1 opacity-0 hover:opacity-100 transition-opacity -mt-2">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent to-gray-300"></div>
@@ -859,35 +891,44 @@ export default function SurveyBuilder() {
                 >
                   ↵
                 </button>
+                <button
+                  onClick={addLegend}
+                  className="px-2 py-0.5 bg-purple-50 text-purple-600 text-[10px] rounded hover:bg-purple-100 border border-purple-200"
+                  title="Insert legend/notes here"
+                >
+                  ★
+                </button>
                 <div className="flex-1 h-px bg-gradient-to-l from-transparent to-gray-300"></div>
               </div>
 
-              <div className="flex items-start gap-4">
-                <div className="flex flex-col gap-1 items-center">
+              <div className="flex items-start gap-2 sm:gap-4">
+                <div className="flex flex-col gap-1 items-center flex-shrink-0">
                   {/* Drag Handle */}
                   <div 
-                    className="p-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                    className="p-1.5 sm:p-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
                     title="Drag to reorder"
                   >
-                    <GripVertical className="w-5 h-5" />
+                    <GripVertical className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full">{index + 1}</span>
-                  <button
-                    onClick={() => moveQuestion(index, 'up')}
-                    disabled={index === 0}
-                    className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                    title="Move up"
-                  >
-                    <ArrowLeft className="w-4 h-4 -rotate-90" />
-                  </button>
-                  <button
-                    onClick={() => moveQuestion(index, 'down')}
-                    disabled={index === questions.length - 1}
-                    className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                    title="Move down"
-                  >
-                    <ArrowLeft className="w-4 h-4 rotate-90" />
-                  </button>
+                  <span className="text-[10px] sm:text-xs font-bold text-gray-600 bg-gray-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">{index + 1}</span>
+                  <div className="flex flex-col">
+                    <button
+                      onClick={() => moveQuestion(index, 'up')}
+                      disabled={index === 0}
+                      className="p-0.5 sm:p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      title="Move up"
+                    >
+                      <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 -rotate-90" />
+                    </button>
+                    <button
+                      onClick={() => moveQuestion(index, 'down')}
+                      disabled={index === questions.length - 1}
+                      className="p-0.5 sm:p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      title="Move down"
+                    >
+                      <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 rotate-90" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex-1 space-y-4">
@@ -1029,6 +1070,7 @@ export default function SurveyBuilder() {
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
+              </div>
               </div>
             </div>
           ))}
