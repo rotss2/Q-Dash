@@ -288,6 +288,7 @@ export interface Database {
           last_activity_at: string
           submitted_at: string | null
           abandoned_at: string | null
+          time_spent_seconds: number
           fingerprint: string | null
           user_agent: string | null
           created_at: string
@@ -306,6 +307,7 @@ export interface Database {
           last_activity_at?: string
           submitted_at?: string | null
           abandoned_at?: string | null
+          time_spent_seconds?: number
           fingerprint?: string | null
           user_agent?: string | null
           created_at?: string
@@ -324,6 +326,7 @@ export interface Database {
           last_activity_at?: string
           submitted_at?: string | null
           abandoned_at?: string | null
+          time_spent_seconds?: number
           fingerprint?: string | null
           user_agent?: string | null
           created_at?: string

@@ -29,6 +29,7 @@ interface LiveSession {
   last_activity_at: string;
   submitted_at: string | null;
   abandoned_at: string | null;
+  time_spent_seconds: number;
   fingerprint: string | null;
   user_agent: string | null;
   created_at: string;
@@ -180,19 +181,28 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
     return date.toLocaleDateString();
   };
 
-  const formatTimeSpent = (startedAt: string, lastActivityAt: string, status: string): string => {
-    const start = new Date(startedAt).getTime();
-    const end = status === 'completed' && lastActivityAt 
-      ? new Date(lastActivityAt).getTime() 
-      : new Date().getTime();
-    const diffMs = end - start;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    
-    if (diffHours > 0) {
-      return `${diffHours}h ${diffMins % 60}m`;
+  const formatTimeSpent = (seconds: number, status: string, startedAt: string): string => {
+    // For active sessions, calculate live time
+    let totalSeconds = seconds;
+    if (status === 'active') {
+      const start = new Date(startedAt).getTime();
+      const now = new Date().getTime();
+      totalSeconds = Math.floor((now - start) / 1000);
     }
-    return `${diffMins}m`;
+    
+    if (totalSeconds < 0) totalSeconds = 0;
+    
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
   };
 
   const getRespondentLabel = (session: LiveSession): string => {
@@ -497,7 +507,7 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
                     
                     <td className="px-4 py-3">
                       <span className="text-sm text-gray-600">
-                        {formatTimeSpent(session.started_at, session.last_activity_at, session.status)}
+                        {formatTimeSpent(session.time_spent_seconds, session.status, session.started_at)}
                       </span>
                     </td>
                   </tr>

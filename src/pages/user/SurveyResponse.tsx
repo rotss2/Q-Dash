@@ -320,10 +320,10 @@ function SurveyContent() {
     }
   }, [surveyId, userId]);
 
-  // Start live session when user begins survey
+  // Start live session immediately when survey loads (on page open)
   useEffect(() => {
     if (!surveyId || !userId || hasSubmitted || isBlocked) return;
-    if (showWelcome) return; // Don't start until user clicks "Get Started"
+    if (!questions.length) return; // Wait for questions to load
     if (liveSessionStarted) return; // Don't start twice
 
     const startLiveSession = async () => {
@@ -343,7 +343,7 @@ function SurveyContent() {
         });
         
         setLiveSessionStarted(true);
-        console.log('Live session started');
+        console.log('Live session started on page load');
       } catch (error) {
         // Fail silently - live tracking is not critical
         console.log('Live session start failed (non-critical):', error);
@@ -351,7 +351,30 @@ function SurveyContent() {
     };
 
     startLiveSession();
-  }, [surveyId, userId, hasSubmitted, isBlocked, showWelcome, email, fingerprint, activeQuestions, answersMap, liveSessionStarted]);
+  }, [surveyId, userId, hasSubmitted, isBlocked, questions.length, email, fingerprint, activeQuestions, answersMap, liveSessionStarted]);
+
+  // Update live session when email changes (user enters email on welcome screen)
+  useEffect(() => {
+    if (!surveyId || !userId || !liveSessionStarted || hasSubmitted) return;
+    if (!email) return; // Only update if email is provided
+
+    const updateSessionEmail = async () => {
+      try {
+        await apiPost('/api/live-sessions/progress', {
+          survey_id: surveyId,
+          user_id: userId,
+          answered_questions: 0,
+          progress_percentage: 0
+        });
+        console.log('Live session email updated');
+      } catch (error) {
+        // Fail silently
+        console.log('Email update failed (non-critical):', error);
+      }
+    };
+
+    updateSessionEmail();
+  }, [surveyId, userId, liveSessionStarted, hasSubmitted, email]);
 
   // Debounced progress updates
   useEffect(() => {
