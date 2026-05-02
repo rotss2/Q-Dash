@@ -321,45 +321,71 @@ function SurveyContent() {
     };
   }, [surveyId, userId, hasSubmitted]);
 
-  // ANTI-CHEATING: Detect tab/window/app switching (Desktop + Mobile)
+  // ANTI-CHEATING: Detect tab/window/app switching + Screenshot attempts (Desktop + Mobile)
   useEffect(() => {
     if (showWelcome || hasSubmitted) return;
     if (!survey?.anti_cheating_enabled) return;
 
     let blurTimeout: ReturnType<typeof setTimeout>;
     let wasHidden = false;
+    let lastFocusTime = Date.now();
     
     const handleVisibilityChange = () => {
       if (document.hidden || document.visibilityState === 'hidden') {
         wasHidden = true;
+        // Mobile: Sometimes screenshots trigger visibility change
+        triggerSecurityViolation('screenshot-attempt', "Don't take screenshots!");
         blurTimeout = setTimeout(() => {
           triggerSecurityViolation('tab-switch', "Don't leave the survey!");
         }, 100);
       } else if (wasHidden) {
         wasHidden = false;
-        // User came back - still log that they left
+        // User came back - screenshot or app switch
+        const awayTime = Date.now() - lastFocusTime;
+        if (awayTime < 1000) {
+          // Short away time = likely screenshot
+          triggerSecurityViolation('screenshot-detected', 'Screenshot gesture detected!');
+        }
         triggerSecurityViolation('returned', 'You left and returned to the survey');
         clearTimeout(blurTimeout);
       }
     };
 
     const handleBlur = () => {
+      lastFocusTime = Date.now();
       blurTimeout = setTimeout(() => {
-        triggerSecurityViolation('window-blur', "Don't switch windows! Stay focused.");
-      }, 100);
+        // Window lost focus - could be screenshot tool
+        triggerSecurityViolation('window-blur', "Don't screenshot! Stay focused.");
+      }, 50);
     };
 
     const handleFocus = () => {
+      const awayTime = Date.now() - lastFocusTime;
+      if (awayTime > 50 && awayTime < 2000) {
+        // Quick refocus = possible screenshot
+        triggerSecurityViolation('quick-return', 'Possible screenshot detected!');
+      }
       clearTimeout(blurTimeout);
     };
 
-    // Mobile-specific: detect app switching
+    // Mobile-specific: detect app switching / screenshot
     const handlePageHide = () => {
-      triggerSecurityViolation('app-switch', "Don't switch apps!");
+      triggerSecurityViolation('app-switch', "Don't switch apps or screenshot!");
+    };
+
+    // Resize sometimes triggers on screenshot UI appearing
+    let lastHeight = window.innerHeight;
+    const handleResize = () => {
+      const newHeight = window.innerHeight;
+      const heightDiff = Math.abs(newHeight - lastHeight);
+      // Mobile screenshot tools sometimes change viewport
+      if (heightDiff > 100 && heightDiff < 300) {
+        triggerSecurityViolation('viewport-change', 'Screenshot tool detected!');
+      }
+      lastHeight = newHeight;
     };
 
     const handleBeforeUnload = () => {
-      // Try to log before leaving
       console.warn('[SECURITY] User attempted to leave page');
     };
 
@@ -367,6 +393,7 @@ function SurveyContent() {
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('resize', handleResize);
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
@@ -374,6 +401,7 @@ function SurveyContent() {
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('resize', handleResize);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       clearTimeout(blurTimeout);
     };
