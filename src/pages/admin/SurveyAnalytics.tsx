@@ -46,15 +46,32 @@ export default function SurveyAnalytics() {
 
   // Filter out test/placeholder questions by text pattern for display
   const validQuestions = useMemo(() => {
-    return questions.filter((q) => {
+    // First filter out invalid question types
+    const filtered = questions.filter((q) => {
       const text = q.question_text?.trim().toLowerCase() || '';
       // Skip test placeholders, page breaks, headings, etc.
       if (text === 'test') return false;
       if (text === 'page break') return false;
+      if (text === 'pagebreak') return false;
       if (text.includes('new section heading')) return false;
+      if (text.includes('section heading')) return false;
       if (text.includes('instructions:')) return false;
+      if (text.startsWith('instructions')) return false;
       if (text.startsWith('part ') && text.includes(':')) return false; // Section headers like "PART 1: EASE OF USE"
+      if (text.startsWith('section ') && text.includes(':')) return false; // "Section X: ..."
       if (text === '') return false;
+      if (text === 'test question') return false;
+      if (text === 'placeholder') return false;
+      if (text.startsWith('dummy')) return false;
+      return true;
+    });
+
+    // Deduplicate by question_text - keep first occurrence only
+    const seen = new Set<string>();
+    return filtered.filter((q) => {
+      const normalized = q.question_text?.trim().toLowerCase() || '';
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
       return true;
     });
   }, [questions]);
@@ -141,10 +158,28 @@ export default function SurveyAnalytics() {
     }
   };
 
-  const calculateAggregations = (): ResponseAggregation[] => {
-    const questionMap = new Map(validQuestions.map((q) => [q.id, q]));
+  // Get set of valid question IDs for filtering
+  const validQuestionIds = useMemo(() => new Set(validQuestions.map(q => q.id)), [validQuestions]);
 
-    return Array.from(questionMap.values())
+  const filteredResponses = useMemo(() => {
+    return responses.filter((response) => {
+      // Filter by date
+      const submittedAt = new Date(response.submitted_at);
+      const fromDate = filterFrom ? new Date(filterFrom) : null;
+      const toDate = filterTo ? new Date(filterTo) : null;
+
+      if (fromDate && submittedAt < fromDate) return false;
+      if (toDate && submittedAt > toDate) return false;
+
+      // Only include responses for valid questions (exclude test/pagebreak/etc)
+      if (!validQuestionIds.has(response.question_id)) return false;
+
+      return true;
+    });
+  }, [responses, filterFrom, filterTo, validQuestionIds]);
+
+  const aggregationData = useMemo((): ResponseAggregation[] => {
+    return validQuestions
       .map((question) => {
         const questionResponses = filteredResponses.filter(
           (r) => r.question_id === question.id
@@ -164,17 +199,7 @@ export default function SurveyAnalytics() {
         };
       })
       .filter((agg) => agg.total_responses > 0); // Only show questions with at least 1 response
-  };
-
-  const filteredResponses = responses.filter((response) => {
-    const submittedAt = new Date(response.submitted_at);
-    const fromDate = filterFrom ? new Date(filterFrom) : null;
-    const toDate = filterTo ? new Date(filterTo) : null;
-
-    if (fromDate && submittedAt < fromDate) return false;
-    if (toDate && submittedAt > toDate) return false;
-    return true;
-  });
+  }, [validQuestions, filteredResponses]);
 
   const surveyUrl = surveyId ? `${window.location.origin}/survey/${surveyId}` : '';
 
@@ -575,7 +600,7 @@ export default function SurveyAnalytics() {
   const exportToLaTeX = () => {
     if (!questions.length || !responses.length) return;
     
-    const aggregations = calculateAggregations();
+    const aggregations = aggregationData;
     
     let latex = `\\begin{table}[h]\n`;
     latex += `\\centering\n`;
@@ -585,8 +610,8 @@ export default function SurveyAnalytics() {
     latex += `\\textbf{Question} & \\textbf{Response} & \\textbf{Count} \\\\\n`;
     latex += `\\hline\n`;
     
-    aggregations.forEach(agg => {
-      agg.answers.forEach((ans, idx) => {
+    aggregations.forEach((agg: ResponseAggregation) => {
+      agg.answers.forEach((ans: {value: string, count: number}, idx: number) => {
         const question = idx === 0 ? agg.question_text.replace(/&/g, '\\&') : '';
         latex += `${question} & ${ans.value.replace(/&/g, '\\&')} & ${ans.count} \\\\\n`;
       });
@@ -1032,7 +1057,7 @@ export default function SurveyAnalytics() {
                 <p className="text-gray-600">Share your survey link to start collecting responses</p>
               </div>
             ) : (
-              calculateAggregations().map((agg) => (
+              aggregationData.map((agg: ResponseAggregation) => (
                 <div key={agg.question_id} className="card">
                   <div className="mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">{agg.question_text}</h3>
@@ -1044,7 +1069,7 @@ export default function SurveyAnalytics() {
                   {agg.type === 'text' ? (
                     /* Text Responses List */
                     <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {agg.answers.map((answer, idx) => (
+                      {agg.answers.map((answer: {value: string, count: number}, idx: number) => (
                         <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
                           <span className="font-medium text-gray-500 mr-2">#{idx + 1}</span>
                           {answer.value}
