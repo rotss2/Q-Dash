@@ -131,25 +131,41 @@ export default function SurveyAnalytics() {
     // Do NOT add questions from responses as they are partial objects without block_type
     const questionMap = new Map(questions.map((q) => [q.id, q]));
 
-    return Array.from(questionMap.values()).map((question) => {
-      // Only count responses for questions that exist in our valid questions map
-      const questionResponses = filteredResponses.filter(
-        (r) => r.question_id === question.id && questionMap.has(r.question_id)
-      );
-      const answers: { [key: string]: number } = {};
+    // Filter out test/placeholder questions by text pattern
+    const isValidQuestion = (q: Question): boolean => {
+      const text = q.question_text?.trim().toLowerCase() || '';
+      // Skip test placeholders, page breaks, headings, etc.
+      if (text === 'test') return false;
+      if (text === 'page break') return false;
+      if (text.includes('new section heading')) return false;
+      if (text.includes('instructions:')) return false;
+      if (text.startsWith('part ') && text.includes(':')) return false; // Section headers like "PART 1: EASE OF USE"
+      if (text === '') return false;
+      return true;
+    };
 
-      questionResponses.forEach((r) => {
-        answers[r.answer] = (answers[r.answer] || 0) + 1;
-      });
+    return Array.from(questionMap.values())
+      .filter(isValidQuestion)
+      .map((question) => {
+        // Only count responses for questions that exist in our valid questions map
+        const questionResponses = filteredResponses.filter(
+          (r) => r.question_id === question.id && questionMap.has(r.question_id)
+        );
+        const answers: { [key: string]: number } = {};
 
-      return {
-        question_id: question.id,
-        question_text: question.question_text,
-        type: question.type,
-        answers: Object.entries(answers).map(([value, count]) => ({ value, count })),
-        total_responses: questionResponses.length
-      };
-    });
+        questionResponses.forEach((r) => {
+          answers[r.answer] = (answers[r.answer] || 0) + 1;
+        });
+
+        return {
+          question_id: question.id,
+          question_text: question.question_text,
+          type: question.type,
+          answers: Object.entries(answers).map(([value, count]) => ({ value, count })),
+          total_responses: questionResponses.length
+        };
+      })
+      .filter((agg) => agg.total_responses > 0); // Only show questions with at least 1 response
   };
 
   const filteredResponses = responses.filter((response) => {
