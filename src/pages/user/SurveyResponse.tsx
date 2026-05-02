@@ -363,6 +363,7 @@ function SurveyContent() {
         await apiPost('/api/live-sessions/progress', {
           survey_id: surveyId,
           user_id: userId,
+          email: email,
           answered_questions: 0,
           progress_percentage: 0
         });
@@ -405,6 +406,7 @@ function SurveyContent() {
         await apiPost('/api/live-sessions/progress', {
           survey_id: surveyId,
           user_id: userId,
+          email: email || null,
           answered_questions: answeredCount,
           progress_percentage: progressPercentage
         });
@@ -419,7 +421,7 @@ function SurveyContent() {
         clearTimeout(progressDebounceRef.current);
       }
     };
-  }, [answers, surveyId, userId, liveSessionStarted, hasSubmitted, activeQuestions, answersMap]);
+  }, [answers, surveyId, userId, liveSessionStarted, hasSubmitted, activeQuestions, answersMap, email]);
 
   // ANTI-CHEATING: Detect tab/window/app switching + Screenshot attempts (Desktop + Mobile)
   useEffect(() => {
@@ -814,15 +816,8 @@ function SurveyContent() {
 
     const cleanedEmail = email.trim();
 
-    // Require email before submission
-    if (!cleanedEmail) {
-      showToast('Please enter your email address.', 'error');
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Validate email format
-    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(cleanedEmail)) {
+    // Validate email format only if email is provided
+    if (cleanedEmail && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i.test(cleanedEmail)) {
       showToast(t('errorInvalidEmail'), 'error');
       setIsSubmitting(false);
       return;
@@ -949,7 +944,8 @@ function SurveyContent() {
       try {
         await apiPost('/api/live-sessions/complete', {
           survey_id: surveyId,
-          user_id: userId
+          user_id: userId,
+          email: cleanedEmail
         });
         console.log('Live session completed');
       } catch (error) {

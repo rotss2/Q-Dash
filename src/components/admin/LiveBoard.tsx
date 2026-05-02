@@ -181,14 +181,26 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
     return date.toLocaleDateString();
   };
 
-  const formatTimeSpent = (seconds: number, status: string, startedAt: string): string => {
-    // For active sessions, calculate live time
+  const formatTimeSpent = (seconds: number, status: string, startedAt: string, submittedAt?: string | null, abandonedAt?: string | null): string => {
     let totalSeconds = seconds;
+    
     if (status === 'active') {
+      // For active sessions, calculate live time from started_at to now
       const start = new Date(startedAt).getTime();
       const now = new Date().getTime();
       totalSeconds = Math.floor((now - start) / 1000);
+    } else if (status === 'completed' && submittedAt) {
+      // For completed sessions, use submitted_at - started_at
+      const start = new Date(startedAt).getTime();
+      const submitted = new Date(submittedAt).getTime();
+      totalSeconds = Math.floor((submitted - start) / 1000);
+    } else if (status === 'abandoned' && abandonedAt) {
+      // For abandoned sessions, use abandoned_at - started_at
+      const start = new Date(startedAt).getTime();
+      const abandoned = new Date(abandonedAt).getTime();
+      totalSeconds = Math.floor((abandoned - start) / 1000);
     }
+    // For other cases, use the stored time_spent_seconds
     
     if (totalSeconds < 0) totalSeconds = 0;
     
@@ -507,7 +519,7 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
                     
                     <td className="px-4 py-3">
                       <span className="text-sm text-gray-600">
-                        {formatTimeSpent(session.time_spent_seconds, session.status, session.started_at)}
+                        {formatTimeSpent(session.time_spent_seconds, session.status, session.started_at, session.submitted_at, session.abandoned_at)}
                       </span>
                     </td>
                   </tr>

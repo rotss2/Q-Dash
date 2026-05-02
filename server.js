@@ -658,6 +658,7 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
       .from('questions')
       .select('*')
       .eq('survey_id', surveyId)
+      .eq('block_type', 'question')  // Only return actual question blocks
       .order('order_index', { ascending: true });
 
     if (questionError) {
@@ -1064,7 +1065,7 @@ app.post('/api/live-sessions/start', async (req, res) => {
 // Public: Update session progress (debounced on frontend)
 app.post('/api/live-sessions/progress', async (req, res) => {
   try {
-    const { survey_id, user_id, answered_questions, progress_percentage } = req.body || {};
+    const { survey_id, user_id, email, answered_questions, progress_percentage } = req.body || {};
 
     if (!survey_id || !user_id) {
       return res.status(400).json({ error: 'survey_id and user_id are required.' });
@@ -1074,15 +1075,36 @@ app.post('/api/live-sessions/progress', async (req, res) => {
       return res.status(503).json({ error: 'Database not configured.' });
     }
 
-    const { data: updated, error: updateError } = await supabaseAdmin.rpc(
-      'update_live_session_progress',
-      {
-        p_survey_id: survey_id,
-        p_user_id: user_id,
-        p_answered_questions: answered_questions || 0,
-        p_progress_percentage: Math.min(100, Math.max(0, progress_percentage || 0))
-      }
-    );
+    // First, get existing session to check current email
+    const { data: existingSession } = await supabaseAdmin
+      .from('survey_live_sessions')
+      .select('email')
+      .eq('survey_id', survey_id)
+      .eq('user_id', user_id)
+      .single();
+
+    // Build update data - only update email if provided and different
+    const updateData = {
+      answered_questions: answered_questions || 0,
+      progress_percentage: Math.min(100, Math.max(0, progress_percentage || 0)),
+      last_activity_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Update email if provided and valid, otherwise keep existing
+    if (email && email.trim()) {
+      updateData.email = email.trim();
+    } else if (existingSession?.email) {
+      updateData.email = existingSession.email;
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('survey_live_sessions')
+      .update(updateData)
+      .eq('survey_id', survey_id)
+      .eq('user_id', user_id)
+      .select()
+      .single();
 
     if (updateError) {
       console.error('Failed to update progress:', updateError);
@@ -1090,8 +1112,9 @@ app.post('/api/live-sessions/progress', async (req, res) => {
     }
 
     return res.json({ 
-      success: updated, 
-      message: updated ? 'Progress updated' : 'Session not found'
+      success: !!updated, 
+      message: updated ? 'Progress updated' : 'Session not found',
+      session: updated
     });
   } catch (error) {
     console.error('Progress update error:', error);
@@ -1102,7 +1125,7 @@ app.post('/api/live-sessions/progress', async (req, res) => {
 // Public: Mark session as completed (called on survey submission)
 app.post('/api/live-sessions/complete', async (req, res) => {
   try {
-    const { survey_id, user_id } = req.body || {};
+    const { survey_id, user_id, email } = req.body || {};
 
     if (!survey_id || !user_id) {
       return res.status(400).json({ error: 'survey_id and user_id are required.' });
@@ -1110,6 +1133,15 @@ app.post('/api/live-sessions/complete', async (req, res) => {
 
     if (!supabaseAdmin) {
       return res.status(503).json({ error: 'Database not configured.' });
+    }
+
+    // Update email if provided before completing
+    if (email && email.trim()) {
+      await supabaseAdmin
+        .from('survey_live_sessions')
+        .update({ email: email.trim() })
+        .eq('survey_id', survey_id)
+        .eq('user_id', user_id);
     }
 
     const { data: completed, error: completeError } = await supabaseAdmin.rpc(
