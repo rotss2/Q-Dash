@@ -124,7 +124,7 @@ function SurveyContent() {
     [questions]
   );
 
-  // Group by sections for pagination
+  // Group by sections for pagination - split on heading OR page_break
   const sections = useMemo(() => {
     const result: { 
       sectionId: string | null; 
@@ -140,9 +140,17 @@ function SurveyContent() {
       // Check if this question should be shown (conditional logic)
       if (!shouldShowQuestion(q, answersMap)) return;
       
-      if (q.block_type === 'heading' || !currentSection) {
-        // Start new section
+      // Start new section on heading, page_break, or first item
+      if (q.block_type === 'heading' || q.block_type === 'page_break' || !currentSection) {
+        // End previous section
         if (currentSection) result.push(currentSection);
+        
+        // Start new section (skip if it's just a page_break with no content yet)
+        if (q.block_type === 'page_break' && !currentSection) {
+          // Don't create empty section for standalone page break at start
+          return;
+        }
+        
         currentSection = {
           sectionId: q.section_id || q.id,
           title: q.block_type === 'heading' ? q.question_text : 'Untitled Section',
@@ -151,16 +159,40 @@ function SurveyContent() {
         };
       }
       
+      // Skip page_break blocks (they don't display, just split sections)
+      if (q.block_type === 'page_break') return;
+      
       if (q.block_type === 'question') {
         questionCounter++;
-        currentSection.questionCount++;
+        if (currentSection) currentSection.questionCount++;
       }
       
-      currentSection.items.push({ ...q, _questionNumber: q.block_type === 'question' ? questionCounter : undefined });
+      if (currentSection) {
+        currentSection.items.push({ ...q, _questionNumber: q.block_type === 'question' ? questionCounter : undefined });
+      }
     });
     
     if (currentSection) result.push(currentSection);
     return result;
+  }, [activeQuestions, answersMap]);
+
+  // Calculate progress based on actual answered questions (not structural blocks)
+  const progress = useMemo(() => {
+    // Get all actual question blocks (not headings, instructions, page_breaks)
+    const questionBlocks = activeQuestions.filter(q => 
+      q.block_type === 'question' && 
+      shouldShowQuestion(q, answersMap)
+    );
+    
+    if (questionBlocks.length === 0) return 0;
+    
+    // Count answered questions (non-empty answers)
+    const answeredCount = questionBlocks.filter(q => {
+      const answer = answersMap[q.id];
+      return answer && answer.trim() !== '';
+    }).length;
+    
+    return (answeredCount / questionBlocks.length) * 100;
   }, [activeQuestions, answersMap]);
 
   // Section-based navigation
@@ -778,8 +810,6 @@ function SurveyContent() {
       </div>
     );
   }
-
-  const progress = sections.length > 0 ? ((currentSectionIndex + 1) / sections.length) * 100 : 0;
 
   return (
     <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass} relative`}>
