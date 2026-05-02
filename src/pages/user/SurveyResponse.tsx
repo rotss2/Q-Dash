@@ -681,8 +681,6 @@ function SurveyContent() {
   };
 
   const handleSubmit = async () => {
-    console.log('Submit attempt - userId:', userId, 'survey:', survey?.title, 'status:', survey?.status);
-    
     if (!userId) {
       console.error('Cannot submit: userId is null');
       showToast(t('error'), 'error');
@@ -714,6 +712,75 @@ function SurveyContent() {
 
     setIsSubmitting(true);
 
+    const cleanedEmail = email.trim();
+
+    // Require email before submission
+    if (!cleanedEmail) {
+      showToast('Please enter your email address.', 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Validate email format
+    if (!/^[\\w.%+-]+@gmail\.com$/i.test(cleanedEmail)) {
+      showToast(t('errorInvalidEmail'), 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Check if user already completed this survey before proceeding
+    const { data: hasCompletedBeforeSubmit, error: completionCheckError } =
+      await supabase.rpc('has_user_completed_survey', {
+        p_survey_id: surveyId!,
+        p_user_id: userId,
+      });
+
+    if (completionCheckError) {
+      console.error('Completion check failed:', completionCheckError);
+      showToast('Unable to verify submission status. Please try again.', 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (hasCompletedBeforeSubmit) {
+      setIsBlocked(true);
+      setBlockReason(t('responseRecorded'));
+      localStorage.setItem(`survey-completed-${surveyId}`, 'true');
+      showToast(t('responseRecorded'), 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Record survey completion and email BEFORE inserting responses
+    const { data: completionRecorded, error: completionError } =
+      await supabase.rpc('record_survey_completion', {
+        p_survey_id: surveyId!,
+        p_user_id: userId,
+        p_fingerprint: fingerprint,
+        p_ip_address: typeof window !== 'undefined' ? window.location.hostname : undefined,
+        p_user_agent: navigator.userAgent,
+        p_email: cleanedEmail,
+        p_gender: userGender || null,
+        p_age: userAge ? parseInt(userAge, 10) : null,
+      });
+
+    if (completionError) {
+      console.error('Failed to record survey completion:', completionError);
+      showToast('Unable to record your submission. Please try again.', 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!completionRecorded) {
+      setIsBlocked(true);
+      setBlockReason(t('responseRecorded'));
+      localStorage.setItem(`survey-completed-${surveyId}`, 'true');
+      showToast(t('responseRecorded'), 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Now prepare and insert responses
     const now = new Date().toISOString();
     const allQuestionIds = new Set(allQuestions.map((q) => q.id));
     const responsesToInsert = answers
@@ -726,84 +793,47 @@ function SurveyContent() {
         submitted_at: now
       }));
 
-    if (email.trim() && !/^[\w.%+-]+@gmail\.com$/i.test(email.trim())) {
-      showToast(t('errorInvalidEmail'), 'error');
-      setIsSubmitting(false);
-      return;
-    }
-
-    console.log('Submitting responses:', responsesToInsert);
-    
-    const { error, data: insertedData } = await supabase
+    // Insert responses only after survey session/email is recorded successfully
+    const { error } = await supabase
       .from('responses')
       .insert(responsesToInsert)
       .select();
 
     if (error) {
-      console.error('Response insert error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      });
-      showToast(`${t('errorSubmitting')}: ${error.message}`, 'error');
-    } else {
-      console.log('Responses inserted successfully:', insertedData);
-      console.log('Response insert details:', {
-        message: 'Success',
-        code: '200',
-        details: 'Responses inserted successfully',
-        hint: 'No issues found'
-      });
-      // Layer 3: Record completion in survey_sessions table
-      console.log('Recording survey completion:', { surveyId, userId, email: email.trim() || null });
-      const { error: completionError, data: completionData } = await supabase
-        .rpc('record_survey_completion', {
-          p_survey_id: surveyId!,
-          p_user_id: userId,
-          p_email: email.trim() || null,
-          p_fingerprint: fingerprint,
-          p_ip_address: typeof window !== 'undefined' ? window.location.hostname : undefined,
-          p_user_agent: navigator.userAgent
-        });
-
-      if (completionError) {
-        console.error('Error recording completion:', completionError);
-      } else {
-        console.log('Survey completion recorded:', completionData);
-      }
-
-      // Response count is automatically updated by database trigger
-      // No need to manually call increment_survey_response_count
-
-      // Layer 1: Save to localStorage to block future attempts
-      localStorage.setItem(`survey-completed-${surveyId}`, 'true');
-      
-      // Deduplicate questions by question_text to handle legacy data
-      const seenQuestions = new Set<string>();
-      const allQuestions = sections.flatMap(s => s.items);
-      const uniqueQuestions = allQuestions.filter((q) => {
-        const normalized = q.question_text.trim().toLowerCase();
-        if (seenQuestions.has(normalized)) {
-          return false;
-        }
-        seenQuestions.add(normalized);
-        return true;
-      });
-
-      setSubmissionPreview({
-        email: email.trim() || undefined,
-        answers: uniqueQuestions.map((q) => ({
-          questionText: q.question_text,
-          answer: getAnswer(q.id)
-        }))
-      });
-
-      showToast(t('success'), 'success');
-      setHasSubmitted(true);
+      console.error('Failed to insert responses:', error);
+      showToast('Failed to submit responses. Please try again.', 'error');
+      setIsSubmitting(false);
+      return;
     }
 
+    // Response count is automatically updated by database trigger
+    // No need to manually call increment_survey_response_count
+
+    // Layer 1: Save to localStorage to block future attempts
+    localStorage.setItem(`survey-completed-${surveyId}`, 'true');
+    
+    // Deduplicate questions by question_text to handle legacy data
+    const seenQuestions = new Set<string>();
+    const uniqueAllQuestions = sections.flatMap(s => s.items);
+    const uniqueQuestions = uniqueAllQuestions.filter((q) => {
+      const normalized = q.question_text.trim().toLowerCase();
+      if (seenQuestions.has(normalized)) {
+        return false;
+      }
+      seenQuestions.add(normalized);
+      return true;
+    });
+
+    setSubmissionPreview({
+      email: cleanedEmail || undefined,
+      answers: uniqueQuestions.map((q) => ({
+        questionText: q.question_text,
+        answer: getAnswer(q.id)
+      }))
+    });
+
+    showToast(t('success'), 'success');
+    setHasSubmitted(true);
     setIsSubmitting(false);
   };
 
@@ -853,10 +883,6 @@ function SurveyContent() {
       return;
     }
     setEmailError('');
-    
-    // Store demographics in session for analytics
-    console.log('Demographics:', { age: ageNum, gender: userGender || 'not-specified' });
-    
     setShowWelcome(false);
   };
 
