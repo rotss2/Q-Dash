@@ -1190,8 +1190,8 @@ function SurveyContent() {
             ))}
           </div>
           
-          {/* Photo Warning Banner */}
-          <div className="fixed top-16 left-0 right-0 z-[90] bg-red-600/90 backdrop-blur-sm text-white text-center py-1.5 px-4 pointer-events-none">
+          {/* Photo Warning Banner - Bottom position */}
+          <div className="fixed bottom-20 left-4 right-4 z-[90] bg-red-600/95 backdrop-blur-sm text-white text-center py-2 px-4 rounded-lg shadow-lg pointer-events-none">
             <p className="text-xs font-semibold tracking-wide uppercase">
               ⚠️ Taking photos of this survey is prohibited and traceable ⚠️
             </p>
