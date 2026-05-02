@@ -556,7 +556,7 @@ export default function SurveyBuilder() {
                 <p className="text-sm text-gray-500">Define your survey identity</p>
               </div>
             </div>
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div>
                 <label className="label flex items-center gap-1">
                   Survey Title
@@ -569,7 +569,7 @@ export default function SurveyBuilder() {
                   className="input text-lg font-medium"
                   placeholder="e.g., Customer Satisfaction Survey 2024"
                 />
-                <p className="text-xs text-gray-500 mt-1.5">Give your survey a clear, descriptive title</p>
+                <p className="text-xs text-gray-500 mt-2">Give your survey a clear, descriptive title that respondents will recognize.</p>
               </div>
               <div>
                 <label className="label">Description</label>
@@ -579,7 +579,7 @@ export default function SurveyBuilder() {
                   className="input min-h-[100px] resize-y"
                   placeholder="Briefly explain the purpose of this survey to your respondents..."
                 />
-                <p className="text-xs text-gray-500 mt-1.5">Optional context shown to respondents before they start</p>
+                <p className="text-xs text-gray-500 mt-2">Optional context shown to respondents before they start. Helps set expectations.</p>
               </div>
             </div>
           </div>
@@ -714,14 +714,14 @@ export default function SurveyBuilder() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Survey Settings</h2>
-                  <p className="text-sm text-gray-500">Configure availability & language</p>
+                  <p className="text-sm text-gray-500">Configure availability, language, and protection</p>
                 </div>
               </div>
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <div>
                   <label className="label flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-gray-500" />
-                    Schedule
+                    Survey Schedule
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="relative">
@@ -743,9 +743,10 @@ export default function SurveyBuilder() {
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1.5">Set when the survey is available to respondents</p>
+                  <p className="text-xs text-gray-500 mt-2">Optional: Limit when respondents can access the survey. Leave blank for always open.</p>
                 </div>
-                <div>
+                
+                <div className="pt-2 border-t border-gray-100">
                   <label className="label flex items-center gap-2">
                     <Globe className="w-4 h-4 text-gray-500" />
                     Supported Languages
@@ -778,8 +779,9 @@ export default function SurveyBuilder() {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1.5">Click to enable multiple language support</p>
+                  <p className="text-xs text-gray-500 mt-2">Select which languages respondents can choose from.</p>
                 </div>
+                
                 <div>
                   <label className="label">Default Language</label>
                   <select
@@ -1123,7 +1125,7 @@ export default function SurveyBuilder() {
           </div>
           
           {/* Questions List with Visual Flow */}
-          <div className="relative space-y-6">
+          <div className="relative space-y-10">
             {/* Visual connector line - runs through all questions */}
             <div className="absolute left-[22px] sm:left-[26px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-300 via-purple-300 to-indigo-300 rounded-full hidden sm:block"></div>
             
@@ -1179,7 +1181,7 @@ export default function SurveyBuilder() {
             return (
             <div 
               key={question.id} 
-              className={`relative transition-all mb-6 ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${connectMode ? 'cursor-pointer' : ''} ${isSource ? 'ring-4 ring-orange-400 bg-orange-50' : ''} ${isConnected && !isSource ? 'ring-2 ring-orange-200' : ''} ${activeQuestionIndex === index ? 'ring-2 ring-blue-400' : ''}`}
+              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${connectMode ? 'cursor-pointer' : ''} ${isSource ? 'ring-4 ring-orange-400 bg-orange-50' : ''} ${isConnected && !isSource ? 'ring-2 ring-orange-200' : ''} ${activeQuestionIndex === index ? 'ring-2 ring-blue-400 z-10' : ''}`}
               draggable={!connectMode}
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
@@ -1189,7 +1191,7 @@ export default function SurveyBuilder() {
             >
               {/* Active indicator badge */}
               {activeQuestionIndex === index && !connectMode && (
-                <div className="absolute -top-2 right-4 bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full font-medium z-20">
+                <div className="absolute -top-3 right-4 z-20 rounded-full bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
                   Active
                 </div>
               )}
@@ -1198,10 +1200,11 @@ export default function SurveyBuilder() {
               
               {/* Section grouping indicator - shows when this is start of a new section */}
               {question.block_type === 'heading' && index > 0 && (
-                <div className="absolute left-0 right-0 -top-3 flex items-center justify-center">
-                  <div className="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full border border-indigo-200 font-medium">
+                <div className="relative z-20 my-2 flex items-center justify-center">
+                  <div className="absolute left-0 right-0 top-1/2 h-px bg-indigo-200" />
+                  <span className="relative z-10 rounded-full border border-indigo-200 bg-white px-3 py-1 text-xs font-medium text-indigo-600 shadow-sm">
                     New Section
-                  </div>
+                  </span>
                 </div>
               )}
               
@@ -1321,44 +1324,66 @@ export default function SurveyBuilder() {
                     </div>
                   )}
                   
-                  {/* Block Type Badge */}
-                  <div className="flex flex-wrap items-center gap-3">
+                  {/* Card Header: Type Badge + Required Badge + Actions */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Block Type Badge */}
                     {question.block_type === 'heading' && (
-                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">
-                        Heading
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-700">
+                        <Type className="w-3 h-3" />
+                        Section Heading
                       </span>
                     )}
                     {question.block_type === 'instruction' && (
-                      <span className="px-2 py-1 bg-cyan-100 text-cyan-700 text-xs font-medium rounded">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-100 px-2.5 py-1 text-xs font-medium text-cyan-700">
+                        <Info className="w-3 h-3" />
                         Instruction
                       </span>
                     )}
                     {question.block_type === 'page_break' && (
-                      <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs font-medium rounded">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                        <span className="text-xs">↵</span>
                         Page Break
                       </span>
                     )}
                     {question.block_type === 'question' && (
                       <>
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded break-words">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
                           {question.type === 'text'
-                        ? 'Text'
-                        : question.type === 'choice'
-                          ? (question.options.length === 2 && question.options.includes('Yes') && question.options.includes('No') ? 'Boolean' : 'Multiple Choice')
-                          : 'Scaling'}
+                            ? 'Text Answer'
+                            : question.type === 'choice'
+                              ? (question.options.length === 2 && question.options.includes('Yes') && question.options.includes('No') ? 'Yes / No' : 'Multiple Choice')
+                              : 'Rating Scale'}
                         </span>
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={question.required}
-                            onChange={(e) => updateQuestion(question.id, { required: e.target.checked })}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          />
-                          Required
-                        </label>
+                        {question.required && (
+                          <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600">
+                            Required
+                          </span>
+                        )}
                       </>
                     )}
                   </div>
+                  
+                  {/* Required Toggle - separate row for better visibility */}
+                  {question.block_type === 'question' && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => updateQuestion(question.id, { required: !question.required })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                          question.required ? 'bg-primary-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            question.required ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                      <span className={`text-sm font-medium ${question.required ? 'text-gray-900' : 'text-gray-500'}`}>
+                        {question.required ? 'Required question' : 'Optional question'}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Text Input with placeholder based on block type */}
                   <input
@@ -1416,29 +1441,43 @@ export default function SurveyBuilder() {
                           </div>
                         </div>
                       )}
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        <div>
-                          <label className="label">Show this question only if</label>
-                          <select
-                            value={question.show_when_question_id || ''}
-                            onChange={(e) => updateQuestion(question.id, { show_when_question_id: e.target.value || undefined })}
-                            className="input"
-                          >
-                            <option value="">No condition</option>
-                            {questions.slice(0, index).map((prevQ) => (
-                              <option key={prevQ.id} value={prevQ.id}>{prevQ.question_text || `Question ${prevQ.order_index + 1}`}</option>
-                            ))}
-                          </select>
+                      {/* Advanced Settings - Conditional Logic */}
+                      <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-sm font-semibold text-gray-700">Display Condition</span>
+                          <span className="text-xs text-gray-500">(Optional)</span>
                         </div>
-                        <div>
-                          <label className="label">Answer must equal</label>
-                          <input
-                            type="text"
-                            value={question.show_when_answer_value || ''}
-                            onChange={(e) => updateQuestion(question.id, { show_when_answer_value: e.target.value || undefined })}
-                            className="input"
-                            placeholder="Expected answer value"
-                          />
+                        <p className="text-xs text-gray-500 mb-4">
+                          Show this question only when a previous answer matches your condition.
+                        </p>
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div>
+                            <label className="label text-xs">Show when this question is answered:</label>
+                            <select
+                              value={question.show_when_question_id || ''}
+                              onChange={(e) => updateQuestion(question.id, { show_when_question_id: e.target.value || undefined })}
+                              className="input text-sm"
+                            >
+                              <option value="">— Always show —</option>
+                              {questions.slice(0, index).map((prevQ) => (
+                                <option key={prevQ.id} value={prevQ.id}>Q{prevQ.order_index + 1}: {prevQ.question_text.slice(0, 40)}{prevQ.question_text.length > 40 ? '...' : ''}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="label text-xs">And the answer equals:</label>
+                            <input
+                              type="text"
+                              value={question.show_when_answer_value || ''}
+                              onChange={(e) => updateQuestion(question.id, { show_when_answer_value: e.target.value || undefined })}
+                              className="input text-sm"
+                              placeholder="e.g., Yes, Option A, 5"
+                              disabled={!question.show_when_question_id}
+                            />
+                          </div>
                         </div>
                       </div>
 
@@ -1493,8 +1532,20 @@ export default function SurveyBuilder() {
                 </div>
 
                 <button
-                  onClick={() => deleteQuestion(question.id)}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                  onClick={() => {
+                    const confirmMessage = question.block_type === 'heading' 
+                      ? 'Are you sure you want to delete this section heading?' 
+                      : question.block_type === 'instruction'
+                        ? 'Are you sure you want to delete this instruction?'
+                        : question.block_type === 'page_break'
+                          ? 'Are you sure you want to delete this page break?'
+                          : 'Are you sure you want to delete this question?';
+                    if (window.confirm(confirmMessage)) {
+                      deleteQuestion(question.id);
+                    }
+                  }}
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
@@ -1506,27 +1557,33 @@ export default function SurveyBuilder() {
           </div>
           
           {questions.length === 0 && !showBulkImporter && (
-            <div className="card text-center py-12">
-              <p className="text-gray-500 mb-4">No questions yet. Add your first question above.</p>
-              <div className="flex justify-center gap-2 flex-wrap">
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50">
+                <Plus className="w-6 h-6 text-indigo-600" />
+              </div>
+              
+              <h3 className="text-base font-semibold text-gray-900">
+                No questions yet
+              </h3>
+              
+              <p className="mx-auto mt-2 max-w-md text-sm text-gray-600">
+                Start building your survey by adding your first question or section. Use the tools above to add questions, headings, or import in bulk.
+              </p>
+              
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => addQuestion('text', [], 'question')}
+                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Question
+                </button>
                 <button
                   onClick={() => setShowBulkImporter(true)}
-                  className="btn-secondary"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                 >
-                  <FileText className="w-4 h-4 inline mr-2" />
-                  Bulk Import Questions
-                </button>
-                <button
-                  onClick={() => addQuestion('text', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="btn-secondary"
-                >
-                  Add Text Question
-                </button>
-                <button
-                  onClick={() => addBooleanQuestion(activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="btn-secondary"
-                >
-                  Add Boolean Question
+                  <FileText className="w-4 h-4" />
+                  Bulk Import
                 </button>
               </div>
             </div>

@@ -274,6 +274,71 @@ export interface Database {
           }
         ]
       }
+      survey_live_sessions: {
+        Row: {
+          id: string
+          survey_id: string
+          user_id: string
+          email: string | null
+          status: 'active' | 'completed' | 'abandoned' | 'blocked'
+          total_questions: number
+          answered_questions: number
+          progress_percentage: number
+          started_at: string
+          last_activity_at: string
+          submitted_at: string | null
+          abandoned_at: string | null
+          fingerprint: string | null
+          user_agent: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          survey_id: string
+          user_id: string
+          email?: string | null
+          status?: 'active' | 'completed' | 'abandoned' | 'blocked'
+          total_questions?: number
+          answered_questions?: number
+          progress_percentage?: number
+          started_at?: string
+          last_activity_at?: string
+          submitted_at?: string | null
+          abandoned_at?: string | null
+          fingerprint?: string | null
+          user_agent?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          survey_id?: string
+          user_id?: string
+          email?: string | null
+          status?: 'active' | 'completed' | 'abandoned' | 'blocked'
+          total_questions?: number
+          answered_questions?: number
+          progress_percentage?: number
+          started_at?: string
+          last_activity_at?: string
+          submitted_at?: string | null
+          abandoned_at?: string | null
+          fingerprint?: string | null
+          user_agent?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_live_sessions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -304,6 +369,37 @@ export interface Database {
           p_survey_id: string
         }
         Returns: void
+      }
+      upsert_live_session: {
+        Args: {
+          p_survey_id: string
+          p_user_id: string
+          p_email?: string | null
+          p_total_questions?: number
+          p_fingerprint?: string | null
+          p_user_agent?: string | null
+        }
+        Returns: string
+      }
+      update_live_session_progress: {
+        Args: {
+          p_survey_id: string
+          p_user_id: string
+          p_answered_questions: number
+          p_progress_percentage: number
+        }
+        Returns: boolean
+      }
+      complete_live_session: {
+        Args: {
+          p_survey_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      mark_abandoned_sessions: {
+        Args: {}
+        Returns: number
       }
     }
     Enums: {

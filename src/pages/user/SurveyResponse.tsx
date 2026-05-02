@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
+import { apiPost } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 import { getAnonymousUserId } from '../../lib/fingerprint';
 import { Survey, Question } from '../../types';
@@ -38,6 +39,10 @@ function SurveyContent() {
   const [userId, setUserId] = useState<string>('');
   const [fingerprint, setFingerprint] = useState<string>('');
   const [showWelcome, setShowWelcome] = useState(true);
+  
+  // Live session tracking
+  const [liveSessionStarted, setLiveSessionStarted] = useState(false);
+  const progressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Security/Anti-cheating states
   const [securityViolation, setSecurityViolation] = useState<string | null>(null);
@@ -289,37 +294,83 @@ function SurveyContent() {
     }
   }, [surveyId]);
 
-  // Track presence (active users) when taking survey
+  // Start live session when user begins survey
   useEffect(() => {
-    if (!surveyId || !userId || hasSubmitted) return;
+    if (!surveyId || !userId || hasSubmitted || isBlocked) return;
+    if (showWelcome) return; // Don't start until user clicks "Get Started"
+    if (liveSessionStarted) return; // Don't start twice
 
-    const presenceChannel = supabase.channel('survey-presence');
-    
-    presenceChannel
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            user_id: userId,
-            survey_id: surveyId,
-            online_at: new Date().toISOString()
-          });
-        }
-      });
+    const startLiveSession = async () => {
+      try {
+        const questionBlocks = activeQuestions.filter(q => 
+          q.block_type === 'question' && 
+          shouldShowQuestion(q, answersMap)
+        );
 
-    // Heartbeat every 30 seconds to keep presence alive
-    const heartbeat = setInterval(async () => {
-      await presenceChannel.track({
-        user_id: userId,
-        survey_id: surveyId,
-        online_at: new Date().toISOString()
-      });
-    }, 30000);
+        await apiPost('/api/live-sessions/start', {
+          survey_id: surveyId,
+          user_id: userId,
+          email: email || null,
+          total_questions: questionBlocks.length,
+          fingerprint: fingerprint,
+          user_agent: navigator.userAgent
+        });
+        
+        setLiveSessionStarted(true);
+        console.log('Live session started');
+      } catch (error) {
+        // Fail silently - live tracking is not critical
+        console.log('Live session start failed (non-critical):', error);
+      }
+    };
+
+    startLiveSession();
+  }, [surveyId, userId, hasSubmitted, isBlocked, showWelcome, email, fingerprint, activeQuestions, answersMap, liveSessionStarted]);
+
+  // Debounced progress updates
+  useEffect(() => {
+    if (!surveyId || !userId || !liveSessionStarted || hasSubmitted) return;
+
+    // Clear previous debounce
+    if (progressDebounceRef.current) {
+      clearTimeout(progressDebounceRef.current);
+    }
+
+    // Debounce progress updates by 1.5 seconds
+    progressDebounceRef.current = setTimeout(async () => {
+      try {
+        const questionBlocks = activeQuestions.filter(q => 
+          q.block_type === 'question' && 
+          shouldShowQuestion(q, answersMap)
+        );
+
+        const answeredCount = questionBlocks.filter(q => {
+          const answer = answersMap[q.id];
+          return answer && answer.trim() !== '';
+        }).length;
+
+        const progressPercentage = questionBlocks.length > 0 
+          ? (answeredCount / questionBlocks.length) * 100 
+          : 0;
+
+        await apiPost('/api/live-sessions/progress', {
+          survey_id: surveyId,
+          user_id: userId,
+          answered_questions: answeredCount,
+          progress_percentage: progressPercentage
+        });
+      } catch (error) {
+        // Fail silently - progress updates are not critical
+        console.log('Progress update failed (non-critical):', error);
+      }
+    }, 1500);
 
     return () => {
-      clearInterval(heartbeat);
-      presenceChannel.unsubscribe();
+      if (progressDebounceRef.current) {
+        clearTimeout(progressDebounceRef.current);
+      }
     };
-  }, [surveyId, userId, hasSubmitted]);
+  }, [answers, surveyId, userId, liveSessionStarted, hasSubmitted, activeQuestions, answersMap]);
 
   // ANTI-CHEATING: Detect tab/window/app switching + Screenshot attempts (Desktop + Mobile)
   useEffect(() => {
@@ -722,7 +773,7 @@ function SurveyContent() {
     }
 
     // Validate email format
-    if (!/^[\\w.%+-]+@gmail\.com$/i.test(cleanedEmail)) {
+    if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(cleanedEmail)) {
       showToast(t('errorInvalidEmail'), 'error');
       setIsSubmitting(false);
       return;
@@ -808,6 +859,20 @@ function SurveyContent() {
 
     // Response count is automatically updated by database trigger
     // No need to manually call increment_survey_response_count
+
+    // Complete the live session
+    if (liveSessionStarted) {
+      try {
+        await apiPost('/api/live-sessions/complete', {
+          survey_id: surveyId,
+          user_id: userId
+        });
+        console.log('Live session completed');
+      } catch (error) {
+        // Fail silently
+        console.log('Live session completion failed (non-critical):', error);
+      }
+    }
 
     // Layer 1: Save to localStorage to block future attempts
     localStorage.setItem(`survey-completed-${surveyId}`, 'true');

@@ -970,6 +970,199 @@ app.post('/api/rule-based-questions', express.json(), (req, res) => {
   });
 });
 
+// ============================================================================
+// LIVE SESSION TRACKING API
+// Real-time respondent monitoring endpoints
+// ============================================================================
+
+// Public: Start or resume a live session (called when respondent begins survey)
+app.post('/api/live-sessions/start', async (req, res) => {
+  try {
+    const { survey_id, user_id, email, total_questions, fingerprint, user_agent } = req.body || {};
+
+    if (!survey_id || !user_id) {
+      return res.status(400).json({ error: 'survey_id and user_id are required.' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Database not configured.' });
+    }
+
+    // Check if survey is open
+    const { data: survey, error: surveyError } = await supabaseAdmin
+      .from('surveys')
+      .select('id, status')
+      .eq('id', survey_id)
+      .single();
+
+    if (surveyError || !survey) {
+      return res.status(404).json({ error: 'Survey not found.' });
+    }
+
+    if (survey.status !== 'open') {
+      return res.status(403).json({ error: 'Survey is closed.' });
+    }
+
+    // Upsert the live session using the database function
+    const { data: sessionId, error: upsertError } = await supabaseAdmin.rpc(
+      'upsert_live_session',
+      {
+        p_survey_id: survey_id,
+        p_user_id: user_id,
+        p_email: email || null,
+        p_total_questions: total_questions || 0,
+        p_fingerprint: fingerprint || null,
+        p_user_agent: user_agent || null
+      }
+    );
+
+    if (upsertError) {
+      console.error('Failed to upsert live session:', upsertError);
+      return res.status(500).json({ error: 'Failed to start session.' });
+    }
+
+    return res.json({ 
+      success: true, 
+      session_id: sessionId,
+      message: 'Live session started'
+    });
+  } catch (error) {
+    console.error('Live session start error:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// Public: Update session progress (debounced on frontend)
+app.post('/api/live-sessions/progress', async (req, res) => {
+  try {
+    const { survey_id, user_id, answered_questions, progress_percentage } = req.body || {};
+
+    if (!survey_id || !user_id) {
+      return res.status(400).json({ error: 'survey_id and user_id are required.' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Database not configured.' });
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin.rpc(
+      'update_live_session_progress',
+      {
+        p_survey_id: survey_id,
+        p_user_id: user_id,
+        p_answered_questions: answered_questions || 0,
+        p_progress_percentage: Math.min(100, Math.max(0, progress_percentage || 0))
+      }
+    );
+
+    if (updateError) {
+      console.error('Failed to update progress:', updateError);
+      return res.status(500).json({ error: 'Failed to update progress.' });
+    }
+
+    return res.json({ 
+      success: updated, 
+      message: updated ? 'Progress updated' : 'Session not found'
+    });
+  } catch (error) {
+    console.error('Progress update error:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// Public: Mark session as completed (called on survey submission)
+app.post('/api/live-sessions/complete', async (req, res) => {
+  try {
+    const { survey_id, user_id } = req.body || {};
+
+    if (!survey_id || !user_id) {
+      return res.status(400).json({ error: 'survey_id and user_id are required.' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Database not configured.' });
+    }
+
+    const { data: completed, error: completeError } = await supabaseAdmin.rpc(
+      'complete_live_session',
+      {
+        p_survey_id: survey_id,
+        p_user_id: user_id
+      }
+    );
+
+    if (completeError) {
+      console.error('Failed to complete session:', completeError);
+      return res.status(500).json({ error: 'Failed to complete session.' });
+    }
+
+    return res.json({ 
+      success: completed, 
+      message: completed ? 'Session completed' : 'Session not found'
+    });
+  } catch (error) {
+    console.error('Session completion error:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// Admin: Get all live sessions with optional filters
+app.get('/api/admin/live-sessions', requireAdmin, async (req, res) => {
+  try {
+    const { survey_id, status } = req.query;
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Database not configured.' });
+    }
+
+    // First, auto-mark abandoned sessions (older than 30 minutes)
+    await supabaseAdmin.rpc('mark_abandoned_sessions');
+
+    // Build the query
+    let query = supabaseAdmin
+      .from('survey_live_sessions')
+      .select(`
+        *,
+        surveys:survey_id (title)
+      `)
+      .order('last_activity_at', { ascending: false });
+
+    // Apply filters
+    if (survey_id) {
+      query = query.eq('survey_id', survey_id);
+    }
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data: sessions, error } = await query;
+
+    if (error) {
+      console.error('Failed to fetch live sessions:', error);
+      return res.status(500).json({ error: 'Failed to fetch sessions.' });
+    }
+
+    // Calculate summary statistics
+    const summary = {
+      total: sessions?.length || 0,
+      active: sessions?.filter(s => s.status === 'active').length || 0,
+      completed: sessions?.filter(s => s.status === 'completed').length || 0,
+      abandoned: sessions?.filter(s => s.status === 'abandoned').length || 0,
+      blocked: sessions?.filter(s => s.status === 'blocked').length || 0
+    };
+
+    return res.json({ 
+      sessions: sessions || [],
+      summary
+    });
+  } catch (error) {
+    console.error('Admin live sessions error:', error);
+    return res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// ============================================================================
 // SCHEDULER STATE (must be declared before health endpoint)
 const SCHEDULER_INTERVAL_MS = 60 * 1000; // Run every minute
 let schedulerRuns = 0;

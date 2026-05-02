@@ -1,5 +1,5 @@
 -- Add gender and age columns to survey_sessions for profiling
-ALTER TABLE survey_sessions ADD COLUMN IF NOT EXISTS gender TEXT CHECK (gender IN ('male', 'female'));
+ALTER TABLE survey_sessions ADD COLUMN IF NOT EXISTS gender TEXT CHECK (gender IN ('male', 'female', 'non-binary', 'prefer-not-to-say'));
 ALTER TABLE survey_sessions ADD COLUMN IF NOT EXISTS age INTEGER CHECK (age > 0 AND age <= 120);
 
 -- Drop ALL existing versions of the function (using wildcard to catch any signature)

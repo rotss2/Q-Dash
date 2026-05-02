@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../components/Toaster';
+import LiveBoard from '../../components/admin/LiveBoard';
 import { apiGet, apiDelete, apiPost } from '../../lib/api';
-import { supabase } from '../../lib/supabase';
-import { Survey, Response } from '../../types';
-import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, X, Maximize2, Minimize2, Activity, Sparkles, Calendar, ArrowUpRight, Loader2, User, Search, Clock } from 'lucide-react';
+import { Survey } from '../../types';
+import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, Activity, Sparkles, Calendar, ArrowUpRight, Loader2, User, Search, Clock, LayoutDashboard } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -15,22 +15,7 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [liveFeed, setLiveFeed] = useState<Array<{ 
-    id: string; 
-    surveyTitle: string; 
-    timestamp: string; 
-    userId: string; 
-    userLabel: string;
-    currentQuestion: number;
-    totalQuestions: number;
-    progress: number;
-    isComplete: boolean;
-  }>>([]);
-  const [showLiveFeed, setShowLiveFeed] = useState(false);
-  const [liveMode, setLiveMode] = useState(false);
-  const activeUsers = 0;
-  const activeUsersBySurvey: Record<string, number> = {};
-  const subscriptionRef = useRef<any>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'live'>('overview');
 
   useEffect(() => {
     loadSurveys();
@@ -55,80 +40,7 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // Real-time subscription for live feed
-  useEffect(() => {
-    if (!showLiveFeed) return;
-
-    console.log('Setting up real-time subscription for responses...');
-
-    // Track user response counts
-    const userResponseCounts = new Map<string, number>(); // key: userId_surveyId
-
-    // Subscribe to responses table changes
-    const subscription = supabase
-      .channel('responses-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'responses'
-        },
-        (payload) => {
-          console.log('New response received:', payload);
-          const newResponse = payload.new as Response;
-
-          // Get survey info
-          const survey = surveys.find(s => s.id === newResponse.survey_id);
-          if (!survey) return;
-
-          const userKey = `${newResponse.user_id}_${newResponse.survey_id}`;
-          
-          // Increment user's response count for this survey
-          const currentCount = userResponseCounts.get(userKey) || 0;
-          const newCount = currentCount + 1;
-          userResponseCounts.set(userKey, newCount);
-
-          // Estimate total questions (use max of 5 or cached count)
-          const totalQuestions = Math.max(survey.total_responses || 0, 5);
-          const progress = Math.min((newCount / totalQuestions) * 100, 100);
-
-          const entry = {
-            id: newResponse.id,
-            surveyTitle: survey.title,
-            timestamp: newResponse.submitted_at || new Date().toISOString(),
-            userId: newResponse.user_id,
-            userLabel: `User-${newResponse.user_id?.slice(0, 8) || 'Anonymous'}`,
-            currentQuestion: newCount,
-            totalQuestions: totalQuestions,
-            progress: Math.round(progress),
-            isComplete: newCount >= totalQuestions
-          };
-
-          setLiveFeed(prev => {
-            // Remove any existing entry for this user+survey
-            const filtered = prev.filter(e => 
-              !(e.userId === newResponse.user_id && e.surveyTitle === survey.title)
-            );
-            // Add new entry at the top
-            return [entry, ...filtered].slice(0, 50);
-          });
-
-          // Also refresh survey counts
-          loadSurveys();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Subscription status:', status);
-      });
-
-    subscriptionRef.current = subscription;
-
-    return () => {
-      console.log('Cleaning up subscription...');
-      subscription.unsubscribe();
-    };
-  }, [showLiveFeed, surveys]);
+  // (Live tracking now handled via Live Board tab)
 
   const loadSurveys = async () => {
     console.log('Dashboard: Loading surveys...');
@@ -216,17 +128,9 @@ export default function AdminDashboard() {
     (survey.description || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const toggleLiveMode = () => {
-    setLiveMode(!liveMode);
-    if (!liveMode) {
-      document.documentElement.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-  };
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${liveMode ? 'fixed inset-0 z-50 overflow-auto' : ''}`}>
+    <div className="min-h-screen bg-gray-50">
       {/* Header - Enhanced */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/80 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -248,73 +152,73 @@ export default function AdminDashboard() {
                   <p className="text-xs text-gray-500">Smart Data Insights</p>
                 </div>
               </div>
-              {activeUsers > 0 && (
-                <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-100">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                  {activeUsers} active
-                </span>
-              )}
-              {liveMode && (
-                <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 text-xs font-semibold rounded-full border border-red-100 animate-pulse">
-                  <Radio className="w-3 h-3" />
-                  LIVE MODE
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowLiveFeed(!showLiveFeed)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  showLiveFeed 
-                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Radio className="w-4 h-4" />
-                <span className="hidden sm:inline">Live Feed</span>
-                {liveFeed.length > 0 && (
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                )}
-              </button>
-              <button
-                onClick={toggleLiveMode}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  liveMode 
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {liveMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                <span className="hidden sm:inline">{liveMode ? 'Exit' : 'Live'}</span>
-              </button>
-              {!liveMode && (
-                <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="hidden lg:block text-sm font-medium text-gray-700">{user?.email}</span>
+              {/* Tabs */}
+              <div className="hidden sm:flex items-center bg-gray-100 rounded-xl p-1 mr-2">
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === 'overview'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  Overview
+                </button>
+                <button
+                  onClick={() => setActiveTab('live')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === 'live'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Radio className={`w-4 h-4 ${activeTab === 'live' ? 'text-red-500 animate-pulse' : ''}`} />
+                  Live Board
+                </button>
+              </div>
+              
+              {/* Mobile tabs dropdown */}
+              <div className="sm:hidden">
+                <select
+                  value={activeTab}
+                  onChange={(e) => setActiveTab(e.target.value as 'overview' | 'live')}
+                  className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 border-0 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="overview">Overview</option>
+                  <option value="live">Live Board</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-white" />
                   </div>
-                  <button 
-                    onClick={handleSignOut} 
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                    title="Sign Out"
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
+                  <span className="hidden lg:block text-sm font-medium text-gray-700">{user?.email}</span>
                 </div>
-              )}
+                <button 
+                  onClick={handleSignOut} 
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className={`${liveMode ? 'max-w-full p-8' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
-        <div className="flex flex-col gap-6 lg:flex-row">
-          {/* Main Content */}
-          <div className="flex-1">
-        {/* Stats - Enhanced with gradients and animations - Now Clickable */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'live' ? (
+          <LiveBoard surveys={surveys} />
+        ) : (
+          <div className="space-y-8">
+            {/* Stats - Enhanced with gradients and animations - Now Clickable */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <button
             onClick={() => navigate('/admin/surveys/all')}
             className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group"
@@ -370,8 +274,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Search Bar - NEW */}
-        {!liveMode && surveys.length > 0 && (
+            {/* Search Bar - NEW */}
+            {surveys.length > 0 && (
           <div className="mb-6">
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -386,50 +290,46 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Actions - Enhanced */}
-        <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center mb-8">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-gray-900">
-              {liveMode ? 'Live Dashboard' : 'Your Surveys'}
-            </h2>
-            {!liveMode && surveys.length > 0 && (
+            {/* Actions - Enhanced */}
+            <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-gray-900">Your Surveys</h2>
+            {surveys.length > 0 && (
               <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
                 {filteredSurveys.length} of {surveys.length}
               </span>
             )}
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            {lastUpdated && !liveMode && (
+            {lastUpdated && (
               <span className="text-xs text-gray-400 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 Updated {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
-            {!liveMode && (
-              <>
-                <button
-                  onClick={() => loadSurveys()}
-                  disabled={isLoading}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed group"
-                  title="Refresh survey list"
-                >
-                  <Loader2 className={`w-4 h-4 transition-transform duration-700 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} />
-                  <span className="hidden sm:inline">Refresh</span>
-                </button>
-                <button
-                  onClick={() => navigate('/admin/surveys/new')}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">New Survey</span>
-                </button>
-              </>
-            )}
+            <>
+              <button
+                onClick={() => loadSurveys()}
+                disabled={isLoading}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed group"
+                title="Refresh survey list"
+              >
+                <Loader2 className={`w-4 h-4 transition-transform duration-700 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+              <button
+                onClick={() => navigate('/admin/surveys/new')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Survey</span>
+              </button>
+            </>
           </div>
         </div>
 
-        {/* Surveys List - Enhanced */}
-        {isLoading ? (
+            {/* Surveys List - Enhanced */}
+            {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6 animate-pulse">
@@ -491,14 +391,6 @@ export default function AdminDashboard() {
                         </div>
                         <span className="font-medium">{survey.total_responses} responses</span>
                       </span>
-                      {activeUsersBySurvey[survey.id] > 0 && (
-                        <span className="flex items-center gap-2 text-emerald-600">
-                          <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
-                            <Radio className="w-4 h-4 animate-pulse" />
-                          </div>
-                          <span className="font-medium">{activeUsersBySurvey[survey.id]} active</span>
-                        </span>
-                      )}
                       <span className="flex items-center gap-2 text-gray-400">
                         <Calendar className="w-4 h-4" />
                         {new Date(survey.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -551,87 +443,7 @@ export default function AdminDashboard() {
           </div>
         )}
           </div>
-
-          {/* Live Feed Sidebar - Enhanced */}
-          {showLiveFeed && (
-            <div className="w-80 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xl shadow-gray-200/50">
-              <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
-                    <Radio className="w-4 h-4 text-red-400" />
-                  </div>
-                  <div>
-                    <span className="font-semibold text-sm">Live Feed</span>
-                    <p className="text-xs text-slate-400">Real-time responses</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowLiveFeed(false)}
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
-                {liveFeed.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Activity className="w-8 h-8 text-gray-300" />
-                    </div>
-                    <p className="text-sm text-gray-500">Waiting for responses...</p>
-                    <p className="text-xs text-gray-400 mt-1">New submissions will appear here</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-50">
-                    {liveFeed.map((entry) => (
-                      <div key={entry.id} className="p-4 hover:bg-gray-50/80 transition-colors">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-bold text-white">{entry.userLabel.charAt(5)}</span>
-                            </div>
-                            <p className="text-sm font-semibold text-gray-900 truncate">
-                              {entry.userLabel}
-                            </p>
-                          </div>
-                          <span className={`text-xs px-2.5 py-1 font-semibold rounded-full ${
-                            entry.isComplete 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
-                              : 'bg-blue-50 text-blue-700 border border-blue-100'
-                          }`}>
-                            {entry.isComplete ? 'Complete' : `Q${entry.currentQuestion}`}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-3 truncate">
-                          {entry.surveyTitle}
-                        </p>
-                        {/* Progress bar */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 bg-gray-100 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full transition-all duration-500 ${
-                                entry.isComplete 
-                                  ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' 
-                                  : 'bg-gradient-to-r from-blue-400 to-blue-500'
-                              }`}
-                              style={{ width: `${entry.progress}%` }}
-                            />
-                          </div>
-                          <span className="text-xs font-medium text-gray-500 min-w-[3rem] text-right">
-                            {entry.progress}%
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2">
-                          {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </main>
     </div>
   );
