@@ -1157,9 +1157,9 @@ function SurveyContent() {
                       </div>
                       <div className="flex-1 min-w-0 space-y-3">
                         <p className="text-base font-semibold text-gray-800 leading-relaxed">{item.questionText}</p>
-                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm min-h-[56px]">
                           <p className="text-lg text-gray-900 font-medium break-words">
-                            {item.answer || <span className="text-gray-400 italic">No answer provided</span>}
+                            {item.answer}
                           </p>
                         </div>
                       </div>
@@ -1622,16 +1622,7 @@ function SurveyContent() {
                                           : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                                       }`}
                                     >
-                                      <div className="flex items-center gap-3">
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                          isSelected
-                                            ? 'border-blue-500 bg-blue-500'
-                                            : 'border-gray-300 group-hover:border-blue-400'
-                                        }`}>
-                                          {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
-                                        </div>
-                                        <span className="text-base font-medium">{option}</span>
-                                      </div>
+                                      <span className="text-base font-medium">{option}</span>
                                     </button>
                                   );
                                 })}
