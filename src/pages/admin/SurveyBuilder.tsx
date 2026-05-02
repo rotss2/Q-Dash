@@ -188,6 +188,7 @@ export default function SurveyBuilder() {
 
   // Add a section header
   const addSectionHeader = () => {
+    const insertIndex = activeQuestionIndex !== null ? activeQuestionIndex + 1 : questions.length;
     const newQuestion: FormQuestion = {
       id: generateId(),
       block_type: 'heading',
@@ -195,14 +196,18 @@ export default function SurveyBuilder() {
       question_text: 'PART X: SECTION TITLE',
       options: [],
       required: false,
-      order_index: questions?.length || 0
+      order_index: insertIndex
     };
-    setQuestions([...questions, newQuestion]);
+    const newQuestions = [...questions];
+    newQuestions.splice(insertIndex, 0, newQuestion);
+    setQuestions(newQuestions.map((q, i) => ({ ...q, order_index: i })));
+    setActiveQuestionIndex(insertIndex);
     showToast('Section header added! Edit the text to your section title.', 'success');
   };
 
   // Add a legend/instruction
   const addLegend = () => {
+    const insertIndex = activeQuestionIndex !== null ? activeQuestionIndex + 1 : questions.length;
     const newQuestion: FormQuestion = {
       id: generateId(),
       block_type: 'instruction',
@@ -210,24 +215,18 @@ export default function SurveyBuilder() {
       question_text: 'Instructions: 1 = Strongly Disagree, 2 = Disagree, 3 = Neutral, 4 = Agree, 5 = Strongly Agree',
       options: [],
       required: false,
-      order_index: questions?.length || 0
+      order_index: insertIndex
     };
-    setQuestions([...questions, newQuestion]);
+    const newQuestions = [...questions];
+    newQuestions.splice(insertIndex, 0, newQuestion);
+    setQuestions(newQuestions.map((q, i) => ({ ...q, order_index: i })));
+    setActiveQuestionIndex(insertIndex);
     showToast('Legend added! Edit the text to customize instructions.', 'success');
   };
 
   // Add a 1-5 rating scale question
   const addRatingScale = () => {
-    const newQuestion: FormQuestion = {
-      id: generateId(),
-      block_type: 'question',
-      type: 'likert',
-      question_text: 'Enter your rating scale question here',
-      options: ['1', '2', '3', '4', '5'],
-      required: true,
-      order_index: questions?.length || 0
-    };
-    setQuestions([...questions, newQuestion]);
+    addQuestion('likert', ['1', '2', '3', '4', '5'], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined);
     showToast('Rating scale (1-5) question added!', 'success');
   };
 
