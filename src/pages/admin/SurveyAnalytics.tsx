@@ -778,7 +778,7 @@ export default function SurveyAnalytics() {
                 <button
                   type="button"
                   onClick={handleResetResponses}
-                  disabled={isResetting || responses.length === 0}
+                  disabled={isResetting}
                   className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-1.5"
                   title="Clear all responses and allow respondents to answer again"
                 >
