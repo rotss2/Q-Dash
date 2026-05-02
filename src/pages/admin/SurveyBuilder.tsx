@@ -1048,7 +1048,7 @@ export default function SurveyBuilder() {
             return (
             <div 
               key={question.id} 
-              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${connectMode ? 'cursor-pointer' : ''} ${isSource ? 'ring-4 ring-orange-400 bg-orange-50' : ''} ${isConnected && !isSource ? 'ring-2 ring-orange-200' : ''} ${activeQuestionIndex === index ? 'ring-2 ring-blue-400' : ''}`}
+              className={`relative transition-all mb-6 ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${connectMode ? 'cursor-pointer' : ''} ${isSource ? 'ring-4 ring-orange-400 bg-orange-50' : ''} ${isConnected && !isSource ? 'ring-2 ring-orange-200' : ''} ${activeQuestionIndex === index ? 'ring-2 ring-blue-400' : ''}`}
               draggable={!connectMode}
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
@@ -1102,7 +1102,7 @@ export default function SurveyBuilder() {
                 <div className="absolute left-10 sm:left-12 top-full bottom-[-16px] w-0.5 bg-indigo-300 z-0"></div>
               )}
               
-              <div className={`card relative ml-0 sm:ml-2 p-5 sm:p-6 mb-4 ${groupInfo.isGrouped ? 'border-indigo-200' : ''} ${groupInfo.isGroupStart ? 'ring-2 ring-indigo-400 shadow-md bg-white' : groupInfo.isGrouped ? 'bg-white/80' : ''}`}>
+              <div className={`card relative ml-0 sm:ml-2 p-5 sm:p-6 ${groupInfo.isGrouped ? 'border-indigo-200' : ''} ${groupInfo.isGroupStart ? 'ring-2 ring-indigo-400 shadow-md bg-white' : groupInfo.isGrouped ? 'bg-white/80' : ''}`}>
               {/* Insert toolbar - appears on hover */}
               <div className="flex items-center gap-1 mb-2 opacity-0 hover:opacity-100 transition-opacity -mt-4">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent to-gray-300"></div>
@@ -1246,6 +1246,45 @@ export default function SurveyBuilder() {
                   {/* Conditional logic and options only for question blocks */}
                   {question.block_type === 'question' && (
                     <>
+                      {/* Question type-specific options */}
+                      {question.type === 'choice' && (
+                        <div className="space-y-2">
+                          <label className="label">Options</label>
+                          <div className="space-y-2">
+                            {question.options.map((option, optIndex) => (
+                              <div key={optIndex} className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={option}
+                                  onChange={(e) => {
+                                    const newOptions = [...question.options];
+                                    newOptions[optIndex] = e.target.value;
+                                    updateQuestion(question.id, { options: newOptions });
+                                  }}
+                                  className="input flex-1"
+                                  placeholder={`Option ${optIndex + 1}`}
+                                />
+                                <button
+                                  onClick={() => {
+                                    const newOptions = question.options.filter((_, i) => i !== optIndex);
+                                    updateQuestion(question.id, { options: newOptions });
+                                  }}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded"
+                                  title="Remove option"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => updateQuestion(question.id, { options: [...question.options, `Option ${question.options.length + 1}`] })}
+                              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                            >
+                              + Add Option
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       <div className="grid gap-4 lg:grid-cols-2">
                         <div>
                           <label className="label">Show this question only if</label>
