@@ -82,6 +82,9 @@ export default function SurveyBuilder() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   
+  // Track active question for relative insertion
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState<number | null>(null);
+  
   // Connector tool state
   const [connectMode, setConnectMode] = useState(false);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
@@ -150,7 +153,8 @@ export default function SurveyBuilder() {
     })));
   };
 
-  const addQuestion = (type: QuestionType, options: string[] = [], blockType: FormQuestion['block_type'] = 'question') => {
+  const addQuestion = (type: QuestionType, options: string[] = [], blockType: FormQuestion['block_type'] = 'question', insertAfterIndex?: number) => {
+    const insertIndex = insertAfterIndex !== undefined ? insertAfterIndex + 1 : questions.length;
     const newQuestion: FormQuestion = {
       id: generateId(),
       block_type: blockType,
@@ -158,9 +162,12 @@ export default function SurveyBuilder() {
       question_text: '',
       options: options.length > 0 ? options : type === 'choice' ? ['Option 1', 'Option 2'] : type === 'likert' ? ['1', '2', '3', '4', '5'] : [],
       required: blockType === 'question',
-      order_index: questions?.length || 0
+      order_index: insertIndex
     };
-    setQuestions([...questions, newQuestion]);
+    const newQuestions = [...questions];
+    newQuestions.splice(insertIndex, 0, newQuestion);
+    setQuestions(newQuestions.map((q, i) => ({ ...q, order_index: i })));
+    setActiveQuestionIndex(insertIndex);
   };
 
   // Insert a block at a specific position
@@ -237,8 +244,8 @@ export default function SurveyBuilder() {
    * The UI displays it as "Boolean" when options are exactly ['Yes', 'No'] (see line 464-466).
    * This is intentional design - there is no separate 'boolean' column in the database.
    */
-  const addBooleanQuestion = () => {
-    addQuestion('choice', ['Yes', 'No']);
+  const addBooleanQuestion = (insertAfterIndex?: number) => {
+    addQuestion('choice', ['Yes', 'No'], 'question', insertAfterIndex);
   };
 
   const updateQuestion = (id: string, updates: Partial<FormQuestion>) => {
@@ -909,28 +916,28 @@ export default function SurveyBuilder() {
                 </div>
               </div>
               <button
-                onClick={() => addQuestion('text')}
+                onClick={() => addQuestion('text', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
                 <div className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center text-xs">T</div>
                 <span>Text</span>
               </button>
               <button
-                onClick={() => addQuestion('choice')}
+                onClick={() => addQuestion('choice', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
                 <div className="w-4 h-4 bg-green-100 rounded flex items-center justify-center text-xs">✓</div>
                 <span>Multiple Choice</span>
               </button>
               <button
-                onClick={addBooleanQuestion}
+                onClick={() => addBooleanQuestion(activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
                 <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center text-xs">?</div>
                 <span>Yes/No</span>
               </button>
               <button
-                onClick={() => addQuestion('likert')}
+                onClick={() => addQuestion('likert', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                 className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
               >
                 <div className="w-4 h-4 bg-orange-100 rounded flex items-center justify-center text-xs">1-5</div>
@@ -938,39 +945,49 @@ export default function SurveyBuilder() {
               </button>
             </div>
             <div className="mt-3 pt-3 border-t border-gray-200">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-600">Structure Blocks</span>
+                {activeQuestionIndex !== null && (
+                  <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                    Insert after Q{activeQuestionIndex + 1}
+                  </span>
+                )}
               </div>
               <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
                 <button
-                  onClick={() => addQuestion('text', [], 'heading')}
+                  onClick={() => addQuestion('text', [], 'heading', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                   className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 hover:border-indigo-300 transition-colors text-sm"
                 >
                   <div className="w-4 h-4 bg-indigo-100 rounded flex items-center justify-center text-xs flex-shrink-0">H</div>
                   <span className="text-indigo-700">Heading</span>
                 </button>
                 <button
-                  onClick={() => addQuestion('text', [], 'instruction')}
+                  onClick={() => addQuestion('text', [], 'instruction', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                   className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-cyan-50 border border-cyan-200 rounded-lg hover:bg-cyan-100 hover:border-cyan-300 transition-colors text-sm"
                 >
                   <div className="w-4 h-4 bg-cyan-100 rounded flex items-center justify-center text-xs flex-shrink-0">i</div>
                   <span className="text-cyan-700">Instruction</span>
                 </button>
                 <button
-                  onClick={addLegend}
+                  onClick={() => addQuestion('text', [], 'instruction', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                   className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 hover:border-purple-300 transition-colors text-sm"
                 >
                   <div className="w-4 h-4 bg-purple-100 rounded flex items-center justify-center text-xs flex-shrink-0">★</div>
                   <span className="text-purple-700">Legend/Notes</span>
                 </button>
                 <button
-                  onClick={() => addQuestion('text', [], 'page_break')}
+                  onClick={() => addQuestion('text', [], 'page_break', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                   className="flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 hover:border-gray-400 transition-colors text-sm"
                 >
                   <div className="w-4 h-4 bg-gray-200 rounded flex items-center justify-center text-xs flex-shrink-0">↵</div>
                   <span className="text-gray-700">Page Break</span>
                 </button>
               </div>
+              {activeQuestionIndex === null && (
+                <p className="text-[10px] text-gray-400 mt-2">
+                  💡 Click a question first to select where to insert blocks
+                </p>
+              )}
             </div>
           </div>
           
@@ -1031,14 +1048,20 @@ export default function SurveyBuilder() {
             return (
             <div 
               key={question.id} 
-              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${connectMode ? 'cursor-pointer' : ''} ${isSource ? 'ring-4 ring-orange-400 bg-orange-50' : ''} ${isConnected && !isSource ? 'ring-2 ring-orange-200' : ''}`}
+              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${connectMode ? 'cursor-pointer' : ''} ${isSource ? 'ring-4 ring-orange-400 bg-orange-50' : ''} ${isConnected && !isSource ? 'ring-2 ring-orange-200' : ''} ${activeQuestionIndex === index ? 'ring-2 ring-blue-400' : ''}`}
               draggable={!connectMode}
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, index)}
-              onClick={connectMode ? () => handleItemClickForConnect(question.id) : undefined}
+              onClick={connectMode ? () => handleItemClickForConnect(question.id) : () => setActiveQuestionIndex(index)}
             >
+              {/* Active indicator badge */}
+              {activeQuestionIndex === index && !connectMode && (
+                <div className="absolute -top-2 right-4 bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full font-medium z-20">
+                  Active
+                </div>
+              )}
               {/* Connection node - visual dot on the timeline */}
               <div className="absolute left-[18px] sm:left-[22px] top-8 w-2.5 h-2.5 rounded-full bg-indigo-500 border-2 border-white shadow-sm hidden sm:block z-10"></div>
               
@@ -1320,13 +1343,13 @@ export default function SurveyBuilder() {
                   Bulk Import Questions
                 </button>
                 <button
-                  onClick={() => addQuestion('text')}
+                  onClick={() => addQuestion('text', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                   className="btn-secondary"
                 >
                   Add Text Question
                 </button>
                 <button
-                  onClick={addBooleanQuestion}
+                  onClick={() => addBooleanQuestion(activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                   className="btn-secondary"
                 >
                   Add Boolean Question
