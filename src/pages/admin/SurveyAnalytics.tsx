@@ -840,7 +840,7 @@ export default function SurveyAnalytics() {
         {activeView === 'intelligence' ? (
           /* Intelligence Dashboard */
           <IntelligenceDashboard
-            questions={questions}
+            questions={validQuestions}
             responses={responses}
             surveyTitle={survey?.title || 'Survey'}
           />
@@ -853,7 +853,7 @@ export default function SurveyAnalytics() {
                 <Calculator className="w-5 h-5 text-blue-600" />
                 Descriptive Statistics (Likert Scale Questions)
               </h2>
-              {questions.filter(q => q.type === 'likert').length === 0 ? (
+              {validQuestions.filter(q => q.type === 'likert').length === 0 ? (
                 <p className="text-gray-500">No Likert scale questions available for statistical analysis</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -871,7 +871,7 @@ export default function SurveyAnalytics() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {questions.filter(q => q.type === 'likert').map(q => {
+                      {validQuestions.filter(q => q.type === 'likert').map(q => {
                         const stats = calculateQuestionStats(q.id, q.type);
                         return stats ? (
                           <tr key={q.id}>
@@ -893,7 +893,7 @@ export default function SurveyAnalytics() {
             </div>
 
             {/* Correlation Matrix */}
-            {questions.filter(q => q.type === 'likert' || q.type === 'choice').length >= 2 && (
+            {validQuestions.filter(q => q.type === 'likert' || q.type === 'choice').length >= 2 && (
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-green-600" />
@@ -904,20 +904,20 @@ export default function SurveyAnalytics() {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Questions</th>
-                        {questions.filter(q => q.type === 'likert' || q.type === 'choice').map(q => (
+                        {validQuestions.filter(q => q.type === 'likert' || q.type === 'choice').map(q => (
                           <th key={q.id} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase max-w-[8rem] truncate">
-                            Q{questions.filter(q2 => q2.type === 'likert' || q2.type === 'choice').indexOf(q) + 1}
+                            Q{validQuestions.filter(q2 => q2.type === 'likert' || q2.type === 'choice').indexOf(q) + 1}
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {questions.filter(q => q.type === 'likert' || q.type === 'choice').map((q1, i) => (
+                      {validQuestions.filter(q => q.type === 'likert' || q.type === 'choice').map((q1, i) => (
                         <tr key={q1.id}>
                           <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
                             Q{i + 1}: {q1.question_text}
                           </td>
-                          {questions.filter(q => q.type === 'likert' || q.type === 'choice').map((q2, j) => {
+                          {validQuestions.filter(q => q.type === 'likert' || q.type === 'choice').map((q2, j) => {
                             if (i === j) {
                               return <td key={q2.id} className="px-4 py-3 text-center text-sm text-gray-300 bg-gray-50">—</td>;
                             }
@@ -956,7 +956,7 @@ export default function SurveyAnalytics() {
         ) : activeView === 'conclusion' ? (
           /* Research Conclusion */
           <ResearchConclusion
-            questions={questions}
+            questions={validQuestions}
             responses={responses}
             surveyTitle={survey?.title || 'Survey'}
           />
