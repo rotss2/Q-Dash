@@ -828,10 +828,23 @@ function SurveyContent() {
       return;
     }
 
+    // Validate required parameters before calling RPC
+    if (!surveyId) {
+      console.error('Survey ID is missing');
+      showToast('Survey ID is missing. Please refresh the page.', 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
     // Record survey completion and email BEFORE inserting responses
-    const { data: completionRecorded, error: completionError } =
-      await supabase.rpc('record_survey_completion', {
-        p_survey_id: surveyId!,
+    // Add retry logic for transient failures
+    let completionResult = null;
+    let completionError = null;
+    const maxRetries = 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const result = await supabase.rpc('record_survey_completion', {
+        p_survey_id: surveyId,
         p_user_id: userId,
         p_fingerprint: fingerprint,
         p_ip_address: typeof window !== 'undefined' ? window.location.hostname : undefined,
@@ -841,12 +854,34 @@ function SurveyContent() {
         p_age: userAge ? parseInt(userAge, 10) : null,
       });
 
+      if (!result.error) {
+        completionResult = result.data;
+        completionError = null;
+        break;
+      }
+
+      completionError = result.error;
+      console.warn(`Attempt ${attempt} failed:`, result.error);
+
+      if (attempt < maxRetries) {
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+      }
+    }
+
     if (completionError) {
-      console.error('Failed to record survey completion:', completionError);
-      showToast('Unable to record your submission. Please try again.', 'error');
+      console.error('Failed to record survey completion after all retries:', completionError);
+      console.error('Error details:', JSON.stringify(completionError, null, 2));
+      console.error('Survey ID:', surveyId);
+      console.error('User ID:', userId);
+      console.error('Email:', cleanedEmail);
+      const errorMessage = completionError.message || completionError.details || 'Unable to record your submission. Please try again.';
+      showToast(`Submission error: ${errorMessage}`, 'error');
       setIsSubmitting(false);
       return;
     }
+
+    const completionRecorded = completionResult;
 
     if (!completionRecorded) {
       setIsBlocked(true);
