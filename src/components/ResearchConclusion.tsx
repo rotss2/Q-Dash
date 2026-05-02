@@ -92,7 +92,8 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
   // Generate comprehensive conclusion
   const conclusion = useMemo(() => {
     const textResponseCount = textInsights.reduce((sum, insight) => sum + insight.responseCount, 0);
-    const uniqueRespondents = new Set(responses.map(r => r.user_id)).size;
+    const uniqueRespondents = new Set(responses.map(r => r.user_id).filter(Boolean)).size;
+    const answerRowCount = responses.length;
     
     // Count responses for non-likert questions (multiple_choice, text, etc.)
     const nonLikertResponses = responses.filter(r => {
@@ -100,8 +101,8 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
       return q && q.type !== 'likert';
     });
     
-    // Calculate total meaningful responses (any question type)
-    const totalMeaningfulResponses = responses.length;
+    // Total meaningful responses = unique respondents (actual submissions)
+    const totalMeaningfulResponses = uniqueRespondents;
     
     // Generate conclusion with 2+ responses of any type
     if (totalMeaningfulResponses >= 2 || uniqueRespondents >= 1) {
@@ -153,11 +154,12 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
           highest,
           lowest,
           consistencyScore: consistencyScore.toFixed(0),
-          totalResponses: responses.length,
+          totalResponses: uniqueRespondents,
+          answerRows: answerRowCount,
           likertResponses: satisfactionMetrics.reduce((sum, m) => sum + m.count, 0)
         };
       }
-      
+
       // No likert questions, but have text/other responses
       if (textResponseCount > 0 || nonLikertResponses.length > 0) {
         const hasText = textResponseCount > 0;
@@ -205,7 +207,8 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
           highest: null,
           lowest: null,
           consistencyScore: '0',
-          totalResponses: responses.length,
+          totalResponses: uniqueRespondents,
+          answerRows: answerRowCount,
           likertResponses: 0
         };
       }
@@ -215,14 +218,15 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
     return {
       summary: 'Insufficient data to generate a conclusion.',
       keyFindings: [],
-      limitation: `Only ${responses.length} response(s) received. Need at least 2 responses for analysis.`,
+      limitation: `Only ${uniqueRespondents} respondent(s) received. Need at least 2 respondents for analysis.`,
       nextSteps: 'Collect more responses to enable automated analysis. Share survey link with participants.',
       overallScore: null,
-      responseRate: responses.length,
+      responseRate: uniqueRespondents,
       consistencyScore: 0,
       highest: null,
       lowest: null,
-      totalResponses: responses.length,
+      totalResponses: uniqueRespondents,
+      answerRows: answerRowCount,
       likertResponses: 0
     };
   }, [satisfactionMetrics, textInsights, responses, questions]);
@@ -260,8 +264,8 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
                 <span className="ml-2 font-semibold">{uniqueRespondents}</span>
               </div>
               <div>
-                <span className="text-white/60">Total Responses:</span>
-                <span className="ml-2 font-semibold">{conclusion.totalResponses}</span>
+                <span className="text-white/60">Answer Rows:</span>
+                <span className="ml-2 font-semibold">{conclusion.answerRows}</span>
               </div>
               <div>
                 <span className="text-white/60">Overall Score:</span>
@@ -429,7 +433,7 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
         <div className="flex gap-2 text-sm text-gray-600">
           <AlertCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
           <p>
-            <span className="font-medium">Methodology:</span> This analysis is based on {uniqueRespondents} unique respondents and {conclusion.totalResponses} individual responses to Likert-scale questions. Statistical measures include mean, median, and standard deviation. Results should be interpreted within the context of sample size and response distribution.
+            <span className="font-medium">Methodology:</span> This analysis is based on {uniqueRespondents} unique respondent{uniqueRespondents === 1 ? '' : 's'} ({conclusion.answerRows} answer rows analyzed). Statistical measures include mean, median, and standard deviation. Results should be interpreted within the context of sample size and response distribution.
           </p>
         </div>
       </div>

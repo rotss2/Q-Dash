@@ -48,6 +48,17 @@ export default function IntelligenceDashboard({ questions, responses, surveyTitl
   const [selectedFilter, setSelectedFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'insights' | 'themes' | 'charts'>('insights');
 
+  // Count unique respondents (actual submissions) vs answer rows
+  const uniqueRespondentCount = useMemo(() => {
+    return new Set(
+      responses
+        .map((response) => response.user_id)
+        .filter(Boolean)
+    ).size;
+  }, [responses]);
+
+  const answerRowCount = responses.length;
+
   // Group responses by question
   const responsesByQuestion = useMemo(() => {
     const grouped: Record<string, typeof responses> = {};
@@ -238,7 +249,8 @@ RESEARCH INTELLIGENCE REPORT
 =============================
 Survey: ${surveyTitle}
 Generated: ${new Date().toLocaleDateString()}
-Total Responses: ${responses.length}
+Total Respondents: ${uniqueRespondentCount}
+Answer Rows Analyzed: ${answerRowCount}
 
 EXECUTIVE SUMMARY
 -----------------
@@ -352,7 +364,10 @@ ${conclusions.filter(c => c.confidence === 'high').map(c => `• ${c.questionTex
             Research Intelligence
           </h2>
           <p className="text-sm text-slate-600 mt-1">
-            Automated insights and analysis from {responses.length} responses
+            Automated insights and analysis from {uniqueRespondentCount} respondent{uniqueRespondentCount === 1 ? '' : 's'}
+            {answerRowCount > 0 && (
+              <span className="text-slate-400"> • {answerRowCount} answer rows analyzed</span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
