@@ -825,6 +825,19 @@ app.post('/api/admin/surveys/:surveyId/reset-responses', requireAdmin, async (re
       });
     }
 
+    // Delete all live sessions for this survey
+    const { error: liveSessionsError } = await supabaseAdmin
+      .from('survey_live_sessions')
+      .delete()
+      .eq('survey_id', surveyId);
+
+    if (liveSessionsError) {
+      console.error('Failed to delete live sessions:', liveSessionsError);
+      return res.status(500).json({
+        error: 'Failed to delete live sessions.'
+      });
+    }
+
     // Reset the cached response count
     const { error: updateError } = await supabaseAdmin
       .from('surveys')

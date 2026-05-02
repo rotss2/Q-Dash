@@ -134,7 +134,10 @@ export default function SurveyAnalytics() {
       }
     });
 
-    return Array.from(questionMap.values()).map((question) => {
+    // Filter to only include actual questions (exclude page_break, heading, instruction blocks)
+    return Array.from(questionMap.values())
+      .filter((question) => question.block_type === 'question')
+      .map((question) => {
       const questionResponses = filteredResponses.filter((r) => r.question_id === question.id);
       const answers: { [key: string]: number } = {};
       
@@ -1047,7 +1050,15 @@ export default function SurveyAnalytics() {
                             responsive: true,
                             maintainAspectRatio: false,
                             plugins: {
-                              legend: { display: false }
+                              legend: { display: false },
+                              tooltip: {
+                                callbacks: {
+                                  label: (context) => {
+                                    const count = context.raw as number;
+                                    return `${count} response${count !== 1 ? 's' : ''}`;
+                                  }
+                                }
+                              }
                             },
                             scales: {
                               y: {
@@ -1062,7 +1073,18 @@ export default function SurveyAnalytics() {
                           data={getChartData(agg) as ChartData<'pie'>}
                           options={{
                             responsive: true,
-                            maintainAspectRatio: false
+                            maintainAspectRatio: false,
+                            plugins: {
+                              tooltip: {
+                                callbacks: {
+                                  label: (context) => {
+                                    const count = context.raw as number;
+                                    const label = context.label || '';
+                                    return `${label}: ${count} response${count !== 1 ? 's' : ''}`;
+                                  }
+                                }
+                              }
+                            }
                           }}
                         />
                       )}
