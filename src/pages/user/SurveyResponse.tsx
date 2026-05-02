@@ -6,7 +6,7 @@ import { getAnonymousUserId } from '../../lib/fingerprint';
 import { Survey, Question } from '../../types';
 import { LanguageProvider, useLanguage } from '../../hooks/useLanguage';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
-import { CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Download, Printer } from 'lucide-react';
+import { CheckCircle, AlertCircle, ChevronRight, ChevronLeft, Download, Printer, ShieldAlert, Eye, Camera } from 'lucide-react';
 import { ThemedBackground } from '../../components/ThemedBackground';
 import html2pdf from 'html2pdf.js';
 
@@ -38,6 +38,12 @@ function SurveyContent() {
   const [userId, setUserId] = useState<string>('');
   const [fingerprint, setFingerprint] = useState<string>('');
   const [showWelcome, setShowWelcome] = useState(true);
+  
+  // Security/Anti-cheating states
+  const [securityViolation, setSecurityViolation] = useState<string | null>(null);
+  const [violationCount, setViolationCount] = useState(0);
+  const [showSecurityWarning, setShowSecurityWarning] = useState(false);
+  const [isScreenCaptured, setIsScreenCaptured] = useState(false);
 
   const answersMap = useMemo(
     () => Object.fromEntries(answers.map((answer) => [answer.question_id, answer.answer])),
@@ -314,6 +320,157 @@ function SurveyContent() {
       presenceChannel.unsubscribe();
     };
   }, [surveyId, userId, hasSubmitted]);
+
+  // ANTI-CHEATING: Detect tab/window switching
+  useEffect(() => {
+    if (showWelcome || hasSubmitted) return;
+
+    let blurTimeout: NodeJS.Timeout;
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        blurTimeout = setTimeout(() => {
+          triggerSecurityViolation('tab-switch', 'You switched to another tab or window');
+        }, 500);
+      } else {
+        clearTimeout(blurTimeout);
+      }
+    };
+
+    const handleBlur = () => {
+      blurTimeout = setTimeout(() => {
+        triggerSecurityViolation('window-blur', 'Window focus was lost - possible Alt+Tab');
+      }, 300);
+    };
+
+    const handleFocus = () => {
+      clearTimeout(blurTimeout);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      clearTimeout(blurTimeout);
+    };
+  }, [showWelcome, hasSubmitted]);
+
+  // ANTI-CHEATING: Detect print screen, dev tools, right-click
+  useEffect(() => {
+    if (showWelcome || hasSubmitted) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Print Screen
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        e.preventDefault();
+        triggerSecurityViolation('screenshot', 'Print Screen key detected');
+        return false;
+      }
+      
+      // Ctrl+Shift+I (Dev Tools)
+      if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.keyCode === 73)) {
+        e.preventDefault();
+        triggerSecurityViolation('dev-tools', 'Developer tools shortcut blocked');
+        return false;
+      }
+      
+      // Ctrl+Shift+J (Console)
+      if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j' || e.keyCode === 74)) {
+        e.preventDefault();
+        triggerSecurityViolation('dev-tools', 'Developer console shortcut blocked');
+        return false;
+      }
+      
+      // F12 (Dev Tools)
+      if (e.key === 'F12' || e.keyCode === 123) {
+        e.preventDefault();
+        triggerSecurityViolation('dev-tools', 'Developer tools key blocked');
+        return false;
+      }
+      
+      // Ctrl+U (View Source)
+      if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.keyCode === 85)) {
+        e.preventDefault();
+        triggerSecurityViolation('view-source', 'View source blocked');
+        return false;
+      }
+      
+      // Ctrl+C (Copy)
+      if (e.ctrlKey && (e.key === 'C' || e.key === 'c' || e.keyCode === 67)) {
+        triggerSecurityViolation('copy', 'Copying content is not allowed');
+      }
+      
+      // Ctrl+P (Print)
+      if (e.ctrlKey && (e.key === 'P' || e.key === 'p' || e.keyCode === 80)) {
+        e.preventDefault();
+        triggerSecurityViolation('print', 'Printing is not allowed during the survey');
+        return false;
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      triggerSecurityViolation('right-click', 'Right-click is disabled');
+      return false;
+    };
+
+    const handleBeforePrint = () => {
+      triggerSecurityViolation('print', 'Print dialog detected');
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('beforeprint', handleBeforePrint);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('beforeprint', handleBeforePrint);
+    };
+  }, [showWelcome, hasSubmitted]);
+
+  // ANTI-CHEATING: Detect text selection
+  useEffect(() => {
+    if (showWelcome || hasSubmitted) return;
+
+    const handleSelection = () => {
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) {
+        triggerSecurityViolation('text-select', 'Text selection is not allowed');
+        selection.removeAllRanges();
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelection);
+    
+    return () => {
+      document.removeEventListener('selectionchange', handleSelection);
+    };
+  }, [showWelcome, hasSubmitted]);
+
+  // Security violation handler
+  const triggerSecurityViolation = (type: string, message: string) => {
+    const timestamp = new Date().toISOString();
+    console.warn(`[SECURITY VIOLATION] ${type}: ${message} at ${timestamp}`);
+    
+    setSecurityViolation(message);
+    setViolationCount(prev => prev + 1);
+    setShowSecurityWarning(true);
+    setIsScreenCaptured(true);
+    
+    // Log to database (optional - can be enabled)
+    // logSecurityEvent(type, message, timestamp);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      setShowSecurityWarning(false);
+      setIsScreenCaptured(false);
+    }, 5000);
+  };
 
   useEffect(() => {
     if (surveyId && userId) {
@@ -886,7 +1043,68 @@ function SurveyContent() {
   }
 
   return (
-    <div className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass} relative`}>
+    <div 
+      className={`min-h-screen ${themeClasses.bg} flex flex-col ${fontClass} relative select-none`}
+      style={{ 
+        WebkitUserSelect: 'none', 
+        userSelect: 'none',
+        WebkitTouchCallout: 'none'
+      }}
+    >
+      {/* Security Warning Modal */}
+      {showSecurityWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-pulse border-4 border-red-500">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                <ShieldAlert className="w-8 h-8 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-red-600">Security Alert!</h3>
+                <p className="text-sm text-gray-500">Violation #{violationCount}</p>
+              </div>
+            </div>
+            <p className="text-gray-800 text-lg mb-4 text-center font-medium">
+              {securityViolation}
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-700 text-center">
+                This activity has been logged. Please focus on the survey.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSecurityWarning(false)}
+              className="w-full py-3 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors"
+            >
+              I Understand - Continue Survey
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Screenshot Detection Overlay */}
+      {isScreenCaptured && (
+        <div className="fixed inset-0 z-40 pointer-events-none">
+          <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-bounce">
+            <Camera className="w-5 h-5" />
+            <span className="font-semibold text-sm">Screenshot Detected!</span>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Security Badge */}
+      {!showWelcome && !hasSubmitted && (
+        <div className="fixed bottom-4 left-4 z-30 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 shadow-lg flex items-center gap-2">
+          <Eye className="w-4 h-4 text-green-600" />
+          <span className="text-xs font-medium text-gray-600">Secure Mode Active</span>
+          {violationCount > 0 && (
+            <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full font-bold">
+              {violationCount}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Animated Background Theme */}
       <ThemedBackground theme={survey?.background_theme || 'default'} />
       
