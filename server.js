@@ -264,7 +264,8 @@ app.post('/api/admin/surveys', requireAdmin, async (req, res) => {
         default_language: req.body.default_language || null,
         supported_languages: req.body.supported_languages || null,
         open_date: req.body.open_date || null,
-        close_date: req.body.close_date || null
+        close_date: req.body.close_date || null,
+        anti_cheating_enabled: req.body.anti_cheating_enabled || false
       })
       .select()
       .single();
@@ -344,7 +345,8 @@ app.put('/api/admin/surveys/:surveyId', requireAdmin, async (req, res) => {
         default_language: req.body.default_language || null,
         supported_languages: req.body.supported_languages || null,
         open_date: req.body.open_date || null,
-        close_date: req.body.close_date || null
+        close_date: req.body.close_date || null,
+        anti_cheating_enabled: req.body.anti_cheating_enabled || false
       })
       .eq('id', surveyId)
       .select()
@@ -1010,7 +1012,7 @@ app.get('/api/health', (_req, res) => {
 // SERVER STARTUP
 // ============================================================================
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Serving files from: ${distPath}`);
   
