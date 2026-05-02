@@ -918,194 +918,217 @@ function SurveyContent() {
               </button>
             </div>
           ) : (
-            // Questions
-            currentQuestion && (
+            // Section-based Questions
+            currentSection && (
               <div className="card space-y-6">
-              {/* Logo Header - PROMINENT Branding */}
-              <div className="flex flex-col items-center gap-3 pb-6 border-b-2 border-gray-100">
-                <div className="relative">
-                  <img 
-                    src="/logo.png" 
-                    alt="SurveyTest" 
-                    className="h-20 sm:h-24 md:h-28 w-auto object-contain drop-shadow-lg"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-gray-800 tracking-wide">SurveyTest</p>
-                  <p className="text-xs text-gray-500">Smart Data Insights</p>
-                </div>
-              </div>
-              
-              {/* Question - BIGGER & BOLDER */}
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md ${themeClasses.button}`}>
-                    {currentQuestionIndex + 1}
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-snug break-words">
-                      {currentQuestion.question_text}
-                      {currentQuestion.required && (
-                        <span className="text-red-500 ml-2" title={t('required')}>*</span>
-                      )}
-                    </h2>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        currentQuestion.type === 'text' ? 'bg-blue-100 text-blue-700' :
-                        currentQuestion.type === 'choice' ? 'bg-green-100 text-green-700' :
-                        'bg-orange-100 text-orange-700'
-                      }`}>
-                        {currentQuestion.type === 'text' ? 'Text Response' :
-                         currentQuestion.type === 'choice' ? 'Multiple Choice' :
-                         'Rating Scale'}
-                      </span>
-                      {currentQuestion.required && (
-                        <span className="text-xs text-gray-500">Required</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Answer Input */}
-              <div className="space-y-4">
-                {currentQuestion.type === 'text' && (
+                {/* Logo Header - PROMINENT Branding */}
+                <div className="flex flex-col items-center gap-3 pb-6 border-b-2 border-gray-100">
                   <div className="relative">
-                    <textarea
-                      value={getAnswer(currentQuestion.id)}
-                      onChange={(e) => updateAnswer(currentQuestion.id, e.target.value)}
-                      className="w-full p-4 border-2 border-gray-200 rounded-xl text-slate-900 min-h-[140px] focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
-                      placeholder={t('textPlaceholder')}
-                      autoFocus
+                    <img 
+                      src="/logo.png" 
+                      alt="SurveyTest" 
+                      className="h-20 sm:h-24 md:h-28 w-auto object-contain drop-shadow-lg"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
-                    {getAnswer(currentQuestion.id) && (
-                      <div className="absolute top-3 right-3">
-                        <CheckCircle className="w-5 h-5 text-green-500" />
-                      </div>
-                    )}
                   </div>
-                )}
-
-                {currentQuestion.type === 'choice' && currentQuestion.options && (
-                  <div className="space-y-4" role="radiogroup" aria-label={currentQuestion.question_text}>
-                    {currentQuestion.options.map((option) => {
-                      const isSelected = getAnswer(currentQuestion.id) === option;
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-gray-800 tracking-wide">SurveyTest</p>
+                    <p className="text-xs text-gray-500">Smart Data Insights</p>
+                  </div>
+                </div>
+                
+                {/* Section Title */}
+                <div className="border-b-2 border-gray-100 pb-4">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+                    {currentSection.title}
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Section {currentSectionIndex + 1} of {sections.length} • {currentSection.questionCount} question{currentSection.questionCount !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                
+                {/* Render All Items in Section */}
+                <div className="space-y-8">
+                  {currentSection.items.map((item) => {
+                    // HEADING - No number, just styled text
+                    if (item.block_type === 'heading') {
                       return (
-                        <button
-                          key={option}
-                          onClick={() => updateAnswer(currentQuestion.id, option)}
-                          className={`w-full p-5 sm:p-6 text-left border-2 rounded-2xl transition-all group ${
-                            isSelected
-                              ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-lg transform scale-[1.02]'
-                              : 'border-gray-200 hover:border-blue-300 text-slate-700 hover:bg-gray-50 hover:shadow-md'
-                          }`}
-                          role="radio"
-                          aria-checked={isSelected}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 flex items-center justify-center transition-all ${
-                              isSelected
-                                ? 'border-blue-500 bg-blue-500'
-                                : 'border-gray-300 group-hover:border-blue-400'
-                            }`}>
-                              {isSelected && (
-                                <div className="w-3 h-3 rounded-full bg-white" />
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <span className="text-lg sm:text-xl font-semibold break-words">{option}</span>
-                              {isSelected && (
-                                <span className="ml-3 text-sm text-blue-600 font-medium bg-blue-100 px-2 py-1 rounded-full">Selected</span>
-                              )}
-                            </div>
-                            {isSelected && (
-                              <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-blue-500" />
-                            )}
-                          </div>
-                        </button>
+                        <div key={item.id} className="border-l-4 border-blue-500 pl-4 py-2">
+                          <h3 className="text-xl font-bold text-slate-900">{item.question_text}</h3>
+                        </div>
                       );
-                    })}
-                  </div>
-                )}
-
-                {currentQuestion.type === 'likert' && (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center px-2 text-xs text-gray-500">
-                      <span>Strongly Disagree</span>
-                      <span>Strongly Agree</span>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      {[1, 2, 3, 4, 5].map((value) => {
-                        const isSelected = getAnswer(currentQuestion.id) === value.toString();
-                        return (
-                          <button
-                            key={value}
-                            onClick={() => updateAnswer(currentQuestion.id, value.toString())}
-                            className={`flex-1 py-4 px-2 border-2 rounded-xl transition-all relative group ${
-                              isSelected
-                                ? `border-transparent ${themeClasses.button} text-white shadow-lg transform scale-105`
-                                : 'border-gray-200 hover:border-gray-300 text-slate-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            <span className="text-xl font-bold">{value}</span>
-                            {isSelected && (
-                              <div className="absolute -top-2 -right-2">
-                                <CheckCircle className="w-5 h-5 text-white" />
+                    }
+                    
+                    // INSTRUCTION - Info box, no number
+                    if (item.block_type === 'instruction') {
+                      return (
+                        <div key={item.id} className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                          <p className="text-blue-800 text-base leading-relaxed">{item.question_text}</p>
+                        </div>
+                      );
+                    }
+                    
+                    // QUESTION - Numbered with input
+                    if (item.block_type === 'question') {
+                      return (
+                        <div key={item.id} className="space-y-4">
+                          <div className="flex items-start gap-4">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-base font-bold shadow-md ${themeClasses.button}`}>
+                              {item._questionNumber}
+                            </div>
+                            <div className="flex-1 pt-1">
+                              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug break-words">
+                                {item.question_text}
+                                {item.required && (
+                                  <span className="text-red-500 ml-2" title={t('required')}>*</span>
+                                )}
+                              </h3>
+                              <div className="flex items-center gap-2 mt-2">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  item.type === 'text' ? 'bg-blue-100 text-blue-700' :
+                                  item.type === 'choice' ? 'bg-green-100 text-green-700' :
+                                  'bg-orange-100 text-orange-700'
+                                }`}>
+                                  {item.type === 'text' ? 'Text Response' :
+                                   item.type === 'choice' ? 'Multiple Choice' :
+                                   'Rating Scale'}
+                                </span>
+                                {item.required && (
+                                  <span className="text-xs text-gray-500">Required</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Answer Input */}
+                          <div className="space-y-4 pl-14">
+                            {item.type === 'text' && (
+                              <div className="relative">
+                                <textarea
+                                  value={getAnswer(item.id)}
+                                  onChange={(e) => updateAnswer(item.id, e.target.value)}
+                                  className="w-full p-4 border-2 border-gray-200 rounded-xl text-slate-900 min-h-[140px] focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
+                                  placeholder={t('textPlaceholder')}
+                                />
+                                {getAnswer(item.id) && (
+                                  <div className="absolute top-3 right-3">
+                                    <CheckCircle className="w-5 h-5 text-green-500" />
+                                  </div>
+                                )}
                               </div>
                             )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                            
+                            {item.type === 'choice' && item.options && (
+                              <div className="space-y-3" role="radiogroup" aria-label={item.question_text}>
+                                {item.options.map((option) => {
+                                  const isSelected = getAnswer(item.id) === option;
+                                  return (
+                                    <button
+                                      key={option}
+                                      onClick={() => updateAnswer(item.id, option)}
+                                      className={`w-full p-4 sm:p-5 text-left border-2 rounded-xl transition-all group ${
+                                        isSelected
+                                          ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-md transform scale-[1.01]'
+                                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                          isSelected
+                                            ? 'border-blue-500 bg-blue-500'
+                                            : 'border-gray-300 group-hover:border-blue-400'
+                                        }`}>
+                                          {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                                        </div>
+                                        <span className="text-base font-medium">{option}</span>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            
+                            {item.type === 'likert' && (
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center px-2 text-xs text-gray-500">
+                                  <span>Strongly Disagree</span>
+                                  <span className="font-medium">Neutral</span>
+                                  <span>Strongly Agree</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  {[1, 2, 3, 4, 5].map((value) => {
+                                    const isSelected = getAnswer(item.id) === value.toString();
+                                    return (
+                                      <button
+                                        key={value}
+                                        onClick={() => updateAnswer(item.id, value.toString())}
+                                        className={`flex-1 py-3 px-2 border-2 rounded-xl transition-all relative group ${
+                                          isSelected
+                                            ? `border-transparent ${themeClasses.button} text-white shadow-md transform scale-105`
+                                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        <span className="text-lg font-bold">{value}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return null;
+                  })}
+                </div>
 
-              {/* Navigation - Section Based */}
-              <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center">
-                {!isFirstSection && (
-                  <button
-                    onClick={goToPreviousSection}
-                    className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02] touch-manipulation"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                    {t('back')}
-                  </button>
-                )}
-                
-                {isLastSection ? (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        {t('loading')}
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-6 h-6" />
-                        {t('submit')}
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    onClick={goToNextSection}
-                    className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] shadow-lg touch-manipulation`}
-                  >
-                    {t('next')}
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                )}
+                {/* Navigation - Section Based */}
+                <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center border-t-2 border-gray-100 mt-8">
+                  {!isFirstSection && (
+                    <button
+                      onClick={goToPreviousSection}
+                      className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02] touch-manipulation"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                      {t('back')}
+                    </button>
+                  )}
+                  
+                  {isLastSection ? (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          {t('loading')}
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-6 h-6" />
+                          {t('submit')}
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={goToNextSection}
+                      className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] shadow-lg touch-manipulation`}
+                    >
+                      {t('next')}
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </main>
 
