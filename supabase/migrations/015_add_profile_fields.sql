@@ -2,6 +2,20 @@
 ALTER TABLE survey_sessions ADD COLUMN IF NOT EXISTS gender TEXT CHECK (gender IN ('male', 'female'));
 ALTER TABLE survey_sessions ADD COLUMN IF NOT EXISTS age INTEGER CHECK (age > 0 AND age <= 120);
 
+-- Drop ALL existing versions of the function (using wildcard to catch any signature)
+DO $$
+DECLARE
+  func_record RECORD;
+BEGIN
+  FOR func_record IN 
+    SELECT oid::regprocedure as func_name
+    FROM pg_proc 
+    WHERE proname = 'record_survey_completion'
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || func_record.func_name;
+  END LOOP;
+END $$;
+
 -- Update record_survey_completion function to accept and store gender and age
 CREATE OR REPLACE FUNCTION record_survey_completion(
   p_survey_id UUID,

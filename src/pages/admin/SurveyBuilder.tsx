@@ -162,6 +162,7 @@ export default function SurveyBuilder() {
   const addSectionHeader = () => {
     const newQuestion: FormQuestion = {
       id: generateId(),
+      block_type: 'heading',
       type: 'text',
       question_text: 'PART X: SECTION TITLE',
       options: [],
@@ -176,6 +177,7 @@ export default function SurveyBuilder() {
   const addLegend = () => {
     const newQuestion: FormQuestion = {
       id: generateId(),
+      block_type: 'instruction',
       type: 'text',
       question_text: 'Instructions: 1 = Strongly Disagree, 2 = Disagree, 3 = Neutral, 4 = Agree, 5 = Strongly Agree',
       options: [],
@@ -190,6 +192,7 @@ export default function SurveyBuilder() {
   const addRatingScale = () => {
     const newQuestion: FormQuestion = {
       id: generateId(),
+      block_type: 'question',
       type: 'likert',
       question_text: 'Enter your rating scale question here',
       options: ['1', '2', '3', '4', '5'],

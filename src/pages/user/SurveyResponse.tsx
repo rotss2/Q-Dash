@@ -1127,7 +1127,7 @@ function SurveyContent() {
                   )}
                 </div>
               </div>
-            ))
+            )
           )}
         </div>
       </main>
