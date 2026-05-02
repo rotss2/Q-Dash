@@ -915,9 +915,15 @@ function SurveyContent() {
       return true;
     });
 
+    // Only include questions that have actual answers (filter out skipped/empty questions)
+    const answeredQuestions = uniqueQuestions.filter((q) => {
+      const answer = getAnswer(q.id);
+      return answer && answer.trim() !== '';
+    });
+
     setSubmissionPreview({
       email: cleanedEmail || undefined,
-      answers: uniqueQuestions.map((q) => ({
+      answers: answeredQuestions.map((q) => ({
         questionText: q.question_text,
         answer: getAnswer(q.id)
       }))
@@ -1609,19 +1615,29 @@ function SurveyContent() {
                             )}
                             
                             {item.type === 'choice' && item.options && (
-                              <div className="space-y-3" role="radiogroup" aria-label={item.question_text}>
-                                {item.options.map((option) => {
+                              <div className="space-y-2" role="radiogroup" aria-label={item.question_text}>
+                                {item.options.map((option, optionIndex) => {
                                   const isSelected = getAnswer(item.id) === option;
                                   return (
                                     <button
                                       key={option}
                                       onClick={() => updateAnswer(item.id, option)}
-                                      className={`w-full p-4 sm:p-5 text-left border-2 rounded-xl transition-all group ${
+                                      className={`w-full p-4 text-left border-2 rounded-xl transition-all duration-200 flex items-center gap-3 ${
                                         isSelected
-                                          ? 'border-blue-500 bg-blue-50 text-blue-900 shadow-md transform scale-[1.01]'
-                                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                          ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                                          : 'border-gray-200 hover:border-slate-400 hover:bg-gray-50'
                                       }`}
+                                      role="radio"
+                                      aria-checked={isSelected}
+                                      tabIndex={isSelected ? 0 : -1}
                                     >
+                                      <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold transition-colors ${
+                                        isSelected
+                                          ? 'bg-white text-slate-900'
+                                          : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {optionIndex + 1}
+                                      </span>
                                       <span className="text-base font-medium">{option}</span>
                                     </button>
                                   );
@@ -1630,27 +1646,36 @@ function SurveyContent() {
                             )}
                             
                             {item.type === 'likert' && (
-                              <div className="space-y-3">
-                                <div className="flex justify-between items-center px-2 text-xs text-gray-500">
-                                  <span>Strongly Disagree</span>
-                                  <span className="font-medium">Neutral</span>
-                                  <span>Strongly Agree</span>
-                                </div>
-                                <div className="flex justify-between gap-2">
+                              <div className="space-y-4">
+                                {/* Rating scale with aligned labels and numbers */}
+                                <div className="grid grid-cols-5 gap-2 sm:gap-3">
                                   {[1, 2, 3, 4, 5].map((value) => {
                                     const isSelected = getAnswer(item.id) === value.toString();
+                                    const labels = ['Strongly\nDisagree', 'Disagree', 'Neutral', 'Agree', 'Strongly\nAgree'];
                                     return (
-                                      <button
-                                        key={value}
-                                        onClick={() => updateAnswer(item.id, value.toString())}
-                                        className={`flex-1 py-3 px-2 border-2 rounded-xl transition-all relative group ${
-                                          isSelected
-                                            ? `border-transparent ${themeClasses.button} text-white shadow-md transform scale-105`
-                                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                                        }`}
-                                      >
-                                        <span className="text-lg font-bold">{value}</span>
-                                      </button>
+                                      <div key={value} className="flex flex-col items-center gap-2">
+                                        {/* Label above each button */}
+                                        <span className={`text-[10px] sm:text-xs text-center font-medium leading-tight whitespace-pre-line min-h-[24px] sm:min-h-[28px] flex items-end ${
+                                          isSelected ? themeClasses.accent : 'text-gray-500'
+                                        }`}>
+                                          {labels[value - 1]}
+                                        </span>
+                                        {/* Number button */}
+                                        <button
+                                          onClick={() => updateAnswer(item.id, value.toString())}
+                                          className={`w-full aspect-square min-h-[44px] sm:min-h-[48px] border-2 rounded-xl transition-all duration-200 flex items-center justify-center ${
+                                            isSelected
+                                              ? 'border-transparent bg-slate-900 text-white shadow-md'
+                                              : 'border-gray-300 hover:border-slate-400 hover:bg-gray-50'
+                                          }`}
+                                          role="radio"
+                                          aria-checked={isSelected}
+                                          tabIndex={isSelected ? 0 : -1}
+                                          aria-label={`${value} - ${labels[value - 1].replace('\n', ' ')}`}
+                                        >
+                                          <span className="text-base sm:text-lg font-bold">{value}</span>
+                                        </button>
+                                      </div>
                                     );
                                   })}
                                 </div>
