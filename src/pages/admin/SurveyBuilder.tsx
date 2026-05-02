@@ -992,7 +992,7 @@ export default function SurveyBuilder() {
           </div>
           
           {/* Questions List with Visual Flow */}
-          <div className="relative space-y-0">
+          <div className="relative space-y-6">
             {/* Visual connector line - runs through all questions */}
             <div className="absolute left-[22px] sm:left-[26px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-300 via-purple-300 to-indigo-300 rounded-full hidden sm:block"></div>
             
@@ -1076,11 +1076,15 @@ export default function SurveyBuilder() {
               
               {/* Page break connector */}
               {question.block_type === 'page_break' && (
-                <div className="absolute left-0 right-0 top-0 flex items-center justify-center -mt-2">
-                  <div className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded-full border border-gray-300 font-medium flex items-center gap-1">
-                    <span>↵</span> Page Break
+                <>
+                  <div className="absolute left-0 right-0 top-0 flex items-center justify-center -mt-3">
+                    <div className="bg-gray-200 text-gray-600 text-[10px] px-3 py-1 rounded-full border border-gray-300 font-medium flex items-center gap-1.5 shadow-sm">
+                      <span>↵</span> Page Break
+                    </div>
                   </div>
-                </div>
+                  {/* Visual page break spacing */}
+                  <div className="my-4 border-t-2 border-dashed border-gray-300"></div>
+                </>
               )}
               
               {/* Visual Group Frame - surrounds all grouped items */}
@@ -1098,9 +1102,9 @@ export default function SurveyBuilder() {
                 <div className="absolute left-10 sm:left-12 top-full bottom-[-16px] w-0.5 bg-indigo-300 z-0"></div>
               )}
               
-              <div className={`card relative ml-0 sm:ml-2 ${groupInfo.isGrouped ? 'border-indigo-200' : ''} ${groupInfo.isGroupStart ? 'ring-2 ring-indigo-400 shadow-md bg-white' : groupInfo.isGrouped ? 'bg-white/80' : ''}`}>
+              <div className={`card relative ml-0 sm:ml-2 p-5 sm:p-6 mb-4 ${groupInfo.isGrouped ? 'border-indigo-200' : ''} ${groupInfo.isGroupStart ? 'ring-2 ring-indigo-400 shadow-md bg-white' : groupInfo.isGrouped ? 'bg-white/80' : ''}`}>
               {/* Insert toolbar - appears on hover */}
-              <div className="flex items-center gap-1 mb-1 opacity-0 hover:opacity-100 transition-opacity -mt-2">
+              <div className="flex items-center gap-1 mb-2 opacity-0 hover:opacity-100 transition-opacity -mt-4">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent to-gray-300"></div>
                 <span className="text-[10px] text-gray-400 uppercase">Insert</span>
                 <button
@@ -1164,7 +1168,7 @@ export default function SurveyBuilder() {
                   </div>
                 </div>
 
-                <div className="flex-1 space-y-4">
+                <div className="flex-1 space-y-5">
                   {/* Connect Mode Badges */}
                   {connectMode && (
                     <div className="flex items-center gap-2">

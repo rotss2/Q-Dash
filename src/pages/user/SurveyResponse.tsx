@@ -1042,12 +1042,12 @@ function SurveyContent() {
                 </div>
                 
                 {/* Render All Items in Section */}
-                <div className="space-y-8">
+                <div className="space-y-10">
                   {currentSection.items.map((item) => {
                     // HEADING - No number, just styled text
                     if (item.block_type === 'heading') {
                       return (
-                        <div key={item.id} className="border-l-4 border-blue-500 pl-4 py-2">
+                        <div key={item.id} className="border-l-4 border-blue-500 pl-4 py-3 mb-6">
                           <h3 className="text-xl font-bold text-slate-900">{item.question_text}</h3>
                         </div>
                       );
@@ -1056,7 +1056,7 @@ function SurveyContent() {
                     // INSTRUCTION - Info box, no number
                     if (item.block_type === 'instruction') {
                       return (
-                        <div key={item.id} className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div key={item.id} className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
                           <p className="text-blue-800 text-base leading-relaxed">{item.question_text}</p>
                         </div>
                       );
@@ -1065,7 +1065,7 @@ function SurveyContent() {
                     // QUESTION - Numbered with input
                     if (item.block_type === 'question') {
                       return (
-                        <div key={item.id} className="space-y-4">
+                        <div key={item.id} className="space-y-5 mb-8 pb-6 border-b border-gray-100 last:border-0">
                           <div className="flex items-start gap-4">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-base font-bold shadow-md ${themeClasses.button}`}>
                               {item._questionNumber}
