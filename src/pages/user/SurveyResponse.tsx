@@ -893,16 +893,8 @@ function SurveyContent() {
       {/* Header with Logo & Progress */}
       <header className={`${themeClasses.card} border-b sticky top-0 z-10 shadow-sm`}>
         <div className="max-w-2xl mx-auto px-4 py-4">
-          {/* Top Row: Logo + Title */}
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <img 
-              src="/logo.png" 
-              alt="SurveyTest" 
-              className="h-8 sm:h-10 w-auto object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+          {/* Top Row: Survey Title Only */}
+          <div className="flex items-center justify-center mb-3">
             <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
               {survey.title}
             </h1>
