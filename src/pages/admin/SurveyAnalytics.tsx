@@ -44,22 +44,22 @@ export default function SurveyAnalytics() {
   const [filterTo, setFilterTo] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
+  // All questions/blocks from the survey (headings, instructions, page breaks, and actual questions)
+  const allSurveyBlocks = useMemo(() => {
+    return questions;
+  }, [questions]);
+
   // Filter out test/placeholder questions by text pattern for display
+  // Keep only actual questions (not headings/instructions/page_breaks) for response-based analytics
   const validQuestions = useMemo(() => {
-    // First filter out invalid question types
-    const filtered = questions.filter((q) => {
+    // First filter to only question block types (exclude headings, instructions, page_breaks)
+    const questionBlocks = questions.filter((q) => q.block_type === 'question');
+    
+    // Then filter out test placeholders by text pattern
+    const filtered = questionBlocks.filter((q) => {
       const text = q.question_text?.trim().toLowerCase() || '';
-      // Skip test placeholders, page breaks, headings, etc.
+      // Skip test placeholders
       if (text === 'test') return false;
-      if (text === 'page break') return false;
-      if (text === 'pagebreak') return false;
-      if (text.includes('new section heading')) return false;
-      if (text.includes('section heading')) return false;
-      if (text.includes('instructions:')) return false;
-      if (text.startsWith('instructions')) return false;
-      if (text.startsWith('part ') && text.includes(':')) return false; // Section headers like "PART 1: EASE OF USE"
-      if (text.startsWith('section ') && text.includes(':')) return false; // "Section X: ..."
-      if (text === '') return false;
       if (text === 'test question') return false;
       if (text === 'placeholder') return false;
       if (text.startsWith('dummy')) return false;
@@ -158,8 +158,8 @@ export default function SurveyAnalytics() {
     }
   };
 
-  // Get set of valid question IDs for filtering
-  const validQuestionIds = useMemo(() => new Set(validQuestions.map(q => q.id)), [validQuestions]);
+  // Get set of all question IDs for response filtering (include all block types that might have responses)
+  const allQuestionIds = useMemo(() => new Set(allSurveyBlocks.map(q => q.id)), [allSurveyBlocks]);
 
   const filteredResponses = useMemo(() => {
     return responses.filter((response) => {
@@ -171,12 +171,12 @@ export default function SurveyAnalytics() {
       if (fromDate && submittedAt < fromDate) return false;
       if (toDate && submittedAt > toDate) return false;
 
-      // Only include responses for valid questions (exclude test/pagebreak/etc)
-      if (!validQuestionIds.has(response.question_id)) return false;
+      // Only include responses for survey blocks (exclude orphaned responses)
+      if (!allQuestionIds.has(response.question_id)) return false;
 
       return true;
     });
-  }, [responses, filterFrom, filterTo, validQuestionIds]);
+  }, [responses, filterFrom, filterTo, allQuestionIds]);
 
   const aggregationData = useMemo((): ResponseAggregation[] => {
     return validQuestions
@@ -199,7 +199,7 @@ export default function SurveyAnalytics() {
         };
       })
       .filter((agg) => agg.total_responses > 0); // Only show questions with at least 1 response
-  }, [validQuestions, filteredResponses]);
+  }, [allSurveyBlocks, filteredResponses]);
 
   const surveyUrl = surveyId ? `${window.location.origin}/survey/${surveyId}` : '';
 
@@ -312,7 +312,7 @@ export default function SurveyAnalytics() {
   const exportToJSON = () => {
     const data = {
       survey,
-      questions: validQuestions,
+      questions: allSurveyBlocks,
       responses: filteredResponses.map(r => ({
         ...r,
         user_label: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`
@@ -998,7 +998,7 @@ export default function SurveyAnalytics() {
                     <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
-                      {validQuestions.map(q => (
+                      {allSurveyBlocks.filter(q => q.block_type === 'question').map(q => (
                         <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase break-words max-w-[14rem]">
                           {q.question_text}
                         </th>
@@ -1028,7 +1028,7 @@ export default function SurveyAnalytics() {
                       <tr key={key}>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{getUserIdentifier(submission)}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{new Date(submission.submitted_at).toLocaleString()}</td>
-                        {validQuestions.map((q) => (
+                        {allSurveyBlocks.filter(q => q.block_type === 'question').map((q) => (
                           <td key={q.id} className="px-4 py-3 text-sm text-gray-900">{submission.answers[q.id] || '-'}</td>
                         ))}
                         <td className="px-4 py-3 text-sm text-gray-500">
@@ -1048,86 +1048,137 @@ export default function SurveyAnalytics() {
             )}
           </div>
         ) : (
-          /* Analytics View */
+          /* Analytics View - Show all 20 blocks (questions, headings, instructions, page breaks) */
           <div className="space-y-6">
-            {responses.length === 0 ? (
+            {allSurveyBlocks.length === 0 ? (
               <div className="card text-center py-12">
                 <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No responses yet</h3>
-                <p className="text-gray-600">Share your survey link to start collecting responses</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No survey blocks found</h3>
+                <p className="text-gray-600">This survey has no questions or sections defined</p>
               </div>
             ) : (
-              aggregationData.map((agg: ResponseAggregation) => (
-                <div key={agg.question_id} className="card">
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{agg.question_text}</h3>
-                    <p className="text-sm text-gray-500">
-                      {agg.total_responses} responses • {agg.type === 'text' ? 'Text responses' : 'Choice distribution'}
-                    </p>
-                  </div>
+              allSurveyBlocks.map((block, index) => {
+                const agg = aggregationData.find(a => a.question_id === block.id);
+                const hasResponses = agg && agg.total_responses > 0;
 
-                  {agg.type === 'text' ? (
-                    /* Text Responses List */
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {agg.answers.map((answer: {value: string, count: number}, idx: number) => (
-                        <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
-                          <span className="font-medium text-gray-500 mr-2">#{idx + 1}</span>
-                          {answer.value}
+                // Render based on block type
+                switch (block.block_type) {
+                  case 'heading':
+                    return (
+                      <div key={block.id} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 shadow-lg">
+                        <h2 className="text-xl font-bold">{block.question_text}</h2>
+                        <p className="text-blue-100 text-sm mt-1">Section {index + 1}</p>
+                      </div>
+                    );
+
+                  case 'instruction':
+                    return (
+                      <div key={block.id} className="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-5">
+                        <p className="text-amber-800 font-medium">{block.question_text}</p>
+                        <p className="text-amber-600 text-xs mt-1">Instructions</p>
+                      </div>
+                    );
+
+                  case 'page_break':
+                    return (
+                      <div key={block.id} className="flex items-center gap-4 py-4">
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+                        <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">Page Break</span>
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+                      </div>
+                    );
+
+                  case 'question':
+                  default:
+                    // Skip test/placeholder questions (already filtered in validQuestions)
+                    if (!validQuestions.find(q => q.id === block.id)) {
+                      return (
+                        <div key={block.id} className="card opacity-50">
+                          <p className="text-gray-400 text-sm italic">Test/placeholder question hidden</p>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    /* Chart for Choice/Likert */
-                    <div className="h-64">
-                      {agg.type === 'likert' ? (
-                        <Bar
-                          data={getChartData(agg) as ChartData<'bar'>}
-                          options={{
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                              legend: { display: false },
-                              tooltip: {
-                                callbacks: {
-                                  label: (context) => {
-                                    const count = context.raw as number;
-                                    return `${count} response${count !== 1 ? 's' : ''}`;
-                                  }
-                                }
-                              }
-                            },
-                            scales: {
-                              y: {
-                                beginAtZero: true,
-                                ticks: { stepSize: 1 }
-                              }
+                      );
+                    }
+
+                    return (
+                      <div key={block.id} className="card">
+                        <div className="mb-4">
+                          <h3 className="text-lg font-semibold text-gray-900">{block.question_text}</h3>
+                          <p className="text-sm text-gray-500">
+                            {hasResponses 
+                              ? `${agg!.total_responses} responses • ${block.type === 'text' ? 'Text responses' : 'Choice distribution'}`
+                              : 'No responses yet'
                             }
-                          }}
-                        />
-                      ) : (
-                        <Pie
-                          data={getChartData(agg) as ChartData<'pie'>}
-                          options={{
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                              tooltip: {
-                                callbacks: {
-                                  label: (context) => {
-                                    const count = context.raw as number;
-                                    const label = context.label || '';
-                                    return `${label}: ${count} response${count !== 1 ? 's' : ''}`;
+                          </p>
+                        </div>
+
+                        {!hasResponses ? (
+                          <div className="h-32 flex items-center justify-center bg-gray-50 rounded-lg">
+                            <p className="text-gray-400 text-sm">Waiting for responses...</p>
+                          </div>
+                        ) : agg!.type === 'text' ? (
+                          /* Text Responses List */
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {agg!.answers.map((answer: {value: string, count: number}, idx: number) => (
+                              <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                                <span className="font-medium text-gray-500 mr-2">#{idx + 1}</span>
+                                {answer.value}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          /* Chart for Choice/Likert */
+                          <div className="h-64">
+                            {agg!.type === 'likert' ? (
+                              <Bar
+                                data={getChartData(agg!) as ChartData<'bar'>}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                      callbacks: {
+                                        label: (context) => {
+                                          const count = context.raw as number;
+                                          return `${count} response${count !== 1 ? 's' : ''}`;
+                                        }
+                                      }
+                                    }
+                                  },
+                                  scales: {
+                                    y: {
+                                      beginAtZero: true,
+                                      ticks: { stepSize: 1 }
+                                    }
                                   }
-                                }
-                              }
-                            }
-                          }}
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
+                                }}
+                              />
+                            ) : (
+                              <Pie
+                                data={getChartData(agg!) as ChartData<'pie'>}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    tooltip: {
+                                      callbacks: {
+                                        label: (context) => {
+                                          const count = context.raw as number;
+                                          const label = context.label || '';
+                                          return `${label}: ${count} response${count !== 1 ? 's' : ''}`;
+                                        }
+                                      }
+                                    }
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                }
+              })
             )}
           </div>
         )}

@@ -658,7 +658,6 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
       .from('questions')
       .select('*')
       .eq('survey_id', surveyId)
-      .eq('block_type', 'question')  // Only return actual question blocks
       .order('order_index', { ascending: true });
 
     if (questionError) {
@@ -1179,7 +1178,25 @@ app.get('/api/admin/live-sessions', requireAdmin, async (req, res) => {
     // First, auto-mark abandoned sessions (older than 30 minutes)
     await supabaseAdmin.rpc('mark_abandoned_sessions');
 
-    // Build the query
+    // Get ALL sessions for global summary (unfiltered)
+    const { data: allSessions, error: allSessionsError } = await supabaseAdmin
+      .from('survey_live_sessions')
+      .select('status');
+
+    if (allSessionsError) {
+      console.error('Failed to fetch all sessions for global summary:', allSessionsError);
+    }
+
+    // Calculate global summary from ALL sessions
+    const globalSummary = {
+      total: allSessions?.length || 0,
+      active: allSessions?.filter(s => s.status === 'active').length || 0,
+      completed: allSessions?.filter(s => s.status === 'completed').length || 0,
+      abandoned: allSessions?.filter(s => s.status === 'abandoned').length || 0,
+      blocked: allSessions?.filter(s => s.status === 'blocked').length || 0
+    };
+
+    // Build the FILTERED query
     let query = supabaseAdmin
       .from('survey_live_sessions')
       .select(`
@@ -1197,25 +1214,26 @@ app.get('/api/admin/live-sessions', requireAdmin, async (req, res) => {
       query = query.eq('status', status);
     }
 
-    const { data: sessions, error } = await query;
+    const { data: filteredSessions, error } = await query;
 
     if (error) {
       console.error('Failed to fetch live sessions:', error);
       return res.status(500).json({ error: 'Failed to fetch sessions.' });
     }
 
-    // Calculate summary statistics
-    const summary = {
-      total: sessions?.length || 0,
-      active: sessions?.filter(s => s.status === 'active').length || 0,
-      completed: sessions?.filter(s => s.status === 'completed').length || 0,
-      abandoned: sessions?.filter(s => s.status === 'abandoned').length || 0,
-      blocked: sessions?.filter(s => s.status === 'blocked').length || 0
+    // Calculate filtered summary statistics
+    const filteredSummary = {
+      total: filteredSessions?.length || 0,
+      active: filteredSessions?.filter(s => s.status === 'active').length || 0,
+      completed: filteredSessions?.filter(s => s.status === 'completed').length || 0,
+      abandoned: filteredSessions?.filter(s => s.status === 'abandoned').length || 0,
+      blocked: filteredSessions?.filter(s => s.status === 'blocked').length || 0
     };
 
     return res.json({ 
-      sessions: sessions || [],
-      summary
+      sessions: filteredSessions || [],
+      globalSummary,
+      filteredSummary
     });
   } catch (error) {
     console.error('Admin live sessions error:', error);
