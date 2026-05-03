@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useToast } from '../Toaster';
 import { apiGet } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
+import type { Database } from '../../lib/database.types';
 import { 
   Radio, 
   RefreshCw, 
@@ -13,27 +15,12 @@ import {
   ChevronDown,
   Activity,
   BarChart3,
-  FileText
+  FileText,
 } from 'lucide-react';
 
-interface LiveSession {
-  id: string;
-  survey_id: string;
-  user_id: string;
-  email: string | null;
-  status: 'active' | 'completed' | 'abandoned' | 'blocked';
-  total_questions: number;
-  answered_questions: number;
-  progress_percentage: number;
-  started_at: string;
-  last_activity_at: string;
-  submitted_at: string | null;
-  abandoned_at: string | null;
-  time_spent_seconds: number;
-  fingerprint: string | null;
-  user_agent: string | null;
-  created_at: string;
-  updated_at: string;
+type LiveSessionRow = Database['public']['Tables']['survey_live_sessions']['Row'];
+
+interface LiveSession extends LiveSessionRow {
   surveys?: { title: string } | null;
 }
 
@@ -43,6 +30,12 @@ interface SessionSummary {
   completed: number;
   abandoned: number;
   blocked: number;
+}
+
+interface ApiResponse {
+  sessions: LiveSession[];
+  globalSummary: SessionSummary;
+  filteredSummary: SessionSummary;
 }
 
 interface Survey {
@@ -81,31 +74,123 @@ const STATUS_CONFIG = {
   }
 };
 
+const POLLING_INTERVAL = 5000; // 5 seconds
+const BACKGROUND_POLLING_INTERVAL = 30000; // 30 seconds when hidden
+
+/**
+ * Defensive deduplication of sessions
+ * - Prefer session.id as primary key
+ * - Fallback to `${survey_id}:${user_id}` composite key
+ * - Keep the newest record by updated_at or last_activity_at
+ */
+const deduplicateSessions = (sessions: LiveSession[]): LiveSession[] => {
+  const seen = new Map<string, LiveSession>();
+  
+  for (const session of sessions) {
+    // Create composite key as fallback
+    const compositeKey = `${session.survey_id}:${session.user_id}`;
+    const primaryKey = session.id || compositeKey;
+    
+    const existing = seen.get(primaryKey);
+    if (!existing) {
+      seen.set(primaryKey, session);
+      continue;
+    }
+    
+    // Keep the newest record
+    const existingTime = new Date(existing.updated_at || existing.last_activity_at).getTime();
+    const newTime = new Date(session.updated_at || session.last_activity_at).getTime();
+    
+    if (newTime > existingTime) {
+      seen.set(primaryKey, session);
+    }
+  }
+  
+  // Also check for composite key collisions (same user+survey but different IDs)
+  const compositeSeen = new Map<string, LiveSession>();
+  const result: LiveSession[] = [];
+  
+  for (const session of seen.values()) {
+    const compositeKey = `${session.survey_id}:${session.user_id}`;
+    const existing = compositeSeen.get(compositeKey);
+    
+    if (!existing) {
+      compositeSeen.set(compositeKey, session);
+      result.push(session);
+      continue;
+    }
+    
+    // Keep the newest
+    const existingTime = new Date(existing.updated_at || existing.last_activity_at).getTime();
+    const newTime = new Date(session.updated_at || session.last_activity_at).getTime();
+    
+    if (newTime > existingTime) {
+      compositeSeen.set(compositeKey, session);
+      // Replace in result
+      const idx = result.findIndex(s => s.survey_id === session.survey_id && s.user_id === session.user_id);
+      if (idx !== -1) {
+        result[idx] = session;
+      }
+    }
+  }
+  
+  return result;
+};
+
 export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
   const { showToast } = useToast();
   const [sessions, setSessions] = useState<LiveSession[]>([]);
-  const [summary, setSummary] = useState<SessionSummary>({
+  const [globalSummary, setGlobalSummary] = useState<SessionSummary>({
     total: 0,
     active: 0,
     completed: 0,
     abandoned: 0,
     blocked: 0
   });
+  const [filteredSummary, setFilteredSummary] = useState<SessionSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [surveyFilter, setSurveyFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pollingError, setPollingError] = useState<string | null>(null);
+  const [isTabVisible, setIsTabVisible] = useState(true);
+  const [isRealtimeEnabled, setIsRealtimeEnabled] = useState(false);
   
+  // Refs for race condition prevention
+  const requestIdRef = useRef(0);
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const supabaseChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
+  /**
+   * Fetch sessions with race condition prevention
+   */
   const fetchSessions = useCallback(async (silent = false) => {
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new abort controller for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
+    // Increment request ID
+    const currentRequestId = ++requestIdRef.current;
+    
     if (!silent) {
       setIsRefreshing(true);
     }
-    setError(null);
+    
+    // Only clear error on manual refresh, keep polling errors silent
+    if (!silent) {
+      setError(null);
+    }
+    setPollingError(null);
 
     try {
       const params = new URLSearchParams();
@@ -119,48 +204,228 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
       const queryString = params.toString();
       const url = `/api/admin/live-sessions${queryString ? `?${queryString}` : ''}`;
 
-      const response = await apiGet<{ sessions: LiveSession[]; summary: SessionSummary }>(url);
+      const response = await apiGet<ApiResponse>(url);
 
-      if (response.error) {
-        setError(response.error);
-        if (!silent) {
-          showToast(response.error, 'error');
-        }
+      // Check if this is still the latest request
+      if (currentRequestId !== requestIdRef.current) {
+        console.log('[LiveBoard] Discarding stale response');
         return;
       }
 
-      setSessions(response.data?.sessions || []);
-      setSummary(response.data?.summary || { total: 0, active: 0, completed: 0, abandoned: 0, blocked: 0 });
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      // Defensive deduplication before setting state
+      const dedupedSessions = deduplicateSessions(response.data?.sessions || []);
+      
+      setSessions(dedupedSessions);
+      setGlobalSummary(response.data?.globalSummary || { total: 0, active: 0, completed: 0, abandoned: 0, blocked: 0 });
+      setFilteredSummary(response.data?.filteredSummary || null);
       setLastUpdated(new Date());
+      
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
     } catch (err) {
+      // Check if this is still the latest request
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+      
+      // Don't update state if request was aborted
+      if (abortController.signal.aborted) {
+        return;
+      }
+      
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch sessions';
-      setError(errorMessage);
-      if (!silent) {
+      
+      if (silent) {
+        // Silent polling error - keep last known data and show warning
+        setPollingError(errorMessage);
+      } else {
+        // Manual refresh error - show full error
+        setError(errorMessage);
         showToast(errorMessage, 'error');
       }
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      // Only update loading states if this is the latest request
+      if (currentRequestId === requestIdRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
-  }, [statusFilter, surveyFilter, showToast]);
+  }, [statusFilter, surveyFilter, showToast, isInitialLoad]);
 
-  // Initial load
+  /**
+   * Handle realtime updates from Supabase
+   */
+  const handleRealtimeUpdate = useCallback((payload: {
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+    new: LiveSessionRow;
+    old: LiveSessionRow;
+  }) => {
+    console.log('[LiveBoard] Realtime update:', payload.eventType, payload.new?.id || payload.old?.id);
+    
+    setSessions(prev => {
+      let updated = [...prev];
+      
+      switch (payload.eventType) {
+        case 'INSERT': {
+          if (payload.new) {
+            // Check if session already exists
+            const exists = updated.some(s => s.id === payload.new.id);
+            if (!exists) {
+              updated.unshift(payload.new as LiveSession);
+            }
+          }
+          break;
+        }
+        case 'UPDATE': {
+          if (payload.new) {
+            const idx = updated.findIndex(s => s.id === payload.new.id);
+            if (idx !== -1) {
+              updated[idx] = { ...updated[idx], ...payload.new } as LiveSession;
+            } else {
+              // Session not in list, add it
+              updated.unshift(payload.new as LiveSession);
+            }
+          }
+          break;
+        }
+        case 'DELETE': {
+          if (payload.old) {
+            updated = updated.filter(s => s.id !== payload.old.id);
+          }
+          break;
+        }
+      }
+      
+      // Re-deduplicate after realtime update
+      return deduplicateSessions(updated);
+    });
+    
+    setLastUpdated(new Date());
+  }, []);
+
+  /**
+   * Setup Supabase realtime subscription
+   */
+  useEffect(() => {
+    // Check if realtime is configured
+    const channel = supabase
+      .channel('live-board-sessions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'survey_live_sessions'
+        },
+        (payload) => {
+          handleRealtimeUpdate({
+            eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+            new: payload.new as LiveSessionRow,
+            old: payload.old as LiveSessionRow
+          });
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[LiveBoard] Realtime subscription active');
+          setIsRealtimeEnabled(true);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[LiveBoard] Realtime subscription failed');
+          setIsRealtimeEnabled(false);
+        }
+      });
+    
+    supabaseChannelRef.current = channel;
+    
+    return () => {
+      if (supabaseChannelRef.current) {
+        supabase.removeChannel(supabaseChannelRef.current);
+        supabaseChannelRef.current = null;
+      }
+    };
+  }, [handleRealtimeUpdate]);
+
+  /**
+   * Visibility change handler
+   */
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsTabVisible(isVisible);
+      
+      if (isVisible) {
+        // Tab became visible - immediately refresh
+        console.log('[LiveBoard] Tab visible, refreshing...');
+        fetchSessions(true);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchSessions]);
+
+  /**
+   * Initial load
+   */
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
 
-  // Auto-refresh every 5 seconds
+  /**
+   * Auto-refresh with visibility-aware polling
+   */
   useEffect(() => {
+    // Clear existing interval
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+      refreshIntervalRef.current = null;
+    }
+    
+    // Use different intervals based on visibility and realtime status
+    const interval = !isTabVisible 
+      ? BACKGROUND_POLLING_INTERVAL 
+      : isRealtimeEnabled 
+        ? BACKGROUND_POLLING_INTERVAL // Less frequent if realtime is active
+        : POLLING_INTERVAL;
+    
     refreshIntervalRef.current = setInterval(() => {
       fetchSessions(true);
-    }, 5000);
+    }, interval);
+    
+    console.log(`[LiveBoard] Polling interval set to ${interval}ms (visible: ${isTabVisible}, realtime: ${isRealtimeEnabled})`);
 
     return () => {
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
       }
     };
-  }, [fetchSessions]);
+  }, [fetchSessions, isTabVisible, isRealtimeEnabled]);
+
+  /**
+   * Cleanup on unmount
+   */
+  useEffect(() => {
+    return () => {
+      // Cancel any pending requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      // Clear interval
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+      // Remove Supabase channel
+      if (supabaseChannelRef.current) {
+        supabase.removeChannel(supabaseChannelRef.current);
+      }
+    };
+  }, []);
 
   const handleManualRefresh = () => {
     fetchSessions();
@@ -246,17 +511,6 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
     );
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="flex items-center gap-3 text-gray-500">
-          <RefreshCw className="w-5 h-5 animate-spin" />
-          <span className="text-sm font-medium">Loading live sessions...</span>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header with actions */}
@@ -266,14 +520,46 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
             <Radio className="w-6 h-6 text-red-500 animate-pulse" />
             Live Board
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Monitor respondents in real-time
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+            <p className="text-sm text-gray-500">
+              Monitor respondents in real-time
+            </p>
             {lastUpdated && (
-              <span className="ml-2 text-gray-400">
-                · Updated {formatTimeAgo(lastUpdated.toISOString())}
+              <span className="text-xs text-gray-400">
+                Last updated {formatTimeAgo(lastUpdated.toISOString())}
               </span>
             )}
-          </p>
+            <div className="flex items-center gap-2">
+              {/* Realtime status indicator */}
+              <span 
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
+                  isRealtimeEnabled 
+                    ? 'bg-emerald-50 text-emerald-600' 
+                    : 'bg-gray-100 text-gray-500'
+                }`}
+                title={isRealtimeEnabled ? 'Realtime updates active' : 'Polling mode'}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${isRealtimeEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                {isRealtimeEnabled ? 'Live' : 'Polling'}
+              </span>
+              
+              {/* Visibility status */}
+              {!isTabVisible && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-600">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Paused (background)
+                </span>
+              )}
+              
+              {/* Refresh indicator */}
+              {isRefreshing && (
+                <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  Refreshing...
+                </span>
+              )}
+            </div>
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
@@ -287,6 +573,11 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
           >
             <Filter className="w-4 h-4" />
             Filters
+            {filteredSummary && (
+              <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded text-xs">
+                {filteredSummary.total}
+              </span>
+            )}
             <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
           </button>
           
@@ -347,7 +638,7 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
               <Activity className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{summary.active}</p>
+              <p className="text-2xl font-bold text-gray-900">{globalSummary.active}</p>
               <p className="text-xs text-gray-500">Active Now</p>
             </div>
           </div>
@@ -359,7 +650,7 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
               <CheckCircle className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{summary.completed}</p>
+              <p className="text-2xl font-bold text-gray-900">{globalSummary.completed}</p>
               <p className="text-xs text-gray-500">Completed</p>
             </div>
           </div>
@@ -371,7 +662,7 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
               <XCircle className="w-5 h-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{summary.abandoned}</p>
+              <p className="text-2xl font-bold text-gray-900">{globalSummary.abandoned}</p>
               <p className="text-xs text-gray-500">Abandoned</p>
             </div>
           </div>
@@ -383,14 +674,14 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
               <BarChart3 className="w-5 h-5 text-slate-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
+              <p className="text-2xl font-bold text-gray-900">{globalSummary.total}</p>
               <p className="text-xs text-gray-500">Total Sessions</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Error state */}
+      {/* Error states */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
           <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
@@ -401,6 +692,16 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
           >
             Retry
           </button>
+        </div>
+      )}
+      
+      {/* Silent polling error warning */}
+      {pollingError && !error && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          <p className="text-xs text-amber-700">
+            Connection issue. Showing last known data. Will retry automatically.
+          </p>
         </div>
       )}
 
@@ -531,13 +832,23 @@ export default function LiveBoard({ surveys = [] }: LiveBoardProps) {
       </div>
 
       {/* Footer info */}
-      <div className="flex items-center justify-between text-xs text-gray-400">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-gray-400">
         <p>
           Sessions are marked abandoned after 30 minutes of inactivity
         </p>
-        <p>
-          Auto-refreshes every 5 seconds
-        </p>
+        <div className="flex items-center gap-3">
+          <span>
+            {isRealtimeEnabled 
+              ? 'Realtime updates enabled' 
+              : `Auto-refreshes every ${!isTabVisible ? '30' : '5'} seconds${!isTabVisible ? ' (background)' : ''}`
+            }
+          </span>
+          {filteredSummary && (statusFilter !== 'all' || surveyFilter !== 'all') && (
+            <span className="text-blue-600">
+              Showing {filteredSummary.total} of {globalSummary.total} sessions
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
