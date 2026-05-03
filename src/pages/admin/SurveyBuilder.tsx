@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
@@ -8,6 +8,7 @@ import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 import {
   BuilderMode,
   getConfigForMode,
+  getTabsForMode,
 } from '../../config/builderModes';
 
 interface SurveyTemplate {
@@ -72,7 +73,11 @@ export default function SurveyBuilder() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { surveyId } = useParams<{ surveyId?: string }>();
+  const [searchParams] = useSearchParams();
   const isEditing = !!surveyId;
+
+  // Get mode from URL query param when creating new
+  const modeFromUrl = searchParams.get('mode') as BuilderMode | null;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -100,15 +105,24 @@ export default function SurveyBuilder() {
   const [showQuestionBank, setShowQuestionBank] = useState(false);
   const [healthIssues, setHealthIssues] = useState<HealthIssue[]>([]);
 
-  // Mode: survey | quiz | exam
-  const [mode, setMode] = useState<BuilderMode>('survey');
+  // Mode: survey | quiz | exam - initialize from URL param or default to survey
+  const [mode, setMode] = useState<BuilderMode>(modeFromUrl || 'survey');
   const [modeChanged, setModeChanged] = useState(false);
+
+  // Active tab for mode-aware navigation
+  const [activeTab, setActiveTab] = useState<string>('setup');
+
+  // Get mode config for dynamic UI
+  const modeConfig = useMemo(() => getConfigForMode(mode), [mode]);
+  const modeTabs = useMemo(() => getTabsForMode(mode), [mode]);
 
   // Handle mode change with warning
   const handleModeChange = (newMode: BuilderMode) => {
     if (newMode !== mode) {
       setMode(newMode);
       setModeChanged(true);
+      // Reset to setup tab when switching modes
+      setActiveTab('setup');
       // Hide warning after 5 seconds
       setTimeout(() => setModeChanged(false), 5000);
     }
@@ -855,10 +869,34 @@ export default function SurveyBuilder() {
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-700">
-                  Switching to {getConfigForMode(mode).label} mode will hide scoring fields, but your scoring data is preserved.
+                  Switching to {modeConfig.label} mode will hide scoring fields, but your scoring data is preserved.
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Mode-Aware Tabs Navigation */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-2">
+              {modeTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                  {tab.required && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      activeTab === tab.id ? 'bg-white/50' : 'bg-amber-500'
+                    }`} />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Appearance & Settings - Two Column Layout on Desktop */}
