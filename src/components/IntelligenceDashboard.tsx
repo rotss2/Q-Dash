@@ -1,27 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Bar, Pie } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
 import { Lightbulb, TrendingUp, Users, FileText, Download, Filter } from 'lucide-react';
 import type { Question, Response } from '../types';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-);
+// Chart.js is registered in parent component (SurveyAnalytics.tsx) to avoid circular dependencies
 
 interface IntelligenceDashboardProps {
   questions: Question[];
@@ -595,7 +577,7 @@ ${conclusions.filter(c => c.confidence === 'high').map(c => `• ${c.questionTex
                         data={data}
                         options={{
                           ...chartOptions,
-                          onClick: (_, elements) => {
+                          onClick: (_event: any, elements: any) => {
                             if (elements.length > 0) {
                               const index = elements[0].index;
                               setSelectedFilter(`${question.question_text}: ${data.labels[index]}`);
@@ -608,7 +590,7 @@ ${conclusions.filter(c => c.confidence === 'high').map(c => `• ${c.questionTex
                         data={data}
                         options={{
                           ...chartOptions,
-                          onClick: (_, elements) => {
+                          onClick: (_event: any, elements: any) => {
                             if (elements.length > 0) {
                               const index = elements[0].index;
                               setSelectedFilter(`${question.question_text}: ${data.labels[index]}`);
