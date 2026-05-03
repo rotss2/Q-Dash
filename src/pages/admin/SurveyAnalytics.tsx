@@ -39,6 +39,7 @@ export default function SurveyAnalytics() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [responses, setResponses] = useState<Array<Response & { question?: Question; profile?: { email: string } }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'conclusion' | 'raw' | 'statistics'>('analytics');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
@@ -65,23 +66,8 @@ export default function SurveyAnalytics() {
     );
   }, [questions]);
 
-  const questionLabelMap = useMemo(() => {
-    const duplicateCounts = new Map<string, number>();
-    validQuestions.forEach((q) => {
-      const text = q.question_text.trim();
-      duplicateCounts.set(text, (duplicateCounts.get(text) || 0) + 1);
-    });
-
-    const occurrence = new Map<string, number>();
-    return new Map(validQuestions.map((q) => {
-      const text = q.question_text.trim();
-      const total = duplicateCounts.get(text) || 0;
-      const index = (occurrence.get(text) || 0) + 1;
-      occurrence.set(text, index);
-      const label = total > 1 ? `Question ${index}` : q.question_text;
-      return [q.id, label];
-    }));
-  }, [validQuestions]);
+  // Always use question.id as source of truth - never dedupe by text
+  // Multiple questions with the same text are different questions and must both be analyzed
 
   useEffect(() => {
     if (surveyId) {
@@ -92,39 +78,49 @@ export default function SurveyAnalytics() {
   const loadData = async () => {
     if (!surveyId) return;
     setIsLoading(true);
+    setPageError(null);
     console.log('Analytics: Loading data for survey:', surveyId);
 
-    // Add cache-busting timestamp to force fresh data
-    const timestamp = new Date().getTime();
-    const { data, error } = await apiGet<{
-      survey: Survey;
-      questions: Question[];
-      responses: Array<Response & { question?: Question; profile?: { email: string } }>;
-    }>(`/api/admin/surveys/${surveyId}/analytics?_t=${timestamp}`);
+    try {
+      // Add cache-busting timestamp to force fresh data
+      const timestamp = new Date().getTime();
+      const { data, error } = await apiGet<{
+        survey: Survey;
+        questions: Question[];
+        responses: Array<Response & { question?: Question; profile?: { email: string } }>;
+      }>(`/api/admin/surveys/${surveyId}/analytics?_t=${timestamp}`);
 
-    if (error || !data?.survey) {
-      console.error('Analytics: Failed to load survey:', error);
-      showToast(error || 'Failed to load survey', 'error');
-      navigate('/admin');
-      return;
+      if (error || !data?.survey) {
+        console.error('Analytics: Failed to load survey:', error);
+        const errorMsg = error || 'Failed to load survey';
+        setPageError(errorMsg);
+        showToast(errorMsg, 'error');
+        return;
+      }
+
+      console.log('Analytics: Loaded survey:', data.survey.title);
+      console.log('Analytics: Questions count:', data.questions?.length || 0);
+      console.log('Analytics: Responses count:', data.responses?.length || 0);
+      console.log('Analytics: Response sample:', data.responses?.slice(0, 2));
+
+      setSurvey(data.survey);
+      setQuestions(data.questions || []);
+
+      const typedResponses = (data.responses || []).map((r: any) => ({
+        ...r,
+        question: r.question as Question,
+        userLabel: r.user_id ? `User-${r.user_id.slice(0, 8)}` : 'Anonymous'
+      }));
+
+      setResponses(typedResponses);
+    } catch (err) {
+      console.error('Analytics: Exception during load:', err);
+      const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setPageError(errorMsg);
+      showToast(errorMsg, 'error');
+    } finally {
+      setIsLoading(false);
     }
-
-    console.log('Analytics: Loaded survey:', data.survey.title);
-    console.log('Analytics: Questions count:', data.questions?.length || 0);
-    console.log('Analytics: Responses count:', data.responses?.length || 0);
-    console.log('Analytics: Response sample:', data.responses?.slice(0, 2));
-
-    setSurvey(data.survey);
-    setQuestions(data.questions || []);
-
-    const typedResponses = (data.responses || []).map((r: any) => ({
-      ...r,
-      question: r.question as Question,
-      userLabel: r.user_id ? `User-${r.user_id.slice(0, 8)}` : 'Anonymous'
-    }));
-
-    setResponses(typedResponses);
-    setIsLoading(false);
   };
 
   const handleResetResponses = async () => {
@@ -301,7 +297,7 @@ export default function SurveyAnalytics() {
     if (!validQuestions.length || !responses.length) return;
 
     // Build CSV rows
-    const headers = ['User', 'Submitted At', ...validQuestions.map(q => questionLabelMap.get(q.id) || q.question_text)];
+    const headers = ['User', 'Submitted At', ...validQuestions.map(q => q.question_text)];
     
     // Group responses by user_id and submitted_at
     const grouped: { [key: string]: { userLabel: string; submitted_at: string; answers: { [qid: string]: string } } } = {};
@@ -537,7 +533,7 @@ export default function SurveyAnalytics() {
     if (!validQuestions.length || !filteredResponses.length) return;
     
     // Sheet 1: Raw Data
-    const rawHeaders = ['User ID', 'Submitted At', ...validQuestions.map(q => questionLabelMap.get(q.id) || q.question_text)];
+    const rawHeaders = ['User ID', 'Submitted At', ...validQuestions.map(q => q.question_text)];
     const grouped: any = {};
     filteredResponses.forEach(r => {
       const key = `${r.user_id}_${r.submitted_at}`;
@@ -721,6 +717,45 @@ export default function SurveyAnalytics() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (pageError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center">
+            <button
+              onClick={() => navigate('/admin')}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Dashboard
+            </button>
+          </div>
+        </header>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="card bg-red-50 border border-red-200">
+            <h2 className="text-xl font-semibold text-red-900 mb-2">Analytics Failed to Load</h2>
+            <p className="text-red-800 mb-4">{pageError}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => loadData()}
+                className="btn-primary flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Retry
+              </button>
+              <button
+                onClick={() => navigate('/admin')}
+                className="btn-secondary"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -926,6 +961,8 @@ export default function SurveyAnalytics() {
               </h2>
               {validQuestions.filter(q => q.type === 'likert').length === 0 ? (
                 <p className="text-gray-500">No Likert scale questions available for statistical analysis</p>
+              ) : filteredResponses.length === 0 ? (
+                <p className="text-gray-500">No responses available for analysis</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -1051,19 +1088,11 @@ export default function SurveyAnalytics() {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
-                      {validQuestions.map(q => {
-                        const label = questionLabelMap.get(q.id) || q.question_text;
-                        return (
-                          <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase break-words max-w-[14rem]">
-                            <div className="flex flex-col gap-1">
-                              <span>{label}</span>
-                              {label !== q.question_text && (
-                                <span className="text-[10px] text-gray-400 uppercase tracking-wide">{q.question_text}</span>
-                              )}
-                            </div>
-                          </th>
-                        );
-                      })}
+                      {validQuestions.map(q => (
+                        <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase break-words max-w-[14rem]">
+                          {q.question_text}
+                        </th>
+                      ))}
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
@@ -1193,11 +1222,12 @@ export default function SurveyAnalytics() {
                     ) : (
                       <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
                         <div className="h-64">
-                          <Bar
-                            data={getChartData(agg!) as ChartData<'bar'>}
-                            options={{
-                              responsive: true,
-                              maintainAspectRatio: false,
+                          {agg && agg.answers.length > 0 && agg.total_responses > 0 ? (
+                            <Bar
+                              data={getChartData(agg) as ChartData<'bar'>}
+                              options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
                               plugins: {
                                 legend: { display: false },
                                 tooltip: {
@@ -1217,6 +1247,11 @@ export default function SurveyAnalytics() {
                               }
                             }}
                           />
+                          ) : (
+                            <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                              <p className="text-gray-400">No data to display</p>
+                            </div>
+                          )}
                         </div>
                         {question.type === 'likert' && stats && (
                           <div className="rounded-2xl border border-gray-200 bg-white p-4">

@@ -658,6 +658,8 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
       .from('questions')
       .select('*')
       .eq('survey_id', surveyId)
+      .eq('block_type', 'question')
+      .eq('is_active', true)
       .order('order_index', { ascending: true });
 
     if (questionError) {
