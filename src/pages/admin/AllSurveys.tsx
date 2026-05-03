@@ -143,35 +143,41 @@ export default function AllSurveys() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-gray-100">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       copySurveyLink(survey.id);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 sm:py-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium min-h-[44px]"
                   >
                     <Copy className="w-4 h-4" />
                     Copy Link
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/admin/surveys/${survey.id}/edit`);
-                    }}
-                    className="flex items-center justify-center p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/admin/surveys/${survey.id}/analytics`);
-                    }}
-                    className="flex items-center justify-center p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
-                  >
-                    <ArrowUpRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/admin/surveys/${survey.id}/edit`);
+                      }}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 sm:gap-0 px-3 py-2.5 sm:p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium sm:text-[0px] min-h-[44px]"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      <span className="sm:hidden">Edit</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/admin/surveys/${survey.id}/analytics`);
+                      }}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 sm:gap-0 px-3 py-2.5 sm:p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium sm:text-[0px] min-h-[44px]"
+                      title="Analytics"
+                    >
+                      <ArrowUpRight className="w-4 h-4" />
+                      <span className="sm:hidden">Analytics</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

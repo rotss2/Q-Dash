@@ -217,59 +217,59 @@ export default function AdminDashboard() {
           <LiveBoard surveys={surveys} />
         ) : (
           <div className="space-y-8">
-            {/* Stats - Enhanced with gradients and animations - Now Clickable */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Stats - Mobile-first responsive grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <button
             onClick={() => navigate('/admin/surveys/all')}
-            className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group"
+            className="relative overflow-hidden bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group active:scale-95"
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-                <FileText className="w-7 h-7 text-white" />
+            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex items-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 flex-shrink-0">
+                <FileText className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Total Surveys</p>
-                <p className="text-3xl font-bold text-gray-900">{surveys.length}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-500 mb-0.5">Total Surveys</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{surveys.length}</p>
               </div>
             </div>
-            <div className="absolute bottom-4 right-4">
-              <ArrowUpRight className="w-5 h-5 text-blue-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+            <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4">
+              <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </div>
           </button>
 
           <button
             onClick={() => navigate('/admin/responses/all')}
-            className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group"
+            className="relative overflow-hidden bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group active:scale-95"
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
-                <Users className="w-7 h-7 text-white" />
+            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-gradient-to-br from-emerald-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex items-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 flex-shrink-0">
+                <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Total Responses</p>
-                <p className="text-3xl font-bold text-gray-900">{totalResponses}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-500 mb-0.5">Total Responses</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalResponses}</p>
               </div>
             </div>
-            <div className="absolute bottom-4 right-4">
-              <ArrowUpRight className="w-5 h-5 text-emerald-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+            <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4">
+              <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </div>
           </button>
 
-          <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all hover:shadow-lg hover:-translate-y-1">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-200">
-                <Activity className="w-7 h-7 text-white" />
+          <div className="relative overflow-hidden bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-all hover:shadow-lg hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
+            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-gradient-to-br from-violet-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative flex items-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-200 flex-shrink-0">
+                <Activity className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Open Surveys</p>
-                <p className="text-3xl font-bold text-gray-900">{openSurveys}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-500 mb-0.5">Open Surveys</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{openSurveys}</p>
               </div>
             </div>
-            <div className="absolute bottom-4 right-4">
-              <ArrowUpRight className="w-5 h-5 text-violet-400" />
+            <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4">
+              <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />
             </div>
           </div>
         </div>
@@ -369,73 +369,128 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid gap-4">
             {filteredSurveys.map((survey) => (
-              <div key={survey.id} className="group bg-white rounded-2xl border border-gray-100 p-6 transition-all hover:shadow-xl hover:-translate-y-0.5 hover:border-gray-200">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-slate-700 transition-colors">{survey.title}</h3>
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full ${
-                        survey.status === 'open'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                          : 'bg-gray-50 text-gray-600 border border-gray-200'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${survey.status === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
-                        {survey.status === 'open' ? 'Open' : 'Closed'}
-                      </span>
-                    </div>
-                    <p className="text-gray-500 text-sm mb-4 line-clamp-1">{survey.description || 'No description'}</p>
-                    <div className="flex items-center gap-6 text-sm">
-                      <span className="flex items-center gap-2 text-gray-600">
-                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+              <div key={survey.id} className="group bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 transition-all hover:shadow-xl hover:-translate-y-0.5 hover:border-gray-200">
+                {/* Mobile: Stack vertically, Desktop: Horizontal */}
+                <div className="flex flex-col gap-4">
+                  {/* Top row: Title, status, and mobile menu */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-slate-700 transition-colors">{survey.title}</h3>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+                          survey.status === 'open'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                            : 'bg-gray-50 text-gray-600 border border-gray-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${survey.status === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                          {survey.status === 'open' ? 'Open' : 'Closed'}
+                        </span>
+                      </div>
+                      <p className="text-gray-500 text-sm mb-3 line-clamp-1">{survey.description || 'No description'}</p>
+                      
+                      {/* Stats row */}
+                      <div className="flex flex-wrap items-center gap-4 text-sm">
+                        <span className="flex items-center gap-1.5 text-gray-600">
                           <Users className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <span className="font-medium">{survey.total_responses} responses</span>
-                      </span>
-                      <span className="flex items-center gap-2 text-gray-400">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(survey.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
+                          <span className="font-medium">{survey.total_responses} responses</span>
+                        </span>
+                        <span className="flex items-center gap-1.5 text-gray-400">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(survey.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Mobile: Simple action dropdown or stacked buttons */}
+                    <div className="sm:hidden">
+                      <button
+                        onClick={() => navigate(`/admin/surveys/${survey.id}/analytics`)}
+                        className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                        title="View analytics"
+                      >
+                        <BarChart3 className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => copySurveyLink(survey.id)}
-                      className="p-2.5 text-gray-400 hover:text-slate-600 hover:bg-gray-50 rounded-xl transition-all"
-                      title="Copy survey link"
-                    >
-                      <Copy className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => navigate(`/admin/surveys/${survey.id}/analytics`)}
-                      className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                      title="View analytics"
-                    >
-                      <BarChart3 className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => navigate(`/admin/surveys/${survey.id}/edit`)}
-                      className="p-2.5 text-gray-400 hover:text-slate-600 hover:bg-gray-50 rounded-xl transition-all"
-                      title="Edit survey"
-                    >
-                      <Edit2 className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => toggleStatus(survey)}
-                      className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
-                        survey.status === 'open'
-                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                      }`}
-                    >
-                      {survey.status === 'open' ? 'Close' : 'Open'}
-                    </button>
-                    <button
-                      onClick={() => deleteSurvey(survey.id)}
-                      className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                      title="Delete survey"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                  
+                  {/* Actions row - Mobile: full width buttons, Desktop: icon buttons */}
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-1 sm:justify-end pt-3 border-t border-gray-100">
+                    {/* Mobile: Full width action buttons */}
+                    <div className="grid grid-cols-2 gap-2 sm:hidden">
+                      <button
+                        onClick={() => copySurveyLink(survey.id)}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-200 active:scale-95"
+                      >
+                        <Copy className="w-4 h-4" />
+                        Copy Link
+                      </button>
+                      <button
+                        onClick={() => navigate(`/admin/surveys/${survey.id}/edit`)}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-200 active:scale-95"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => toggleStatus(survey)}
+                        className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-all active:scale-95 ${
+                          survey.status === 'open'
+                            ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                        }`}
+                      >
+                        {survey.status === 'open' ? 'Close Survey' : 'Open Survey'}
+                      </button>
+                      <button
+                        onClick={() => deleteSurvey(survey.id)}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-medium transition-all hover:bg-red-100 active:scale-95"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </button>
+                    </div>
+                    
+                    {/* Desktop: Compact icon buttons */}
+                    <div className="hidden sm:flex items-center gap-1">
+                      <button
+                        onClick={() => copySurveyLink(survey.id)}
+                        className="p-2.5 text-gray-400 hover:text-slate-600 hover:bg-gray-50 rounded-xl transition-all"
+                        title="Copy survey link"
+                      >
+                        <Copy className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => navigate(`/admin/surveys/${survey.id}/analytics`)}
+                        className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                        title="View analytics"
+                      >
+                        <BarChart3 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => navigate(`/admin/surveys/${survey.id}/edit`)}
+                        className="p-2.5 text-gray-400 hover:text-slate-600 hover:bg-gray-50 rounded-xl transition-all"
+                        title="Edit survey"
+                      >
+                        <Edit2 className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => toggleStatus(survey)}
+                        className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+                          survey.status === 'open'
+                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                        }`}
+                      >
+                        {survey.status === 'open' ? 'Close' : 'Open'}
+                      </button>
+                      <button
+                        onClick={() => deleteSurvey(survey.id)}
+                        className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                        title="Delete survey"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

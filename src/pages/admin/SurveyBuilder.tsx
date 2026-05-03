@@ -679,7 +679,7 @@ export default function SurveyBuilder() {
                 </div>
                 <div>
                   <label className="label">Background</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
                       { value: 'default', icon: '⬜', label: 'Plain' },
                       { value: 'ocean', icon: '🌊', label: 'Ocean' },
@@ -691,7 +691,7 @@ export default function SurveyBuilder() {
                       <button
                         key={bg.value}
                         onClick={() => setBackgroundTheme(bg.value)}
-                        className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                        className={`flex flex-col items-center gap-1 p-2 sm:p-3 rounded-xl border-2 transition-all min-h-[44px] ${
                           backgroundTheme === bg.value
                             ? 'border-purple-500 bg-purple-50'
                             : 'border-gray-200 hover:border-gray-300 bg-white'
@@ -723,14 +723,14 @@ export default function SurveyBuilder() {
                     <Calendar className="w-4 h-4 text-gray-500" />
                     Survey Schedule
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-medium">Open</span>
                       <input
                         type="datetime-local"
                         value={openDate}
                         onChange={(e) => setOpenDate(e.target.value)}
-                        className="input w-full pl-12 text-sm"
+                        className="input w-full pl-12 text-sm h-11"
                       />
                     </div>
                     <div className="relative">
@@ -739,7 +739,7 @@ export default function SurveyBuilder() {
                         type="datetime-local"
                         value={closeDate}
                         onChange={(e) => setCloseDate(e.target.value)}
-                        className="input w-full pl-12 text-sm"
+                        className="input w-full pl-12 text-sm h-11"
                       />
                     </div>
                   </div>
@@ -800,20 +800,20 @@ export default function SurveyBuilder() {
                 
                 {/* Anti-Cheating Toggle */}
                 <div className="pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                  <div className="flex items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
                         <span className="text-xl">🛡️</span>
                       </div>
-                      <div>
-                        <label className="font-semibold text-gray-900 block">Anti-Cheating Protection</label>
-                        <p className="text-sm text-gray-500">Prevent screenshots, copying, and tab switching</p>
+                      <div className="min-w-0">
+                        <label className="font-semibold text-gray-900 block text-sm sm:text-base">Anti-Cheating Protection</label>
+                        <p className="text-xs sm:text-sm text-gray-500 truncate">Prevent screenshots, copying, and tab switching</p>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setAntiCheatingEnabled(!antiCheatingEnabled)}
-                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
+                      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex-shrink-0 ${
                         antiCheatingEnabled ? 'bg-red-600' : 'bg-gray-200'
                       }`}
                     >
@@ -916,54 +916,54 @@ export default function SurveyBuilder() {
               </p>
             </div>
             
-            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0">
               <button
                 onClick={addSectionHeader}
-                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-indigo-100 hover:border-indigo-300 hover:shadow-md transition-all"
+                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-indigo-100 hover:border-indigo-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
                 title="Add a section title like 'PART A: EASE OF USE'"
               >
                 <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
                   <Type className="w-5 h-5 text-indigo-600" />
                 </div>
-                <span className="text-xs font-medium text-gray-700">Heading</span>
+                <span className="text-xs font-medium text-gray-700 text-center">Heading</span>
               </button>
-              
+
               <button
                 onClick={addLegend}
-                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-purple-100 hover:border-purple-300 hover:shadow-md transition-all"
+                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-purple-100 hover:border-purple-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
                 title="Add instructions like '1 = Strongly Disagree...'"
               >
                 <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
                   <Info className="w-5 h-5 text-purple-600" />
                 </div>
-                <span className="text-xs font-medium text-gray-700">Legend</span>
+                <span className="text-xs font-medium text-gray-700 text-center">Legend</span>
               </button>
-              
+
               <button
                 onClick={addRatingScale}
-                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-md transition-all"
+                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
                 title="Add a 1-5 rating scale question"
               >
                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
                   <Star className="w-5 h-5 text-blue-600" />
                 </div>
-                <span className="text-xs font-medium text-gray-700">Rating Scale</span>
+                <span className="text-xs font-medium text-gray-700 text-center">Rating</span>
               </button>
-              
+
               <button
                 onClick={toggleAllRequired}
-                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-green-100 hover:border-green-300 hover:shadow-md transition-all"
+                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-green-100 hover:border-green-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
                 title="Toggle all questions between required and optional"
               >
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
                   <ToggleRight className="w-5 h-5 text-green-600" />
                 </div>
-                <span className="text-xs font-medium text-gray-700">Toggle Required</span>
+                <span className="text-xs font-medium text-gray-700 text-center">Required</span>
               </button>
-              
+
               <button
                 onClick={toggleConnectMode}
-                className={`group flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${connectMode ? 'bg-orange-50 border-orange-300 shadow-md' : 'bg-white border-pink-100 hover:border-pink-300 hover:shadow-md'}`}
+                className={`group flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px] ${connectMode ? 'bg-orange-50 border-orange-300 shadow-md' : 'bg-white border-pink-100 hover:border-pink-300 hover:shadow-md'}`}
                 title="Click to connect questions and blocks together"
               >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${connectMode ? 'bg-orange-200' : 'bg-pink-100 group-hover:bg-pink-200'}`}>
@@ -971,15 +971,15 @@ export default function SurveyBuilder() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-gray-700">
+                <span className="text-xs font-medium text-gray-700 text-center">
                   {connectMode ? `Links (${connections.length})` : 'Connect'}
                 </span>
               </button>
-              
+
               {connections.length > 0 && (
                 <button
                   onClick={clearAllConnections}
-                  className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-red-100 hover:border-red-300 hover:shadow-md transition-all"
+                  className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-red-100 hover:border-red-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
                   title="Remove all connections"
                 >
                   <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
@@ -987,7 +987,7 @@ export default function SurveyBuilder() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </div>
-                  <span className="text-xs font-medium text-gray-700">Clear Links</span>
+                  <span className="text-xs font-medium text-gray-700 text-center">Clear</span>
                 </button>
               )}
             </div>
@@ -1012,56 +1012,56 @@ export default function SurveyBuilder() {
             {/* Question Types */}
             <div className="mb-4">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Question Types</p>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
                 <button
                   onClick={() => addQuestion('text', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all"
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all flex-shrink-0 w-[160px] sm:w-auto min-h-[60px]"
                 >
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors flex-shrink-0">
                     <span className="text-blue-600 text-xs font-bold">T</span>
                   </div>
-                  <div className="text-left">
+                  <div className="text-left min-w-0">
                     <span className="block text-sm font-medium text-gray-800">Text</span>
-                    <span className="block text-xs text-gray-500">Open-ended answer</span>
+                    <span className="block text-xs text-gray-500 truncate">Open-ended</span>
                   </div>
                 </button>
-                
+
                 <button
                   onClick={() => addQuestion('choice', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-green-300 hover:shadow-md transition-all"
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-green-300 hover:shadow-md transition-all flex-shrink-0 w-[160px] sm:w-auto min-h-[60px]"
                 >
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors flex-shrink-0">
                     <span className="text-green-600 text-xs font-bold">✓</span>
                   </div>
-                  <div className="text-left">
-                    <span className="block text-sm font-medium text-gray-800">Multiple Choice</span>
-                    <span className="block text-xs text-gray-500">Select from options</span>
+                  <div className="text-left min-w-0">
+                    <span className="block text-sm font-medium text-gray-800">Choice</span>
+                    <span className="block text-xs text-gray-500 truncate">Multiple options</span>
                   </div>
                 </button>
                 
                 <button
                   onClick={() => addBooleanQuestion(activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all"
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all flex-shrink-0 w-[160px] sm:w-auto min-h-[60px]"
                 >
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors flex-shrink-0">
                     <span className="text-purple-600 text-xs font-bold">?</span>
                   </div>
-                  <div className="text-left">
-                    <span className="block text-sm font-medium text-gray-800">Yes / No</span>
-                    <span className="block text-xs text-gray-500">Binary choice</span>
+                  <div className="text-left min-w-0">
+                    <span className="block text-sm font-medium text-gray-800">Yes/No</span>
+                    <span className="block text-xs text-gray-500 truncate">Binary</span>
                   </div>
                 </button>
-                
+
                 <button
                   onClick={() => addQuestion('likert', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
-                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-orange-300 hover:shadow-md transition-all"
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-orange-300 hover:shadow-md transition-all flex-shrink-0 w-[160px] sm:w-auto min-h-[60px]"
                 >
-                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 transition-colors flex-shrink-0">
                     <span className="text-orange-600 text-xs font-bold">1-5</span>
                   </div>
-                  <div className="text-left">
-                    <span className="block text-sm font-medium text-gray-800">Rating Scale</span>
-                    <span className="block text-xs text-gray-500">1 to 5 scale</span>
+                  <div className="text-left min-w-0">
+                    <span className="block text-sm font-medium text-gray-800">Rating</span>
+                    <span className="block text-xs text-gray-500 truncate">1-5 scale</span>
                   </div>
                 </button>
               </div>
