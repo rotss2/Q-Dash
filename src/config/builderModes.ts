@@ -36,12 +36,27 @@ export interface FieldConfig {
   options?: { value: string; label: string }[];
 }
 
+export interface TemplateConfig {
+  id: string;
+  title: string;
+  description: string;
+  questions: unknown[];
+}
+
+export interface EmptyStateConfig {
+  title: string;
+  description: string;
+  buttonText: string;
+}
+
 export interface ModeConfig {
   mode: BuilderMode;
   label: string;
+  builderTitle: string;
   description: string;
   icon: string;
   color: string;
+  accentColor: string;
   tabs: TabConfig[];
   questionTypes: QuestionTypeConfig[];
   layoutBlocks: ToolConfig[];
@@ -50,6 +65,17 @@ export interface ModeConfig {
     show: string[];
     required: string[];
   };
+  labels: {
+    title: string;
+    description: string;
+    questions: string;
+    check: string;
+    publish: string;
+    save: string;
+    create: string;
+  };
+  templates: TemplateConfig[];
+  emptyState: EmptyStateConfig;
   settings: {
     setup: FieldConfig[];
     scoring?: FieldConfig[];
@@ -74,9 +100,11 @@ export interface ModeConfig {
 const surveyConfig: ModeConfig = {
   mode: 'survey',
   label: 'Survey',
-  description: 'Collect feedback and research responses',
+  builderTitle: 'Survey Builder',
+  description: 'Collect feedback, ratings, opinions, and research responses',
   icon: 'HelpCircle',
   color: 'blue',
+  accentColor: 'bg-blue-500',
   tabs: [
     { id: 'setup', label: 'Setup', required: true },
     { id: 'design', label: 'Design' },
@@ -86,7 +114,7 @@ const surveyConfig: ModeConfig = {
     { id: 'publish', label: 'Publish', required: true },
   ],
   questionTypes: [
-    { id: 'text', label: 'Text', icon: 'Type', supported: true, scorable: false },
+    { id: 'text', label: 'Text Response', icon: 'Type', supported: true, scorable: false },
     { id: 'choice', label: 'Multiple Choice', icon: 'List', supported: true, scorable: false },
     { id: 'yes_no', label: 'Yes / No', icon: 'CheckCircle2', supported: true, scorable: false },
     { id: 'rating', label: 'Rating Scale', icon: 'Star', supported: true, scorable: false },
@@ -108,6 +136,28 @@ const surveyConfig: ModeConfig = {
   questionFields: {
     show: ['question_text', 'type', 'options', 'required', 'show_when'],
     required: ['question_text', 'type'],
+  },
+  labels: {
+    title: 'Survey Title',
+    description: 'Survey Description',
+    questions: 'Survey Questions',
+    check: 'Check Survey',
+    publish: 'Publish Survey',
+    save: 'Save Survey',
+    create: 'Create Survey',
+  },
+  templates: [
+    { id: 'template-feedback', title: 'Customer Feedback', description: 'Collect feedback about your product or service', questions: [] },
+    { id: 'template-event', title: 'Event Feedback', description: 'Gather attendee impressions after your event', questions: [] },
+    { id: 'template-employee', title: 'Employee Satisfaction', description: 'Measure employee satisfaction and engagement', questions: [] },
+    { id: 'template-training', title: 'Training Evaluation', description: 'Evaluate training program effectiveness', questions: [] },
+    { id: 'template-nps', title: 'Net Promoter Score', description: 'Measure customer loyalty and satisfaction', questions: [] },
+    { id: 'template-research', title: 'Research Questionnaire', description: 'Conduct academic or market research', questions: [] },
+  ],
+  emptyState: {
+    title: 'No survey questions yet',
+    description: 'Add feedback, rating, or research questions to get started.',
+    buttonText: 'Add Survey Question',
   },
   settings: {
     setup: [
@@ -137,15 +187,17 @@ const surveyConfig: ModeConfig = {
 const quizConfig: ModeConfig = {
   mode: 'quiz',
   label: 'Quiz',
+  builderTitle: 'Quiz Builder',
   description: 'Create scored practice assessments with instant feedback',
   icon: 'CheckSquare',
   color: 'green',
+  accentColor: 'bg-green-500',
   tabs: [
     { id: 'setup', label: 'Setup', required: true },
-    { id: 'design', label: 'Design' },
     { id: 'questions', label: 'Questions', required: true },
-    { id: 'logic', label: 'Logic' },
+    { id: 'answer_key', label: 'Answer Key', required: true },
     { id: 'scoring', label: 'Scoring', required: true },
+    { id: 'feedback', label: 'Feedback' },
     { id: 'preview', label: 'Preview' },
     { id: 'publish', label: 'Publish', required: true },
   ],
@@ -153,8 +205,8 @@ const quizConfig: ModeConfig = {
     { id: 'single_choice', label: 'Single Choice', icon: 'Circle', supported: true, scorable: true },
     { id: 'multiple_choice', label: 'Multiple Choice', icon: 'List', supported: true, scorable: true },
     { id: 'true_false', label: 'True / False', icon: 'ToggleLeft', supported: true, scorable: true },
-    { id: 'yes_no', label: 'Yes / No', icon: 'CheckCircle2', supported: true, scorable: true },
     { id: 'short_answer', label: 'Short Answer', icon: 'Type', supported: true, scorable: true },
+    { id: 'fill_blank', label: 'Fill in the Blank', icon: 'Square', supported: true, scorable: true },
     { id: 'essay', label: 'Essay', icon: 'FileText', supported: true, scorable: true },
   ],
   layoutBlocks: [
@@ -163,14 +215,37 @@ const quizConfig: ModeConfig = {
     { id: 'page_break', label: 'Page Break', icon: 'Separator', category: 'layout', supported: true },
   ],
   smartTools: [
-    { id: 'bulk_import', label: 'Bulk Import', icon: 'Upload', category: 'smart', supported: true },
+    { id: 'answer_key_builder', label: 'Answer Key Builder', icon: 'Key', category: 'smart', supported: true },
+    { id: 'bulk_import', label: 'Bulk Import with Answers', icon: 'Upload', category: 'smart', supported: true },
     { id: 'question_bank', label: 'Question Bank', icon: 'Database', category: 'smart', supported: true },
-    { id: 'check', label: 'Check Quiz', icon: 'CheckCircle', category: 'smart', supported: true },
-    { id: 'logic_rules', label: 'Logic Rules', icon: 'GitBranch', category: 'smart', supported: true },
+    { id: 'auto_grade_check', label: 'Auto Grade Check', icon: 'CheckCircle', category: 'smart', supported: true },
+    { id: 'check', label: 'Check Quiz', icon: 'ClipboardCheck', category: 'smart', supported: true },
   ],
   questionFields: {
     show: ['question_text', 'type', 'options', 'required', 'points', 'correct_answer', 'correct_answers', 'explanation', 'grading_type', 'show_when'],
     required: ['question_text', 'type', 'points'],
+  },
+  labels: {
+    title: 'Quiz Title',
+    description: 'Quiz Instructions',
+    questions: 'Quiz Questions',
+    check: 'Check Quiz',
+    publish: 'Publish Quiz',
+    save: 'Save Quiz',
+    create: 'Create Quiz',
+  },
+  templates: [
+    { id: 'template-practice', title: 'Practice Quiz', description: 'Basic practice quiz with multiple choice questions', questions: [] },
+    { id: 'template-lesson', title: 'Lesson Review', description: 'Review quiz for lesson comprehension', questions: [] },
+    { id: 'template-vocabulary', title: 'Vocabulary Quiz', description: 'Test vocabulary knowledge', questions: [] },
+    { id: 'template-safety', title: 'Safety Quiz', description: 'Workplace safety knowledge check', questions: [] },
+    { id: 'template-knowledge', title: 'Knowledge Check', description: 'Quick multiple choice knowledge assessment', questions: [] },
+    { id: 'template-tf', title: 'True or False Quiz', description: 'True or false style assessment', questions: [] },
+  ],
+  emptyState: {
+    title: 'No quiz questions yet',
+    description: 'Add scored questions with correct answers and explanations.',
+    buttonText: 'Add Quiz Question',
   },
   settings: {
     setup: [
@@ -208,16 +283,17 @@ const quizConfig: ModeConfig = {
 const examConfig: ModeConfig = {
   mode: 'exam',
   label: 'Exam',
-  description: 'Create formal timed assessments with controlled results',
+  builderTitle: 'Exam Builder',
+  description: 'Create formal timed assessments with controlled scoring and result release',
   icon: 'GraduationCap',
   color: 'purple',
+  accentColor: 'bg-purple-500',
   tabs: [
     { id: 'setup', label: 'Setup', required: true },
-    { id: 'design', label: 'Design' },
     { id: 'questions', label: 'Questions', required: true },
-    { id: 'logic', label: 'Logic' },
     { id: 'scoring', label: 'Scoring', required: true },
     { id: 'security', label: 'Security', required: true },
+    { id: 'review', label: 'Review' },
     { id: 'preview', label: 'Preview' },
     { id: 'publish', label: 'Publish', required: true },
   ],
@@ -235,15 +311,38 @@ const examConfig: ModeConfig = {
     { id: 'page_break', label: 'Page Break', icon: 'Separator', category: 'layout', supported: true },
   ],
   smartTools: [
-    { id: 'bulk_import', label: 'Bulk Import', icon: 'Upload', category: 'smart', supported: true },
-    { id: 'question_bank', label: 'Question Bank', icon: 'Database', category: 'smart', supported: true },
-    { id: 'check', label: 'Check Exam', icon: 'CheckCircle', category: 'smart', supported: true },
+    { id: 'exam_blueprint', label: 'Exam Blueprint', icon: 'LayoutGrid', category: 'smart', supported: true },
+    { id: 'answer_key_builder', label: 'Answer Key Builder', icon: 'Key', category: 'smart', supported: true },
     { id: 'manual_grading', label: 'Manual Grading', icon: 'ClipboardCheck', category: 'smart', supported: true },
-    { id: 'logic_rules', label: 'Logic Rules', icon: 'GitBranch', category: 'smart', supported: true },
+    { id: 'question_pool', label: 'Question Pool', icon: 'Database', category: 'smart', supported: true },
+    { id: 'bulk_import', label: 'Bulk Import', icon: 'Upload', category: 'smart', supported: true },
+    { id: 'check', label: 'Check Exam', icon: 'CheckCircle', category: 'smart', supported: true },
   ],
   questionFields: {
     show: ['question_text', 'type', 'options', 'required', 'points', 'correct_answer', 'correct_answers', 'explanation', 'grading_type', 'show_when'],
     required: ['question_text', 'type', 'points'],
+  },
+  labels: {
+    title: 'Exam Title',
+    description: 'Exam Instructions',
+    questions: 'Exam Questions',
+    check: 'Check Exam',
+    publish: 'Publish Exam',
+    save: 'Save Exam',
+    create: 'Create Exam',
+  },
+  templates: [
+    { id: 'template-midterm', title: 'Midterm Exam', description: 'Standard midterm examination format', questions: [] },
+    { id: 'template-final', title: 'Final Exam', description: 'Comprehensive final examination', questions: [] },
+    { id: 'template-certification', title: 'Certification Exam', description: 'Professional certification assessment', questions: [] },
+    { id: 'template-timed', title: 'Timed Assessment', description: 'Time-limited knowledge assessment', questions: [] },
+    { id: 'template-essay', title: 'Essay Exam', description: 'Essay-based examination', questions: [] },
+    { id: 'template-mixed', title: 'Mixed Question Exam', description: 'Exam with multiple question types', questions: [] },
+  ],
+  emptyState: {
+    title: 'No exam questions yet',
+    description: 'Add formal assessment questions with points, timer, and grading rules.',
+    buttonText: 'Add Exam Question',
   },
   settings: {
     setup: [

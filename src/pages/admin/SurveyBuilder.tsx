@@ -379,15 +379,15 @@ export default function SurveyBuilder() {
   const runHealthCheck = (): HealthIssue[] => {
     const issues: HealthIssue[] = [];
 
-    // Check survey title
+    // Check title
     if (!title.trim()) {
-      issues.push({ type: 'error', message: 'Survey title is missing' });
+      issues.push({ type: 'error', message: `${modeConfig.labels.title} is missing` });
     }
 
     // Check for real questions
     const realQuestions = questions.filter(q => q.block_type === 'question');
     if (realQuestions.length === 0) {
-      issues.push({ type: 'error', message: 'No questions added to the survey' });
+      issues.push({ type: 'error', message: `No questions added to the ${modeConfig.label.toLowerCase()}` });
     }
 
     // Check each question
@@ -736,7 +736,7 @@ export default function SurveyBuilder() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header - Simplified */}
+      {/* Header - Mode-Specific */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
@@ -750,15 +750,50 @@ export default function SurveyBuilder() {
               <span className="font-medium hidden sm:inline">Back to Dashboard</span>
               <span className="font-medium sm:hidden">Back</span>
             </button>
-            {isEditing && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
-                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                Editing Mode
+            <div className="flex items-center gap-3">
+              {/* Mode Badge */}
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border ${
+                mode === 'survey' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                mode === 'quiz' ? 'bg-green-50 text-green-700 border-green-100' :
+                'bg-purple-50 text-purple-700 border-purple-100'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  mode === 'survey' ? 'bg-blue-500' :
+                  mode === 'quiz' ? 'bg-green-500' :
+                  'bg-purple-500'
+                }`}></span>
+                {modeConfig.label}
               </span>
-            )}
+              {isEditing && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-700 text-xs font-medium rounded-full border border-gray-200">
+                  Editing
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </header>
+
+      {/* Mode-Specific Title Section */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-start gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+              mode === 'survey' ? 'bg-blue-100' :
+              mode === 'quiz' ? 'bg-green-100' :
+              'bg-purple-100'
+            }`}>
+              {mode === 'survey' && <HelpCircle className={`w-6 h-6 ${mode === 'survey' ? 'text-blue-600' : ''}`} />}
+              {mode === 'quiz' && <CheckSquare className="w-6 h-6 text-green-600" />}
+              {mode === 'exam' && <GraduationCap className="w-6 h-6 text-purple-600" />}
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{modeConfig.builderTitle}</h1>
+              <p className="text-sm text-gray-500 mt-1">{modeConfig.description}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-24 sm:pb-8">
         {/* Survey Details */}
@@ -766,18 +801,22 @@ export default function SurveyBuilder() {
           {/* Basic Information */}
           <div className="card">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                mode === 'survey' ? 'bg-blue-100' :
+                mode === 'quiz' ? 'bg-green-100' :
+                'bg-purple-100'
+              }`}>
                 <span className="text-xl">📋</span>
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
-                <p className="text-sm text-gray-500">Define your survey identity</p>
+                <p className="text-sm text-gray-500">Define your {modeConfig.label.toLowerCase()} identity</p>
               </div>
             </div>
             <div className="space-y-6">
               <div>
                 <label className="label flex items-center gap-1">
-                  Survey Title
+                  {modeConfig.labels.title}
                   <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -790,12 +829,12 @@ export default function SurveyBuilder() {
                 <p className="text-xs text-gray-500 mt-2">Give your survey a clear, descriptive title that respondents will recognize.</p>
               </div>
               <div>
-                <label className="label">Description</label>
+                <label className="label">{modeConfig.labels.description}</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="input min-h-[100px] resize-y"
-                  placeholder="Briefly explain the purpose of this survey to your respondents..."
+                  placeholder={`Briefly explain the purpose of this ${modeConfig.label.toLowerCase()} to your respondents...`}
                 />
                 <p className="text-xs text-gray-500 mt-2">Optional context shown to respondents before they start. Helps set expectations.</p>
               </div>
@@ -810,7 +849,7 @@ export default function SurveyBuilder() {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Assessment Mode</h2>
-                <p className="text-sm text-gray-500">Choose how respondents interact with this assessment</p>
+                <p className="text-sm text-gray-500">Choose your assessment type</p>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
@@ -828,7 +867,7 @@ export default function SurveyBuilder() {
                   </div>
                   <div className="font-semibold text-gray-900">Survey</div>
                 </div>
-                <div className="text-xs text-gray-500">Collect feedback and research responses. No scoring.</div>
+                <div className="text-xs text-gray-500">Feedback and research. No scoring.</div>
               </button>
               <button
                 onClick={() => handleModeChange('quiz')}
@@ -844,7 +883,7 @@ export default function SurveyBuilder() {
                   </div>
                   <div className="font-semibold text-gray-900">Quiz</div>
                 </div>
-                <div className="text-xs text-gray-500">Practice assessments with instant scoring and feedback.</div>
+                <div className="text-xs text-gray-500">Practice assessment with scores and feedback.</div>
               </button>
               <button
                 onClick={() => handleModeChange('exam')}
@@ -860,7 +899,7 @@ export default function SurveyBuilder() {
                   </div>
                   <div className="font-semibold text-gray-900">Exam</div>
                 </div>
-                <div className="text-xs text-gray-500">Formal timed assessments with controlled results.</div>
+                <div className="text-xs text-gray-500">Timed formal assessment with security controls.</div>
               </button>
             </div>
             
@@ -1306,8 +1345,8 @@ export default function SurveyBuilder() {
               <span className="text-xl">📄</span>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-gray-900">Start from a Template</h2>
-              <p className="text-sm text-gray-500">Save time with pre-built survey structures</p>
+              <h2 className="text-lg font-semibold text-gray-900">Start from a {modeConfig.label} Template</h2>
+              <p className="text-sm text-gray-500">Save time with pre-built {modeConfig.label.toLowerCase()} structures</p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -1359,8 +1398,8 @@ export default function SurveyBuilder() {
               <span className="text-xl">❓</span>
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-gray-900">Survey Questions</h2>
-              <p className="text-sm text-gray-500">{questions?.length || 0} items total • Build your survey flow</p>
+              <h2 className="text-lg font-semibold text-gray-900">{modeConfig.labels.questions}</h2>
+              <p className="text-sm text-gray-500">{questions?.length || 0} items total • Build your {modeConfig.label.toLowerCase()}</p>
             </div>
           </div>
           
@@ -1522,7 +1561,7 @@ export default function SurveyBuilder() {
                   className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-all text-sm"
                 >
                   <span className="text-lg">🔍</span>
-                  <span className="font-medium">Check Survey</span>
+                  <span className="font-medium">{modeConfig.labels.check}</span>
                 </button>
 
                 <button
@@ -1971,25 +2010,37 @@ export default function SurveyBuilder() {
           
           {questions.length === 0 && !showBulkImporter && (
             <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50">
-                <Plus className="w-6 h-6 text-indigo-600" />
+              <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
+                mode === 'survey' ? 'bg-blue-50' :
+                mode === 'quiz' ? 'bg-green-50' :
+                'bg-purple-50'
+              }`}>
+                <Plus className={`w-6 h-6 ${
+                  mode === 'survey' ? 'text-blue-600' :
+                  mode === 'quiz' ? 'text-green-600' :
+                  'text-purple-600'
+                }`} />
               </div>
               
               <h3 className="text-base font-semibold text-gray-900">
-                No questions yet
+                {modeConfig.emptyState.title}
               </h3>
               
               <p className="mx-auto mt-2 max-w-md text-sm text-gray-600">
-                Start building your survey by adding your first question or section. Use the tools above to add questions, headings, or import in bulk.
+                {modeConfig.emptyState.description}
               </p>
               
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                 <button
                   onClick={() => addQuestion('text', [], 'question')}
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 ${
+                    mode === 'survey' ? 'bg-blue-600 hover:bg-blue-700' :
+                    mode === 'quiz' ? 'bg-green-600 hover:bg-green-700' :
+                    'bg-purple-600 hover:bg-purple-700'
+                  }`}
                 >
                   <Plus className="w-4 h-4" />
-                  Add Question
+                  {modeConfig.emptyState.buttonText}
                 </button>
                 <button
                   onClick={() => setShowBulkImporter(true)}
@@ -2162,10 +2213,14 @@ export default function SurveyBuilder() {
           <button
             onClick={saveSurvey}
             disabled={isSaving}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-white rounded-xl font-medium transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+              mode === 'survey' ? 'bg-blue-600 hover:bg-blue-700' :
+              mode === 'quiz' ? 'bg-green-600 hover:bg-green-700' :
+              'bg-purple-600 hover:bg-purple-700'
+            }`}
           >
             <Save className="w-4 h-4" />
-            {isSaving ? 'Saving...' : (isEditing ? 'Update Survey' : 'Create Survey')}
+            {isSaving ? `Saving ${modeConfig.label}...` : (isEditing ? modeConfig.labels.save : modeConfig.labels.create)}
           </button>
         </div>
       </div>
