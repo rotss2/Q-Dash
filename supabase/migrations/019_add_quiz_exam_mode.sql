@@ -146,7 +146,7 @@ CREATE POLICY "Quiz attempts are viewable by own user"
     ON quiz_attempts FOR SELECT
     USING (
         user_id = auth.uid()::text
-        OR email = (SELECT email FROM auth.users WHERE id = auth.uid())
+        OR email = (SELECT email FROM auth.users WHERE id::text = auth.uid()::text)
     );
 
 -- Allow anonymous attempts (insert only)
@@ -169,7 +169,7 @@ CREATE POLICY "Quiz attempts are updatable by survey admin"
 CREATE POLICY "Quiz attempts are updatable by own user"
     ON quiz_attempts FOR UPDATE
     USING (
-        (user_id = auth.uid()::text OR email = (SELECT email FROM auth.users WHERE id = auth.uid()))
+        (user_id = auth.uid()::text OR email = (SELECT email FROM auth.users WHERE id::text = auth.uid()::text))
         AND status = 'in_progress'
     );
 
@@ -193,7 +193,7 @@ CREATE POLICY "Quiz attempt answers are viewable by own user"
         EXISTS (
             SELECT 1 FROM quiz_attempts qa
             WHERE qa.id = quiz_attempt_answers.attempt_id
-            AND (qa.user_id = auth.uid()::text OR qa.email = (SELECT email FROM auth.users WHERE id = auth.uid()))
+            AND (qa.user_id = auth.uid()::text OR qa.email = (SELECT email FROM auth.users WHERE id::text = auth.uid()::text))
         )
     );
 
@@ -222,7 +222,7 @@ CREATE POLICY "Quiz attempt answers are updatable by own user"
             SELECT 1 FROM quiz_attempts qa
             WHERE qa.id = quiz_attempt_answers.attempt_id
             AND qa.status = 'in_progress'
-            AND (qa.user_id = auth.uid()::text OR qa.email = (SELECT email FROM auth.users WHERE id = auth.uid()))
+            AND (qa.user_id = auth.uid()::text OR qa.email = (SELECT email FROM auth.users WHERE id::text = auth.uid()::text))
         )
     );
 
