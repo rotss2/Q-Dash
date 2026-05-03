@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save, FileText, AlertCircle, Globe, Calendar, GripVertical, Type, Info, Star, ToggleRight } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText, Globe, Calendar, GripVertical, Type, Info, ToggleRight } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 
 interface SurveyTemplate {
@@ -24,6 +24,12 @@ interface FormQuestion {
   show_when_answer_value?: string;
   required: boolean;
   order_index: number;
+  // Quiz/Exam fields
+  points?: number;
+  correct_answer?: string;
+  correct_answers?: string[];
+  explanation?: string;
+  grading_type?: 'auto' | 'manual';
 }
 
 const SURVEY_TEMPLATES: SurveyTemplate[] = [
@@ -82,14 +88,27 @@ export default function SurveyBuilder() {
   const [showBulkImporter, setShowBulkImporter] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  
+
   // Track active question for relative insertion
   const [activeQuestionIndex, setActiveQuestionIndex] = useState<number | null>(null);
-  
-  // Connector tool state
-  const [connectMode, setConnectMode] = useState(false);
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
-  const [connections, setConnections] = useState<{from: string; to: string; id: string}[]>([]);
+  const [previewMode, setPreviewMode] = useState<Record<string, boolean>>({});
+  const [showHealthCheck, setShowHealthCheck] = useState(false);
+  const [showQuestionBank, setShowQuestionBank] = useState(false);
+  const [healthIssues, setHealthIssues] = useState<HealthIssue[]>([]);
+
+  // Mode: survey | quiz | exam
+  const [mode, setMode] = useState<'survey' | 'quiz' | 'exam'>('survey');
+
+  // Quiz/Exam Settings
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(null);
+  const [passingScore, setPassingScore] = useState<number | null>(null);
+  const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
+  const [showScoreImmediately, setShowScoreImmediately] = useState(true);
+  const [showCorrectAnswers, setShowCorrectAnswers] = useState(true);
+  const [showExplanations, setShowExplanations] = useState(true);
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [shuffleOptions, setShuffleOptions] = useState(false);
+  const [releaseResultsMode, setReleaseResultsMode] = useState<'immediate' | 'after_close' | 'manual'>('immediate');
 
   useEffect(() => {
     if (isEditing && surveyId) {
@@ -226,16 +245,17 @@ export default function SurveyBuilder() {
     showToast('Legend added! Edit the text to customize instructions.', 'success');
   };
 
-  // Add a 1-5 rating scale question
-  const addRatingScale = () => {
-    addQuestion('likert', ['1', '2', '3', '4', '5'], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined);
-    showToast('Rating scale (1-5) question added!', 'success');
-  };
-
-  // Toggle all questions required
+  // Toggle all questions required (only affects question blocks, not headings/instructions/page_breaks)
   const toggleAllRequired = () => {
-    const allRequired = questions.every(q => q.required);
-    setQuestions(questions.map(q => ({ ...q, required: !allRequired })));
+    const questionBlocks = questions.filter(q => q.block_type === 'question');
+    if (questionBlocks.length === 0) {
+      showToast('No questions to toggle', 'info');
+      return;
+    }
+    const allRequired = questionBlocks.every(q => q.required);
+    setQuestions(questions.map(q =>
+      q.block_type === 'question' ? { ...q, required: !allRequired } : q
+    ));
     showToast(allRequired ? 'All questions set to optional' : 'All questions set to required', 'success');
   };
 
@@ -279,6 +299,195 @@ export default function SurveyBuilder() {
       const newOptions = question.options.filter((_, i) => i !== optionIndex);
       updateQuestion(questionId, { options: newOptions });
     }
+  };
+
+  // Duplicate a question and insert below the original
+  const duplicateQuestion = (index: number) => {
+    const original = questions[index];
+    const duplicated: FormQuestion = {
+      ...original,
+      id: generateId(),
+      question_text: original.question_text + ' (Copy)',
+      order_index: original.order_index + 1,
+      // Clear logic rules on duplicate to avoid circular dependencies
+      show_when_question_id: undefined,
+      show_when_answer_value: undefined
+    };
+    const newQuestions = [...questions];
+    newQuestions.splice(index + 1, 0, duplicated);
+    setQuestions(newQuestions.map((q, i) => ({ ...q, order_index: i })));
+    setActiveQuestionIndex(index + 1);
+    showToast('Question duplicated', 'success');
+  };
+
+  // Add NPS question (0-10 scale)
+  const addNPSQuestion = (insertAfterIndex?: number) => {
+    const insertIndex = insertAfterIndex !== undefined ? insertAfterIndex + 1 : questions.length;
+    const npsQuestion: FormQuestion = {
+      id: generateId(),
+      block_type: 'question',
+      type: 'likert',
+      question_text: 'How likely are you to recommend this to others?',
+      options: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+      required: true,
+      order_index: insertIndex
+    };
+    const newQuestions = [...questions];
+    newQuestions.splice(insertIndex, 0, npsQuestion);
+    setQuestions(newQuestions.map((q, i) => ({ ...q, order_index: i })));
+    setActiveQuestionIndex(insertIndex);
+    showToast('NPS question added (0-10 scale)', 'success');
+  };
+
+  // Health check validation
+  interface HealthIssue {
+    type: 'error' | 'warning';
+    message: string;
+    questionId?: string;
+    questionIndex?: number;
+  }
+
+  const runHealthCheck = (): HealthIssue[] => {
+    const issues: HealthIssue[] = [];
+
+    // Check survey title
+    if (!title.trim()) {
+      issues.push({ type: 'error', message: 'Survey title is missing' });
+    }
+
+    // Check for real questions
+    const realQuestions = questions.filter(q => q.block_type === 'question');
+    if (realQuestions.length === 0) {
+      issues.push({ type: 'error', message: 'No questions added to the survey' });
+    }
+
+    // Check each question
+    questions.forEach((q, index) => {
+      // Empty question text for question blocks
+      if (q.block_type === 'question' && !q.question_text.trim()) {
+        issues.push({
+          type: 'error',
+          message: `Question ${index + 1} is missing text`,
+          questionId: q.id,
+          questionIndex: index
+        });
+      }
+
+      // Choice questions need at least 2 options
+      if (q.block_type === 'question' && q.type === 'choice') {
+        const validOptions = q.options.filter(o => o.trim());
+        if (validOptions.length < 2) {
+          issues.push({
+            type: 'error',
+            message: `Question ${index + 1} needs at least 2 options`,
+            questionId: q.id,
+            questionIndex: index
+          });
+        }
+        // Check for empty options
+        if (q.options.some(o => !o.trim())) {
+          issues.push({
+            type: 'warning',
+            message: `Question ${index + 1} has empty options`,
+            questionId: q.id,
+            questionIndex: index
+          });
+        }
+        // Check for duplicate options
+        const trimmedOptions = q.options.map(o => o.trim().toLowerCase()).filter(o => o);
+        if (new Set(trimmedOptions).size !== trimmedOptions.length) {
+          issues.push({
+            type: 'warning',
+            message: `Question ${index + 1} has duplicate options`,
+            questionId: q.id,
+            questionIndex: index
+          });
+        }
+      }
+
+      // Check logic rules
+      if (q.show_when_question_id) {
+        const sourceQuestion = questions.find(sq => sq.id === q.show_when_question_id);
+        if (!sourceQuestion) {
+          issues.push({
+            type: 'error',
+            message: `Question ${index + 1} has an invalid logic rule (source question not found)`,
+            questionId: q.id,
+            questionIndex: index
+          });
+        } else if (sourceQuestion.order_index >= q.order_index) {
+          issues.push({
+            type: 'error',
+            message: `Question ${index + 1} logic rule references a question that comes after it`,
+            questionId: q.id,
+            questionIndex: index
+          });
+        }
+      }
+    });
+
+    return issues;
+  };
+
+  // Question Bank Templates
+  const QUESTION_BANK_TEMPLATES = {
+    satisfaction: [
+      { text: 'How satisfied are you with our service?', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] },
+      { text: 'What did you like most?', type: 'text' as const, options: [] },
+      { text: 'What can we improve?', type: 'text' as const, options: [] }
+    ],
+    training: [
+      { text: 'How relevant was the training content?', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] },
+      { text: 'How knowledgeable was the trainer?', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] },
+      { text: 'Any additional comments?', type: 'text' as const, options: [] }
+    ],
+    employee: [
+      { text: 'How would you rate your overall performance?', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] },
+      { text: 'What are your key achievements?', type: 'text' as const, options: [] },
+      { text: 'What are your development goals?', type: 'text' as const, options: [] }
+    ],
+    course: [
+      { text: 'How would you rate the course content?', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] },
+      { text: 'How would you rate the instructor?', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] },
+      { text: 'Would you recommend this course?', type: 'choice' as const, options: ['Yes', 'No'] }
+    ],
+    usability: [
+      { text: 'I found the system easy to use', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] },
+      { text: 'The interface is intuitive', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] },
+      { text: 'I would use this system regularly', type: 'likert' as const, options: ['1', '2', '3', '4', '5'] }
+    ],
+    nps: [
+      { text: 'How likely are you to recommend this to others?', type: 'likert' as const, options: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] },
+      { text: 'What is the primary reason for your score?', type: 'text' as const, options: [] }
+    ],
+    demographics: [
+      { text: 'What is your age range?', type: 'choice' as const, options: ['18-24', '25-34', '35-44', '45-54', '55+'] },
+      { text: 'What is your gender?', type: 'choice' as const, options: ['Male', 'Female', 'Non-binary', 'Prefer not to say'] },
+      { text: 'What is your department?', type: 'text' as const, options: [] }
+    ]
+  };
+
+  const insertQuestionBankTemplate = (templateKey: keyof typeof QUESTION_BANK_TEMPLATES) => {
+    const template = QUESTION_BANK_TEMPLATES[templateKey];
+    const insertIndex = activeQuestionIndex !== null ? activeQuestionIndex + 1 : questions.length;
+
+    const newQuestions: FormQuestion[] = template.map((t, i) => ({
+      id: generateId(),
+      block_type: 'question',
+      type: t.type,
+      question_text: t.text,
+      options: t.options,
+      required: true,
+      order_index: insertIndex + i
+    }));
+
+    const updatedQuestions = [...questions];
+    newQuestions.forEach((q, i) => {
+      updatedQuestions.splice(insertIndex + i, 0, q);
+    });
+
+    setQuestions(updatedQuestions.map((q, i) => ({ ...q, order_index: i })));
+    showToast(`${template.length} questions added from template`, 'success');
   };
 
   const moveQuestion = (index: number, direction: 'up' | 'down') => {
@@ -384,47 +593,6 @@ export default function SurveyBuilder() {
     return groupInfoMap.get(index) || { isGrouped: false, groupStartIndex: -1, isGroupStart: false, hasHeadingBefore: false, hasHeadingAfter: false };
   };
 
-  // Connector functions
-  const toggleConnectMode = () => {
-    setConnectMode(!connectMode);
-    setSelectedSource(null);
-    if (!connectMode) {
-      showToast('Connect Mode: Click two items to connect them', 'info');
-    }
-  };
-
-  const handleItemClickForConnect = (questionId: string) => {
-    if (!connectMode) return;
-    
-    if (!selectedSource) {
-      setSelectedSource(questionId);
-      showToast('Source selected. Click another item to connect.', 'info');
-    } else if (selectedSource === questionId) {
-      setSelectedSource(null);
-      showToast('Source deselected.', 'info');
-    } else {
-      // Create connection
-      const newConnection = {
-        from: selectedSource,
-        to: questionId,
-        id: `${selectedSource}-${questionId}-${Date.now()}`
-      };
-      setConnections([...connections, newConnection]);
-      setSelectedSource(null);
-      showToast('Connected!', 'success');
-    }
-  };
-
-  const removeConnection = (connectionId: string) => {
-    setConnections(connections.filter(c => c.id !== connectionId));
-  };
-
-  const clearAllConnections = () => {
-    setConnections([]);
-    setSelectedSource(null);
-    showToast('All connections cleared', 'info');
-  };
-
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === dropIndex) return;
@@ -450,15 +618,29 @@ export default function SurveyBuilder() {
       return;
     }
 
+    // Validation rules by block type
     for (const q of questions) {
-      if (!q.question_text.trim()) {
-        showToast('All questions must have text', 'error');
+      // Question blocks require text
+      if (q.block_type === 'question') {
+        if (!q.question_text.trim()) {
+          showToast(`Question ${q.order_index + 1} is missing text`, 'error');
+          return;
+        }
+        // Choice questions need at least 2 non-empty options
+        if (q.type === 'choice') {
+          const validOptions = q.options.filter(o => o.trim());
+          if (validOptions.length < 2) {
+            showToast(`Question ${q.order_index + 1} needs at least 2 options`, 'error');
+            return;
+          }
+        }
+      }
+      // Heading blocks require title text
+      if (q.block_type === 'heading' && !q.question_text.trim()) {
+        showToast(`Section heading ${q.order_index + 1} is missing text`, 'error');
         return;
       }
-      if (q.type === 'choice' && q.options.some(o => !o.trim())) {
-        showToast('All choice options must have text', 'error');
-        return;
-      }
+      // Instruction and page_break have no required validation
     }
 
     setIsSaving(true);
@@ -467,6 +649,23 @@ export default function SurveyBuilder() {
       const payload = {
         title,
         description,
+        mode,
+        // Quiz/Exam settings
+        time_limit_minutes: timeLimitMinutes,
+        passing_score: passingScore,
+        max_attempts: maxAttempts,
+        show_score_immediately: showScoreImmediately,
+        show_correct_answers: showCorrectAnswers,
+        show_explanations: showExplanations,
+        shuffle_questions: shuffleQuestions,
+        shuffle_options: shuffleOptions,
+        release_results_mode: releaseResultsMode,
+        // Anti-cheating
+        anti_cheating_enabled: antiCheatingEnabled,
+        require_fullscreen: mode === 'exam',
+        disable_copy_paste: antiCheatingEnabled,
+        disable_tab_switching: antiCheatingEnabled,
+        // Appearance
         theme,
         background_theme: backgroundTheme,
         font_family: fontFamily,
@@ -476,7 +675,6 @@ export default function SurveyBuilder() {
         supported_languages: supportedLanguages.split(',').map((lang) => lang.trim()).filter(Boolean),
         open_date: openDate ? new Date(openDate).toISOString() : null,
         close_date: closeDate ? new Date(closeDate).toISOString() : null,
-        anti_cheating_enabled: antiCheatingEnabled,
         questions
       };
 
@@ -572,6 +770,54 @@ export default function SurveyBuilder() {
                 />
                 <p className="text-xs text-gray-500 mt-2">Optional context shown to respondents before they start. Helps set expectations.</p>
               </div>
+            </div>
+          </div>
+
+          {/* Mode Selector - Survey / Quiz / Exam */}
+          <div className="card">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🎯</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Assessment Mode</h2>
+                <p className="text-sm text-gray-500">Choose how respondents interact with this assessment</p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <button
+                onClick={() => setMode('survey')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  mode === 'survey'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-blue-300'
+                }`}
+              >
+                <div className="font-semibold text-gray-900 mb-1">Survey</div>
+                <div className="text-xs text-gray-500">Collect feedback, ratings, and opinions. No scoring.</div>
+              </button>
+              <button
+                onClick={() => setMode('quiz')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  mode === 'quiz'
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-gray-200 hover:border-green-300'
+                }`}
+              >
+                <div className="font-semibold text-gray-900 mb-1">Quiz</div>
+                <div className="text-xs text-gray-500">Practice assessment with instant scoring and feedback.</div>
+              </button>
+              <button
+                onClick={() => setMode('exam')}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  mode === 'exam'
+                    ? 'border-red-500 bg-red-50'
+                    : 'border-gray-200 hover:border-red-300'
+                }`}
+              >
+                <div className="font-semibold text-gray-900 mb-1">Exam</div>
+                <div className="text-xs text-gray-500">Formal assessment with time limits and controlled results.</div>
+              </button>
             </div>
           </div>
 
@@ -828,6 +1074,153 @@ export default function SurveyBuilder() {
           </div>
         </div>
 
+        {/* Scoring Settings - Only for Quiz/Exam */}
+        {mode !== 'survey' && (
+          <div className="card">
+            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                <span className="text-xl">🎯</span>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {mode === 'quiz' ? 'Quiz Settings' : 'Exam Settings'}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {mode === 'quiz' ? 'Configure scoring and attempts' : 'Configure scoring, time limits, and result release'}
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Time Limit */}
+              <div>
+                <label className="label">Time Limit (minutes)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={timeLimitMinutes || ''}
+                  onChange={(e) => setTimeLimitMinutes(e.target.value ? parseInt(e.target.value) : null)}
+                  className="input"
+                  placeholder="No limit"
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave empty for no time limit</p>
+              </div>
+
+              {/* Passing Score */}
+              <div>
+                <label className="label">Passing Score (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={passingScore || ''}
+                  onChange={(e) => setPassingScore(e.target.value ? parseInt(e.target.value) : null)}
+                  className="input"
+                  placeholder="No passing score"
+                />
+                <p className="text-xs text-gray-500 mt-1">Percentage needed to pass</p>
+              </div>
+
+              {/* Max Attempts */}
+              <div>
+                <label className="label">Max Attempts</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={maxAttempts || ''}
+                  onChange={(e) => setMaxAttempts(e.target.value ? parseInt(e.target.value) : null)}
+                  className="input"
+                  placeholder="Unlimited"
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave empty for unlimited</p>
+              </div>
+            </div>
+
+            {/* Quiz/Exam Toggles */}
+            <div className="mt-6 pt-6 border-t border-gray-200 grid gap-4 sm:grid-cols-2">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showScoreImmediately}
+                  onChange={(e) => setShowScoreImmediately(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Show Score Immediately</span>
+                  <p className="text-xs text-gray-500">Show score right after submission</p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showCorrectAnswers}
+                  onChange={(e) => setShowCorrectAnswers(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Show Correct Answers</span>
+                  <p className="text-xs text-gray-500">Reveal correct answers after submission</p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showExplanations}
+                  onChange={(e) => setShowExplanations(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Show Explanations</span>
+                  <p className="text-xs text-gray-500">Show answer explanations after submission</p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={shuffleQuestions}
+                  onChange={(e) => setShuffleQuestions(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Shuffle Questions</span>
+                  <p className="text-xs text-gray-500">Randomize question order</p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={shuffleOptions}
+                  onChange={(e) => setShuffleOptions(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Shuffle Options</span>
+                  <p className="text-xs text-gray-500">Randomize answer options</p>
+                </div>
+              </label>
+            </div>
+
+            {/* Result Release Mode - Only for Exam */}
+            {mode === 'exam' && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <label className="label">Result Release Mode</label>
+                <select
+                  value={releaseResultsMode}
+                  onChange={(e) => setReleaseResultsMode(e.target.value as 'immediate' | 'after_close' | 'manual')}
+                  className="input"
+                >
+                  <option value="immediate">Immediate - Show results right after submission</option>
+                  <option value="after_close">After Close - Show results when exam closes</option>
+                  <option value="manual">Manual - Admin releases results manually</option>
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Templates */}
         <div className="card">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
@@ -893,116 +1286,19 @@ export default function SurveyBuilder() {
             </div>
           </div>
           
-          {/* Editor Tools - Quick Add */}
-          <div className="mb-6 p-5 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-200/50 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-                  <span className="text-white text-sm font-bold">+</span>
-                </div>
-                <span className="text-sm font-bold text-indigo-900">Quick Add Tools</span>
-              </div>
-              <p className="hidden sm:block text-xs text-indigo-600/70">
-                Click to insert at selected position
-              </p>
-            </div>
-            
-            <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0">
-              <button
-                onClick={addSectionHeader}
-                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-indigo-100 hover:border-indigo-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
-                title="Add a section title like 'PART A: EASE OF USE'"
-              >
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-                  <Type className="w-5 h-5 text-indigo-600" />
-                </div>
-                <span className="text-xs font-medium text-gray-700 text-center">Heading</span>
-              </button>
-
-              <button
-                onClick={addLegend}
-                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-purple-100 hover:border-purple-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
-                title="Add instructions like '1 = Strongly Disagree...'"
-              >
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                  <Info className="w-5 h-5 text-purple-600" />
-                </div>
-                <span className="text-xs font-medium text-gray-700 text-center">Legend</span>
-              </button>
-
-              <button
-                onClick={addRatingScale}
-                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-blue-100 hover:border-blue-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
-                title="Add a 1-5 rating scale question"
-              >
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                  <Star className="w-5 h-5 text-blue-600" />
-                </div>
-                <span className="text-xs font-medium text-gray-700 text-center">Rating</span>
-              </button>
-
-              <button
-                onClick={toggleAllRequired}
-                className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-green-100 hover:border-green-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
-                title="Toggle all questions between required and optional"
-              >
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                  <ToggleRight className="w-5 h-5 text-green-600" />
-                </div>
-                <span className="text-xs font-medium text-gray-700 text-center">Required</span>
-              </button>
-
-              <button
-                onClick={toggleConnectMode}
-                className={`group flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px] ${connectMode ? 'bg-orange-50 border-orange-300 shadow-md' : 'bg-white border-pink-100 hover:border-pink-300 hover:shadow-md'}`}
-                title="Click to connect questions and blocks together"
-              >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${connectMode ? 'bg-orange-200' : 'bg-pink-100 group-hover:bg-pink-200'}`}>
-                  <svg className={`w-5 h-5 ${connectMode ? 'text-orange-600' : 'text-pink-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                </div>
-                <span className="text-xs font-medium text-gray-700 text-center">
-                  {connectMode ? `Links (${connections.length})` : 'Connect'}
-                </span>
-              </button>
-
-              {connections.length > 0 && (
-                <button
-                  onClick={clearAllConnections}
-                  className="group flex flex-col items-center gap-2 p-3 bg-white rounded-xl border-2 border-red-100 hover:border-red-300 hover:shadow-md transition-all flex-shrink-0 w-[100px] sm:w-auto min-h-[80px]"
-                  title="Remove all connections"
-                >
-                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                    <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 text-center">Clear</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Add Question Section */}
+          {/* Editor Toolbar - Clean Grouped Layout */}
           <div className="mb-6 p-5 bg-gray-50/80 rounded-2xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-gray-700" />
-                </div>
-                <span className="text-sm font-bold text-gray-800">Add Elements</span>
-              </div>
-              {activeQuestionIndex !== null && (
+            {activeQuestionIndex !== null && (
+              <div className="mb-4 flex items-center gap-2">
                 <span className="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 font-medium">
                   Inserting after Q{activeQuestionIndex + 1}
                 </span>
-              )}
-            </div>
-            
-            {/* Question Types */}
+              </div>
+            )}
+
+            {/* Primary Question Types - Always Visible */}
             <div className="mb-4">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Question Types</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Primary Types</p>
               <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
                 <button
                   onClick={() => addQuestion('text', [], 'question', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
@@ -1025,21 +1321,21 @@ export default function SurveyBuilder() {
                     <span className="text-green-600 text-xs font-bold">✓</span>
                   </div>
                   <div className="text-left min-w-0">
-                    <span className="block text-sm font-medium text-gray-800">Choice</span>
-                    <span className="block text-xs text-gray-500 truncate">Multiple options</span>
+                    <span className="block text-sm font-medium text-gray-800">Multiple Choice</span>
+                    <span className="block text-xs text-gray-500 truncate">Select one</span>
                   </div>
                 </button>
-                
+
                 <button
                   onClick={() => addBooleanQuestion(activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
                   className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all flex-shrink-0 w-[160px] sm:w-auto min-h-[60px]"
                 >
                   <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors flex-shrink-0">
-                    <span className="text-purple-600 text-xs font-bold">?</span>
+                    <span className="text-purple-600 text-xs font-bold">Y/N</span>
                   </div>
                   <div className="text-left min-w-0">
-                    <span className="block text-sm font-medium text-gray-800">Yes/No</span>
-                    <span className="block text-xs text-gray-500 truncate">Binary</span>
+                    <span className="block text-sm font-medium text-gray-800">Yes / No</span>
+                    <span className="block text-xs text-gray-500 truncate">Binary choice</span>
                   </div>
                 </button>
 
@@ -1051,17 +1347,86 @@ export default function SurveyBuilder() {
                     <span className="text-orange-600 text-xs font-bold">1-5</span>
                   </div>
                   <div className="text-left min-w-0">
-                    <span className="block text-sm font-medium text-gray-800">Rating</span>
-                    <span className="block text-xs text-gray-500 truncate">1-5 scale</span>
+                    <span className="block text-sm font-medium text-gray-800">Rating Scale</span>
+                    <span className="block text-xs text-gray-500 truncate">1 to 5 scale</span>
                   </div>
                 </button>
               </div>
             </div>
-            
-            {/* Utility Buttons */}
+
+            {/* More Types - NPS and Specialty */}
+            <div className="mb-4 pt-4 border-t border-gray-200">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Specialty Types</p>
+              <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
+                <button
+                  onClick={() => addNPSQuestion(activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-cyan-300 hover:shadow-md transition-all flex-shrink-0 w-[160px] sm:w-auto min-h-[60px]"
+                >
+                  <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center group-hover:bg-cyan-200 transition-colors flex-shrink-0">
+                    <span className="text-cyan-600 text-xs font-bold">NPS</span>
+                  </div>
+                  <div className="text-left min-w-0">
+                    <span className="block text-sm font-medium text-gray-800">NPS Score</span>
+                    <span className="block text-xs text-gray-500 truncate">0-10 scale</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Layout Tools */}
+            <div className="mb-4 pt-4 border-t border-gray-200">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Layout</p>
+              <div className="flex sm:grid sm:grid-cols-3 gap-2 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0">
+                <button
+                  onClick={addSectionHeader}
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all flex-shrink-0 w-[140px] sm:w-auto min-h-[56px]"
+                >
+                  <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 transition-colors flex-shrink-0">
+                    <Type className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <span className="block text-sm font-medium text-gray-800">Heading</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={addLegend}
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all flex-shrink-0 w-[140px] sm:w-auto min-h-[56px]"
+                >
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition-colors flex-shrink-0">
+                    <Info className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <span className="block text-sm font-medium text-gray-800">Instruction</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => addQuestion('text', [], 'page_break', activeQuestionIndex !== null ? activeQuestionIndex : undefined)}
+                  className="group flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-xl hover:border-gray-400 hover:shadow-md transition-all flex-shrink-0 w-[140px] sm:w-auto min-h-[56px]"
+                >
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-gray-200 transition-colors flex-shrink-0">
+                    <span className="text-gray-600 text-xs font-bold">↵</span>
+                  </div>
+                  <div className="text-left min-w-0">
+                    <span className="block text-sm font-medium text-gray-800">Page Break</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Smart Tools */}
             <div className="pt-4 border-t border-gray-200">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Utility & Import</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Smart Tools</p>
               <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setShowQuestionBank(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all text-sm"
+                >
+                  <span className="text-lg">📚</span>
+                  <span className="font-medium">Question Bank</span>
+                </button>
+
                 <button
                   onClick={() => setShowBulkImporter(true)}
                   className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-all text-sm"
@@ -1069,48 +1434,26 @@ export default function SurveyBuilder() {
                   <FileText className="w-4 h-4 text-gray-600" />
                   <span className="font-medium">Bulk Import</span>
                 </button>
-                
-                <div className="relative group">
-                  <button
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/emergency-demo', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' }
-                        });
-                        const data = await response.json();
-                        if (data.success && data.questions) {
-                          const newQuestions = data.questions.map((q: any, index: number) => ({
-                            id: generateId(),
-                            block_type: q.block_type || 'question',
-                            type: q.type,
-                            question_text: q.question_text,
-                            options: q.options || [],
-                            required: q.required,
-                            order_index: questions?.length || 0 + index,
-                            section_id: null,
-                            show_when_question_id: undefined,
-                            show_when_answer_value: undefined
-                          }));
-                          setQuestions([...questions, ...newQuestions]);
-                          showToast(`${newQuestions.length} emergency questions added`, 'success');
-                        }
-                      } catch (error) {
-                        showToast('Emergency fallback failed', 'error');
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 hover:border-amber-300 transition-all text-sm"
-                  >
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
-                    <span className="font-medium text-amber-800">Emergency Demo</span>
-                  </button>
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                    <p className="font-semibold mb-1">Emergency Question Bank</p>
-                    <p>Instantly adds pre-built critical safety questions for emergency response scenarios.</p>
-                    <div className="absolute bottom-0 left-6 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800"></div>
-                  </div>
-                </div>
+
+                <button
+                  onClick={() => {
+                    const issues = runHealthCheck();
+                    setHealthIssues(issues);
+                    setShowHealthCheck(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-amber-400 hover:bg-amber-50 transition-all text-sm"
+                >
+                  <span className="text-lg">🔍</span>
+                  <span className="font-medium">Check Survey</span>
+                </button>
+
+                <button
+                  onClick={toggleAllRequired}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-green-400 hover:bg-green-50 transition-all text-sm"
+                >
+                  <ToggleRight className="w-4 h-4 text-green-600" />
+                  <span className="font-medium">Toggle Required</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1119,69 +1462,23 @@ export default function SurveyBuilder() {
           <div className="relative space-y-10">
             {/* Visual connector line - runs through all questions */}
             <div className="absolute left-[22px] sm:left-[26px] top-4 bottom-4 w-0.5 bg-gradient-to-b from-indigo-300 via-purple-300 to-indigo-300 rounded-full hidden sm:block"></div>
-            
-            {/* Connection nodes for each question */}
-          {/* Connection lines layer - renders all manual connections */}
-          <svg className="absolute inset-0 w-full h-full z-20 pointer-events-none" style={{minHeight: '100%'}}>
-            <defs>
-              <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#f97316" />
-              </marker>
-            </defs>
-            {connections.map((conn) => {
-              const fromIndex = questions.findIndex(q => q.id === conn.from);
-              const toIndex = questions.findIndex(q => q.id === conn.to);
-              if (fromIndex === -1 || toIndex === -1) return null;
-              
-              // Calculate positions (approximate)
-              const fromY = fromIndex * 200 + 100; // Approximate card height
-              const toY = toIndex * 200 + 100;
-              const fromX = 300;
-              const toX = 300;
-              
-              return (
-                <g key={conn.id} className={`${connectMode ? 'cursor-pointer pointer-events-auto' : 'pointer-events-none'}`} onClick={connectMode ? () => removeConnection(conn.id) : undefined}>
-                  <path
-                    d={`M ${fromX} ${fromY} Q ${fromX + 100} ${(fromY + toY) / 2} ${toX} ${toY}`}
-                    fill="none"
-                    stroke="#f97316"
-                    strokeWidth="3"
-                    markerEnd="url(#arrowhead)"
-                    strokeDasharray="5,5"
-                    className="hover:stroke-red-500 transition-colors"
-                  />
-                  {/* Delete hint label */}
-                  <text
-                    x={(fromX + toX) / 2 + 50}
-                    y={(fromY + toY) / 2}
-                    className="opacity-0 group-hover:opacity-100 text-[10px] fill-red-500 font-medium transition-opacity pointer-events-none"
-                  >
-                    Click to remove
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
 
           {questions.map((question, index) => {
             const groupInfo = getGroupInfo(index);
-            const isSource = selectedSource === question.id;
-            const isConnected = connections.some(c => c.from === question.id || c.to === question.id);
-            const connectionCount = connections.filter(c => c.from === question.id || c.to === question.id).length;
-            
+
             return (
-            <div 
-              key={question.id} 
-              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${connectMode ? 'cursor-pointer' : ''} ${isSource ? 'ring-4 ring-orange-400 bg-orange-50' : ''} ${isConnected && !isSource ? 'ring-2 ring-orange-200' : ''} ${activeQuestionIndex === index ? 'ring-2 ring-blue-400 z-10' : ''}`}
-              draggable={!connectMode}
+            <div
+              key={question.id}
+              className={`relative transition-all ${dragOverIndex === index ? 'ring-2 ring-indigo-500 bg-indigo-50' : ''} ${activeQuestionIndex === index ? 'ring-2 ring-blue-400 z-10' : ''}`}
+              draggable
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, index)}
-              onClick={connectMode ? () => handleItemClickForConnect(question.id) : () => setActiveQuestionIndex(index)}
+              onClick={() => setActiveQuestionIndex(index)}
             >
               {/* Active indicator badge */}
-              {activeQuestionIndex === index && !connectMode && (
+              {activeQuestionIndex === index && (
                 <div className="absolute -top-3 right-4 z-20 rounded-full bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
                   Active
                 </div>
@@ -1294,27 +1591,6 @@ export default function SurveyBuilder() {
                 </div>
 
                 <div className="flex-1 space-y-5">
-                  {/* Connect Mode Badges */}
-                  {connectMode && (
-                    <div className="flex items-center gap-2">
-                      {isSource && (
-                        <span className="px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded-full animate-pulse">
-                          SOURCE - Click target to connect
-                        </span>
-                      )}
-                      {connectionCount > 0 && !isSource && (
-                        <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs font-medium rounded-full border border-orange-200">
-                          {connectionCount} connection{connectionCount > 1 ? 's' : ''}
-                        </span>
-                      )}
-                      {!isSource && !isConnected && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">
-                          Click to {selectedSource ? 'connect here' : 'select as source'}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  
                   {/* Card Header: Type Badge + Required Badge + Actions */}
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Block Type Badge */}
@@ -1376,6 +1652,46 @@ export default function SurveyBuilder() {
                     </div>
                   )}
 
+                  {/* Preview Mode or Edit Mode */}
+                  {previewMode[question.id] ? (
+                    /* Preview Mode - Show how respondent sees it */
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="font-medium text-gray-900 mb-3">
+                        {index + 1}. {question.question_text || 'Untitled Question'}
+                        {question.required && <span className="text-red-500 ml-1">*</span>}
+                      </p>
+                      {question.type === 'text' && (
+                        <input
+                          type="text"
+                          disabled
+                          placeholder="Enter your answer..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-400"
+                        />
+                      )}
+                      {question.type === 'choice' && (
+                        <div className="space-y-2">
+                          {question.options.map((opt, i) => (
+                            <label key={i} className="flex items-center gap-2 cursor-not-allowed">
+                              <input type="radio" disabled name={`preview-${question.id}`} className="w-4 h-4" />
+                              <span className="text-gray-700">{opt}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {question.type === 'likert' && (
+                        <div className="flex gap-2">
+                          {question.options.map((num) => (
+                            <label key={num} className="flex flex-col items-center gap-1 cursor-not-allowed">
+                              <input type="radio" disabled name={`preview-${question.id}`} className="w-4 h-4" />
+                              <span className="text-sm text-gray-600">{num}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Edit Mode - Show editor */
+                    <>
                   {/* Text Input with placeholder based on block type */}
                   <input
                     type="text"
@@ -1518,28 +1834,56 @@ export default function SurveyBuilder() {
                       </div>
                     </div>
                   )}
+                    </>
+                  )}
                   </>
                 )}
                 </div>
 
-                <button
-                  onClick={() => {
-                    const confirmMessage = question.block_type === 'heading' 
-                      ? 'Are you sure you want to delete this section heading?' 
-                      : question.block_type === 'instruction'
-                        ? 'Are you sure you want to delete this instruction?'
-                        : question.block_type === 'page_break'
-                          ? 'Are you sure you want to delete this page break?'
-                          : 'Are you sure you want to delete this question?';
-                    if (window.confirm(confirmMessage)) {
-                      deleteQuestion(question.id);
-                    }
-                  }}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                {/* Card Actions */}
+                <div className="flex items-center gap-1">
+                  {/* Edit/Preview Toggle */}
+                  <button
+                    onClick={() => setPreviewMode(prev => ({ ...prev, [question.id]: !prev[question.id] }))}
+                    className={`p-2 rounded-lg transition-colors ${previewMode[question.id] ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                    title={previewMode[question.id] ? 'Edit mode' : 'Preview mode'}
+                  >
+                    {previewMode[question.id] ? (
+                      <span className="text-sm font-medium">Edit</span>
+                    ) : (
+                      <span className="text-sm font-medium">Preview</span>
+                    )}
+                  </button>
+
+                  {/* Duplicate Button */}
+                  <button
+                    onClick={() => duplicateQuestion(index)}
+                    className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Duplicate"
+                  >
+                    <span className="text-lg">📋</span>
+                  </button>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => {
+                      const confirmMessage = question.block_type === 'heading'
+                        ? 'Are you sure you want to delete this section heading?'
+                        : question.block_type === 'instruction'
+                          ? 'Are you sure you want to delete this instruction?'
+                          : question.block_type === 'page_break'
+                            ? 'Are you sure you want to delete this page break?'
+                            : 'Are you sure you want to delete this question?';
+                      if (window.confirm(confirmMessage)) {
+                        deleteQuestion(question.id);
+                      }
+                    }}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
               </div>
             </div>
@@ -1596,7 +1940,8 @@ export default function SurveyBuilder() {
               <BulkQuestionImporter
                 onImport={(importedQuestions) => {
                   const newQuestions: FormQuestion[] = importedQuestions.map((q, index) => {
-                    const type: QuestionType = q.type;
+                    // Convert multi_select to choice for now (until multi-select is fully supported)
+                    const type: QuestionType = q.type === 'multi_select' ? 'choice' : q.type;
                     const blockType: FormQuestion['block_type'] = q.block_type || 'question';
                     const options = type === 'choice'
                       ? q.options.length > 0 ? q.options : ['Option 1', 'Option 2']
@@ -1620,6 +1965,107 @@ export default function SurveyBuilder() {
                   showToast(`${newQuestions.length} questions imported`, 'success');
                 }}
               />
+            </div>
+          )}
+
+          {/* Question Bank Modal */}
+          {showQuestionBank && (
+            <div className="card">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Question Bank</h3>
+                <button
+                  onClick={() => setShowQuestionBank(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {Object.entries(QUESTION_BANK_TEMPLATES).map(([key, template]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      insertQuestionBankTemplate(key as keyof typeof QUESTION_BANK_TEMPLATES);
+                      setShowQuestionBank(false);
+                    }}
+                    className="text-left p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all"
+                  >
+                    <p className="font-medium text-gray-900 capitalize">{key.replace('_', ' ')}</p>
+                    <p className="text-xs text-gray-500 mt-1">{template.length} questions</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Health Check Modal */}
+          {showHealthCheck && (
+            <div className="card">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Survey Health Check</h3>
+                <button
+                  onClick={() => setShowHealthCheck(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {healthIssues.length === 0 ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">✅</span>
+                    <div>
+                      <p className="font-semibold text-emerald-900">Ready to Publish</p>
+                      <p className="text-sm text-emerald-700">No issues found. Your survey looks great!</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {healthIssues.filter(i => i.type === 'error').length > 0 && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="font-semibold text-red-900 mb-2">Errors ({healthIssues.filter(i => i.type === 'error').length})</p>
+                      <div className="space-y-2">
+                        {healthIssues.filter(i => i.type === 'error').map((issue, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              if (issue.questionIndex !== undefined) {
+                                setActiveQuestionIndex(issue.questionIndex);
+                                setShowHealthCheck(false);
+                              }
+                            }}
+                            className="w-full text-left text-sm text-red-700 hover:underline"
+                          >
+                            • {issue.message}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {healthIssues.filter(i => i.type === 'warning').length > 0 && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <p className="font-semibold text-amber-900 mb-2">Warnings ({healthIssues.filter(i => i.type === 'warning').length})</p>
+                      <div className="space-y-2">
+                        {healthIssues.filter(i => i.type === 'warning').map((issue, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              if (issue.questionIndex !== undefined) {
+                                setActiveQuestionIndex(issue.questionIndex);
+                                setShowHealthCheck(false);
+                              }
+                            }}
+                            className="w-full text-left text-sm text-amber-700 hover:underline"
+                          >
+                            • {issue.message}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

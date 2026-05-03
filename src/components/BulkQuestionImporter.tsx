@@ -3,22 +3,31 @@ import { Plus, X, Check, FileText, Eye, Trash2, Upload, AlertCircle, CheckCircle
 import { HighCapacityProcessor, ProcessingStats } from '../lib/highCapacityProcessor';
 import { PatternRecognitionEngine } from '../lib/questionTypeRegistry';
 
-type QuestionType = 'text' | 'choice' | 'likert';
+type ImportQuestionType = 'text' | 'choice' | 'likert' | 'multi_select';
 type ImportTab = 'paste' | 'validate' | 'preview' | 'import';
+type ImportMode = 'survey' | 'quiz' | 'exam';
 
 interface ParsedQuestion {
   id: string;
   text: string;
-  type: QuestionType;
+  type: ImportQuestionType;
   block_type?: 'question' | 'heading' | 'instruction' | 'page_break';
   options: string[];
   required?: boolean;
+  // Quiz/Exam fields
+  points?: number;
+  correct_answer?: string;
+  correct_answers?: string[]; // For multi-select
+  explanation?: string;
+  grading_type?: 'auto' | 'manual';
+  // Metadata
   validationError?: string;
   validationWarning?: string;
   section?: string;
   needsManualReview?: boolean;
   reviewReason?: string;
   duplicates?: string[];
+  isLongQuestion?: boolean;
 }
 
 interface ValidationIssue {
@@ -29,7 +38,7 @@ interface ValidationIssue {
 }
 
 
-const defaultOptionsForType = (type: QuestionType) => {
+const defaultOptionsForType = (type: ImportQuestionType) => {
   if (type === 'choice') return ['Option 1', 'Option 2'];
   if (type === 'likert') return ['1', '2', '3', '4', '5'];
   return [];
@@ -42,13 +51,13 @@ const cleanQuestionText = (text: string): string => {
     .trim();
 };
 
-// Validation Functions (Option 9)
-const validateQuestion = (q: ParsedQuestion, allQuestions: ParsedQuestion[]): ValidationIssue[] => {
+// Validation Functions - Updated for long questions and quiz/exam support
+const validateQuestion = (q: ParsedQuestion, allQuestions: ParsedQuestion[], mode: ImportMode = 'survey'): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
-  
+
   // Check for duplicates
-  const duplicates = allQuestions.filter(other => 
-    other.id !== q.id && 
+  const duplicates = allQuestions.filter(other =>
+    other.id !== q.id &&
     other.text.toLowerCase().trim() === q.text.toLowerCase().trim()
   );
   if (duplicates.length > 0) {
@@ -59,37 +68,9 @@ const validateQuestion = (q: ParsedQuestion, allQuestions: ParsedQuestion[]): Va
       suggestion: 'Remove or rephrase this question'
     });
   }
-  
-  // Check for biased/leading language
-  const biasedPatterns = [
-    { pattern: /\b(excellent|amazing|fantastic|best)\b/i, message: 'Contains positively loaded words' },
-    { pattern: /\b(terrible|awful|worst|horrible)\b/i, message: 'Contains negatively loaded words' },
-    { pattern: /\b(don't you think|isn't it|shouldn't we)\b/i, message: 'Leading question structure' },
-  ];
-  
-  biasedPatterns.forEach(({ pattern, message }) => {
-    if (pattern.test(q.text)) {
-      issues.push({
-        id: q.id,
-        type: 'warning',
-        message,
-        suggestion: 'Consider neutral phrasing for unbiased results'
-      });
-    }
-  });
-  
-  // Check for proper grammar
-  if (!q.text.endsWith('?') && q.type === 'choice') {
-    issues.push({
-      id: q.id,
-      type: 'warning',
-      message: 'Question may be missing a question mark',
-      suggestion: 'Add ? at the end for clarity'
-    });
-  }
-  
-  // Check length
-  if (q.text.length < 10) {
+
+  // Check length - now supports up to 1000 characters
+  if (q.text.length < 5) {
     issues.push({
       id: q.id,
       type: 'error',
@@ -97,39 +78,86 @@ const validateQuestion = (q: ParsedQuestion, allQuestions: ParsedQuestion[]): Va
       suggestion: 'Add more detail to make it clear'
     });
   }
-  
+
+  // Long question warning (not error) - surveys often need detailed questions
   if (q.text.length > 200) {
     issues.push({
       id: q.id,
       type: 'warning',
-      message: 'Question is quite long',
-      suggestion: 'Consider breaking into smaller questions'
+      message: 'Long question. Please review for clarity.',
+      suggestion: 'Consider if this can be split into multiple questions'
     });
   }
-  
-  // Check options balance for choice questions
-  if (q.type === 'choice' && q.options.length > 0) {
-    const positiveCount = q.options.filter(o => /\b(yes|agree|good|positive|satisfied)\b/i.test(o)).length;
-    const negativeCount = q.options.filter(o => /\b(no|disagree|bad|negative|dissatisfied)\b/i.test(o)).length;
-    
-    if (positiveCount > 0 && negativeCount === 0) {
+
+  if (q.text.length > 1000) {
+    issues.push({
+      id: q.id,
+      type: 'error',
+      message: 'Question exceeds maximum length (1000 characters)',
+      suggestion: 'Split into multiple shorter questions'
+    });
+  }
+
+  // Quiz/Exam specific validation
+  if (mode !== 'survey' && q.block_type === 'question') {
+    // Check for points
+    if (!q.points || q.points <= 0) {
       issues.push({
         id: q.id,
         type: 'warning',
-        message: 'Options appear one-sided (only positive)',
-        suggestion: 'Add balanced negative options'
+        message: 'No points assigned - will default to 1 point',
+        suggestion: 'Add points for this question'
       });
     }
-    if (negativeCount > 0 && positiveCount === 0) {
+
+    // Check for correct answer on auto-graded questions
+    if (q.grading_type === 'auto' && !q.correct_answer && (!q.correct_answers || q.correct_answers.length === 0)) {
+      if (q.type === 'choice' || q.type === 'likert') {
+        issues.push({
+          id: q.id,
+          type: 'warning',
+          message: 'Auto-graded question has no correct answer set',
+          suggestion: 'Add correct answer or change to manual grading'
+        });
+      }
+    }
+  }
+
+  // Check options for choice questions
+  if ((q.type === 'choice' || q.type === 'multi_select') && q.options.length > 0) {
+    if (q.options.length < 2) {
+      issues.push({
+        id: q.id,
+        type: 'error',
+        message: 'Choice question needs at least 2 options',
+        suggestion: 'Add more options'
+      });
+    }
+
+    // Check for empty options
+    const emptyOptions = q.options.filter(o => !o.trim());
+    if (emptyOptions.length > 0) {
       issues.push({
         id: q.id,
         type: 'warning',
-        message: 'Options appear one-sided (only negative)',
-        suggestion: 'Add balanced positive options'
+        message: `${emptyOptions.length} empty option(s) detected`,
+        suggestion: 'Remove or fill empty options'
+      });
+    }
+
+    // Check for duplicate options
+    const trimmedOptions = q.options.map(o => o.trim().toLowerCase()).filter(o => o);
+    const uniqueOptions = new Set(trimmedOptions);
+    if (uniqueOptions.size !== trimmedOptions.length) {
+      issues.push({
+        id: q.id,
+        type: 'warning',
+        message: 'Duplicate options detected',
+        suggestion: 'Remove duplicate options'
       });
     }
   }
-  
+
   return issues;
 };
 
@@ -186,7 +214,7 @@ export default function BulkQuestionImporter({
   const [questions, setQuestions] = useState<ParsedQuestion[]>([]);
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
   const [totalLines, setTotalLines] = useState(0);
-  const [globalType, setGlobalType] = useState<QuestionType>('text');
+  const [globalType, setGlobalType] = useState<ImportQuestionType>('text');
   const [showAutoFix, setShowAutoFix] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [organizeStats, setOrganizeStats] = useState<{ analyzed: number; organized: number; sections: string[] } | null>(null);
@@ -250,7 +278,7 @@ export default function BulkQuestionImporter({
         const parsed: ParsedQuestion[] = result.questions.map(q => ({
           id: q.id,
           text: q.text,
-          type: q.type as QuestionType,
+          type: q.type as ImportQuestionType,
           options: q.options,
           required: false,
           section: q.section,
@@ -373,7 +401,7 @@ export default function BulkQuestionImporter({
       }
       
       // Determine question type using PatternRecognitionEngine
-      let type: QuestionType = 'text';
+      let type: ImportQuestionType = 'text';
       const detected = PatternRecognitionEngine.detectQuestionType(questionText, '');
       
       if (options.length >= 2) {
@@ -453,7 +481,7 @@ export default function BulkQuestionImporter({
     setSelectedQuestions(new Set());
   };
 
-  const setSelectedType = (type: QuestionType) => {
+  const setSelectedType = (type: ImportQuestionType) => {
     setQuestions(prev => prev.map(q => 
       selectedQuestions.has(q.id) ? { ...q, type, options: defaultOptionsForType(type) } : q
     ));
@@ -526,7 +554,7 @@ export default function BulkQuestionImporter({
       const detected = PatternRecognitionEngine.detectQuestionType(q.text, context);
       
       // Map detected type to our supported types
-      let newType: QuestionType = 'text';
+      let newType: ImportQuestionType = 'text';
       let newOptions: string[] = [];
       
       switch (detected.type) {
@@ -623,7 +651,7 @@ export default function BulkQuestionImporter({
     setIsAnalyzing(false);
   }, [questions]);
 
-  const updateQuestionType = (id: string, type: QuestionType) => {
+  const updateImportQuestionType = (id: string, type: ImportQuestionType) => {
     setQuestions(prev => prev.map(q => 
       q.id === id ? { ...q, type, options: defaultOptionsForType(type) } : q
     ));
@@ -683,7 +711,7 @@ export default function BulkQuestionImporter({
     setValidationIssues([]);
   };
 
-  const getTypeLabel = (type: QuestionType) => {
+  const getTypeLabel = (type: ImportQuestionType) => {
     switch (type) {
       case 'text': return 'Short Text';
       case 'choice': return 'Multiple Choice / Boolean';
@@ -808,38 +836,22 @@ export default function BulkQuestionImporter({
     );
   };
 
-  // Render external import (Option 12)
+  // Render external import (CSV and Spreadsheet only)
   const renderExternalImport = () => {
     return (
       <div className="space-y-4">
         <div className="bg-gray-50 border border-gray-200 rounded p-4">
           <h3 className="font-medium text-slate-900 mb-3 flex items-center gap-2">
             <Upload className="w-4 h-4" />
-            Import from External Sources
+            Import from File
           </h3>
-          
+
           <div className="space-y-3">
-            <div className="p-3 bg-white border border-gray-200 rounded">
-              <p className="text-sm font-medium text-slate-900">Google Forms</p>
-              <p className="text-xs text-slate-500 mb-2">Paste a Google Forms URL or exported CSV</p>
-              <input 
-                type="text" 
-                placeholder="https://docs.google.com/forms/d/..."
-                className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
-                onChange={(e) => {
-                  // Future: Implement Google Forms import
-                  if (e.target.value.includes('docs.google.com/forms')) {
-                    alert('Google Forms import would be implemented here. For now, export as CSV and paste the questions.');
-                  }
-                }}
-              />
-            </div>
-            
             <div className="p-3 bg-white border border-gray-200 rounded">
               <p className="text-sm font-medium text-slate-900">CSV File Upload</p>
               <p className="text-xs text-slate-500 mb-2">Upload a CSV with columns: Question, Type, Options</p>
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept=".csv,.txt"
                 className="w-full text-sm"
                 onChange={(e) => {
@@ -859,14 +871,14 @@ export default function BulkQuestionImporter({
                 }}
               />
             </div>
-            
+
             <div className="p-3 bg-white border border-gray-200 rounded">
               <p className="text-sm font-medium text-slate-900">Copy from Spreadsheet</p>
               <p className="text-xs text-slate-500">Copy cells from Excel/Google Sheets and paste in the &quot;Paste Questions&quot; tab</p>
             </div>
           </div>
         </div>
-        
+
         <div className="flex justify-center">
           <button
             onClick={() => setActiveTab('paste')}
@@ -1004,7 +1016,7 @@ export default function BulkQuestionImporter({
                       value=""
                       onChange={(e) => {
                         if (e.target.value) {
-                          setSelectedType(e.target.value as QuestionType);
+                          setSelectedType(e.target.value as ImportQuestionType);
                           e.target.value = '';
                         }
                       }}
@@ -1071,7 +1083,7 @@ export default function BulkQuestionImporter({
                 <span className="text-sm font-medium text-slate-900">Set All To:</span>
                 <select
                   value={globalType}
-                  onChange={(e) => setGlobalType(e.target.value as QuestionType)}
+                  onChange={(e) => setGlobalType(e.target.value as ImportQuestionType)}
                   className="px-3 py-1.5 border border-gray-200 rounded text-sm text-slate-900 bg-white focus:outline-none focus:border-slate-400"
                 >
                   <option value="text">Short Text</option>
@@ -1118,7 +1130,7 @@ export default function BulkQuestionImporter({
 
                       <select
                         value={q.type}
-                        onChange={(e) => updateQuestionType(q.id, e.target.value as QuestionType)}
+                        onChange={(e) => updateImportQuestionType(q.id, e.target.value as ImportQuestionType)}
                         className="flex-1 px-3 py-1.5 border border-gray-200 rounded text-sm text-slate-900 bg-white focus:outline-none focus:border-slate-400"
                       >
                         <option value="text">Short Text</option>
