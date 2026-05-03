@@ -816,6 +816,232 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
   }
 });
 
+// Get quiz/exam result for a user
+app.get('/api/surveys/:surveyId/quiz-result', async (req, res) => {
+  try {
+    const { surveyId } = req.params;
+    const { userId } = req.query;
+
+    if (!surveyId || !userId) {
+      return res.status(400).json({
+        error: 'Survey ID and User ID are required.'
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({
+        error: 'Database is not configured.'
+      });
+    }
+
+    // Get quiz result using the database function
+    const { data, error } = await supabaseAdmin
+      .rpc('get_quiz_result', {
+        p_survey_id: surveyId,
+        p_user_id: userId
+      });
+
+    if (error) {
+      console.error('Quiz result fetch failed:', error);
+      return res.status(500).json({
+        error: 'Unable to fetch quiz result.',
+        details: error.message
+      });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        error: 'No quiz result found for this user.'
+      });
+    }
+
+    // Also get survey details for context
+    const { data: survey, error: surveyError } = await supabaseAdmin
+      .from('surveys')
+      .select('title, mode, passing_score, show_correct_answers, show_explanations')
+      .eq('id', surveyId)
+      .single();
+
+    if (surveyError || !survey) {
+      return res.status(404).json({
+        error: 'Survey not found.'
+      });
+    }
+
+    return res.json({
+      result: data[0],
+      survey: survey
+    });
+
+  } catch (error) {
+    console.error('Quiz result fetch failed:', error);
+    return res.status(500).json({
+      error: 'Unable to fetch quiz result.',
+      details: error.message
+    });
+  }
+});
+
+// Submit quiz/exam and get score (for participants)
+app.post('/api/surveys/:surveyId/submit-quiz', async (req, res) => {
+  try {
+    const { surveyId } = req.params;
+    const { userId, responses } = req.body;
+
+    if (!surveyId || !userId || !responses) {
+      return res.status(400).json({
+        error: 'Survey ID, User ID, and responses are required.'
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({
+        error: 'Database is not configured.'
+      });
+    }
+
+    // Check survey mode
+    const { data: survey, error: surveyError } = await supabaseAdmin
+      .from('surveys')
+      .select('mode, show_score_immediately, show_correct_answers, show_explanations')
+      .eq('id', surveyId)
+      .single();
+
+    if (surveyError || !survey) {
+      return res.status(404).json({
+        error: 'Survey not found.'
+      });
+    }
+
+    if (!['quiz', 'exam'].includes(survey.mode)) {
+      return res.status(400).json({
+        error: 'This survey is not configured as a quiz or exam.'
+      });
+    }
+
+    // Submit and score using the database function
+    const { data, error } = await supabaseAdmin
+      .rpc('submit_quiz_exam', {
+        p_survey_id: surveyId,
+        p_user_id: userId,
+        p_responses: responses
+      });
+
+    if (error) {
+      console.error('Quiz submission failed:', error);
+      return res.status(500).json({
+        error: 'Unable to submit quiz.',
+        details: error.message
+      });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(500).json({
+        error: 'Quiz submission returned no data.'
+      });
+    }
+
+    const result = data[0];
+
+    if (!result.success) {
+      return res.status(409).json({
+        error: result.error_message || 'You have already submitted this quiz/exam.'
+      });
+    }
+
+    // Return score and question results
+    return res.json({
+      success: true,
+      score: result.score,
+      totalPoints: result.total_points,
+      percentage: result.percentage,
+      passed: result.passed,
+      questionResults: result.question_results,
+      showCorrectAnswers: survey.show_correct_answers,
+      showExplanations: survey.show_explanations
+    });
+
+  } catch (error) {
+    console.error('Quiz submission failed:', error);
+    return res.status(500).json({
+      error: 'Unable to submit quiz.',
+      details: error.message
+    });
+  }
+});
+
+// Get quiz/exam results for admin (all participants)
+app.get('/api/admin/surveys/:surveyId/quiz-results', requireAdmin, async (req, res) => {
+  try {
+    const { surveyId } = req.params;
+
+    if (!surveyId) {
+      return res.status(400).json({
+        error: 'Survey ID is required.'
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({
+        error: 'Database is not configured.'
+      });
+    }
+
+    // Verify survey exists and is quiz/exam mode
+    const { data: survey, error: surveyError } = await supabaseAdmin
+      .from('surveys')
+      .select('id, title, mode')
+      .eq('id', surveyId)
+      .single();
+
+    if (surveyError || !survey) {
+      return res.status(404).json({
+        error: 'Survey not found.'
+      });
+    }
+
+    if (!['quiz', 'exam'].includes(survey.mode)) {
+      return res.status(400).json({
+        error: 'This survey is not configured as a quiz or exam.'
+      });
+    }
+
+    // Get all quiz results
+    const { data, error } = await supabaseAdmin
+      .from('quiz_exam_results')
+      .select('*')
+      .eq('survey_id', surveyId)
+      .order('submitted_at', { ascending: false });
+
+    if (error) {
+      console.error('Quiz results fetch failed:', error);
+      return res.status(500).json({
+        error: 'Unable to fetch quiz results.',
+        details: error.message
+      });
+    }
+
+    // Get summary statistics
+    const { data: stats, error: statsError } = await supabaseAdmin
+      .rpc('get_survey_diagnostic_counts', {
+        p_survey_id: surveyId
+      });
+
+    return res.json({
+      survey,
+      results: data || [],
+      stats: stats || []
+    });
+
+  } catch (error) {
+    console.error('Quiz results fetch failed:', error);
+    return res.status(500).json({
+      error: 'Unable to fetch quiz results.',
+      details: error.message
+    });
+  }
+});
+
 // Reset all responses for a survey (admin only)
 app.post('/api/admin/surveys/:surveyId/reset-responses', requireAdmin, async (req, res) => {
   try {

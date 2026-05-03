@@ -688,32 +688,38 @@ function SurveyContent() {
       return;
     }
 
+    // Cast survey data to proper type
+    const typedSurvey: Survey = {
+      ...surveyData,
+      release_results_mode: surveyData.release_results_mode as Survey['release_results_mode']
+    };
+
     const now = new Date();
-    if (surveyData.status !== 'open') {
-      setSurvey(surveyData);
+    if (typedSurvey.status !== 'open') {
+      setSurvey(typedSurvey);
       setIsBlocked(true);
       setBlockReason(t('surveyClosed'));
       setIsLoading(false);
       return;
     }
 
-    if (surveyData.open_date && new Date(surveyData.open_date) > now) {
-      setSurvey(surveyData);
+    if (typedSurvey.open_date && new Date(typedSurvey.open_date) > now) {
+      setSurvey(typedSurvey);
       setIsBlocked(true);
-      setBlockReason(`${t('surveyNotOpen')} ${new Date(surveyData.open_date).toLocaleString()}.`);
+      setBlockReason(`${t('surveyNotOpen')} ${new Date(typedSurvey.open_date).toLocaleString()}.`);
       setIsLoading(false);
       return;
     }
 
-    if (surveyData.close_date && new Date(surveyData.close_date) < now) {
-      setSurvey(surveyData);
+    if (typedSurvey.close_date && new Date(typedSurvey.close_date) < now) {
+      setSurvey(typedSurvey);
       setIsBlocked(true);
-      setBlockReason(`${t('surveyExpired')} ${new Date(surveyData.close_date).toLocaleString()}.`);
+      setBlockReason(`${t('surveyExpired')} ${new Date(typedSurvey.close_date).toLocaleString()}.`);
       setIsLoading(false);
       return;
     }
 
-    setSurvey(surveyData);
+    setSurvey(typedSurvey);
 
     const { data: questionsData, error: questionsError } = await supabase
       .from('questions')
@@ -725,7 +731,13 @@ function SurveyContent() {
     if (questionsError) {
       showToast(t('errorLoadingSurvey'), 'error');
     } else {
-      setQuestions(questionsData || []);
+      // Cast questions data with proper types
+      const typedQuestions: Question[] = (questionsData || []).map(q => ({
+        ...q,
+        correct_answers: q.correct_answers as string[] | null | undefined,
+        grading_type: q.grading_type as 'auto' | 'manual' | null | undefined
+      }));
+      setQuestions(typedQuestions);
     }
     setIsLoading(false);
   };

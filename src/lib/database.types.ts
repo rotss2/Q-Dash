@@ -53,6 +53,20 @@ export interface Database {
           open_date: string | null
           close_date: string | null
           created_at: string
+          mode: 'survey' | 'quiz' | 'exam' | null
+          time_limit_minutes: number | null
+          passing_score: number | null
+          max_attempts: number | null
+          show_score_immediately: boolean | null
+          show_correct_answers: boolean | null
+          show_explanations: boolean | null
+          shuffle_questions: boolean | null
+          shuffle_options: boolean | null
+          allow_review_after_submit: boolean | null
+          release_results_mode: string | null
+          require_fullscreen: boolean | null
+          disable_copy_paste: boolean | null
+          disable_tab_switching: boolean | null
         }
         Insert: {
           id?: string
@@ -68,6 +82,20 @@ export interface Database {
           open_date?: string | null
           close_date?: string | null
           created_at?: string
+          mode?: 'survey' | 'quiz' | 'exam' | null
+          time_limit_minutes?: number | null
+          passing_score?: number | null
+          max_attempts?: number | null
+          show_score_immediately?: boolean | null
+          show_correct_answers?: boolean | null
+          show_explanations?: boolean | null
+          shuffle_questions?: boolean | null
+          shuffle_options?: boolean | null
+          allow_review_after_submit?: boolean | null
+          release_results_mode?: string | null
+          require_fullscreen?: boolean | null
+          disable_copy_paste?: boolean | null
+          disable_tab_switching?: boolean | null
         }
         Update: {
           id?: string
@@ -83,6 +111,20 @@ export interface Database {
           open_date?: string | null
           close_date?: string | null
           created_at?: string
+          mode?: 'survey' | 'quiz' | 'exam' | null
+          time_limit_minutes?: number | null
+          passing_score?: number | null
+          max_attempts?: number | null
+          show_score_immediately?: boolean | null
+          show_correct_answers?: boolean | null
+          show_explanations?: boolean | null
+          shuffle_questions?: boolean | null
+          shuffle_options?: boolean | null
+          allow_review_after_submit?: boolean | null
+          release_results_mode?: string | null
+          require_fullscreen?: boolean | null
+          disable_copy_paste?: boolean | null
+          disable_tab_switching?: boolean | null
         }
         Relationships: [
           {
@@ -110,6 +152,12 @@ export interface Database {
           is_active: boolean
           version: number
           question_group_id: string | null
+          points: number | null
+          correct_answer: string | null
+          correct_answers: Json | null
+          explanation: string | null
+          grading_type: string | null
+          display_variant: string | null
         }
         Insert: {
           id?: string
@@ -126,6 +174,12 @@ export interface Database {
           is_active?: boolean
           version?: number
           question_group_id?: string | null
+          points?: number | null
+          correct_answer?: string | null
+          correct_answers?: Json | null
+          explanation?: string | null
+          grading_type?: string | null
+          display_variant?: string | null
         }
         Update: {
           id?: string
@@ -142,6 +196,12 @@ export interface Database {
           is_active?: boolean
           version?: number
           question_group_id?: string | null
+          points?: number | null
+          correct_answer?: string | null
+          correct_answers?: Json | null
+          explanation?: string | null
+          grading_type?: string | null
+          display_variant?: string | null
         }
         Relationships: [
           {
