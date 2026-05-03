@@ -509,10 +509,10 @@ export default function SurveyBuilder() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Header - Simplified */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between py-4 md:py-0 md:h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             <button
               onClick={() => navigate('/admin')}
               className="group flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
@@ -520,29 +520,20 @@ export default function SurveyBuilder() {
               <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-gray-200 transition-colors">
                 <ArrowLeft className="w-4 h-4" />
               </div>
-              <span className="font-medium">Back to Dashboard</span>
+              <span className="font-medium hidden sm:inline">Back to Dashboard</span>
+              <span className="font-medium sm:hidden">Back</span>
             </button>
-            <div className="flex items-center gap-3">
-              {isEditing && (
-                <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
-                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                  Editing Mode
-                </span>
-              )}
-              <button
-                onClick={saveSurvey}
-                disabled={isSaving}
-                className="btn-primary flex items-center gap-2 disabled:opacity-50 shadow-sm hover:shadow transition-shadow"
-              >
-                <Save className="w-4 h-4" />
-                {isSaving ? 'Saving...' : (isEditing ? 'Update Survey' : 'Create Survey')}
-              </button>
-            </div>
+            {isEditing && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                Editing Mode
+              </span>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-24 sm:pb-8">
         {/* Survey Details */}
         <div className="space-y-6">
           {/* Basic Information */}
@@ -1633,6 +1624,27 @@ export default function SurveyBuilder() {
           )}
         </div>
       </main>
+      
+      {/* Sticky Bottom Action Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 shadow-lg">
+        <div className="max-w-5xl mx-auto flex items-center gap-3">
+          <button
+            onClick={() => navigate('/admin')}
+            className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-200 active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+          <button
+            onClick={saveSurvey}
+            disabled={isSaving}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? 'Saving...' : (isEditing ? 'Update Survey' : 'Create Survey')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

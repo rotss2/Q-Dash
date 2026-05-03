@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet } from '../../lib/api';
 import { Survey } from '../../types';
-import { ArrowLeft, FileText, Users, Calendar, Edit2, Copy, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, FileText, Users, Calendar, Edit2, Copy, ArrowUpRight, Plus } from 'lucide-react';
 
 export default function AllSurveys() {
   const navigate = useNavigate();
@@ -73,15 +73,27 @@ export default function AllSurveys() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search */}
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search surveys..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full max-w-md px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
-          />
+        {/* Header: Search + Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between mb-6">
+          {/* Left: Search */}
+          <div className="relative w-full sm:max-w-md">
+            <input
+              type="text"
+              placeholder="Search surveys..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+            />
+          </div>
+          
+          {/* Right: Primary Action */}
+          <button
+            onClick={() => navigate('/admin/surveys/new')}
+            className="hidden sm:inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800"
+          >
+            <Plus className="w-4 h-4" />
+            New Survey
+          </button>
         </div>
 
         {/* Surveys Grid */}
@@ -183,6 +195,20 @@ export default function AllSurveys() {
             ))}
           </div>
         )}
+        
+        {/* Mobile Sticky Bottom Action Bar */}
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 shadow-lg">
+          <button
+            onClick={() => navigate('/admin/surveys/new')}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium transition-all active:scale-95"
+          >
+            <Plus className="w-5 h-5" />
+            Create New Survey
+          </button>
+        </div>
+        
+        {/* Bottom padding for mobile sticky bar */}
+        <div className="sm:hidden h-20" />
       </main>
     </div>
   );

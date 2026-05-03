@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiDelete } from '../../lib/api';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
-import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Table, BarChart3, RotateCcw } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Table, BarChart3, RotateCcw, Download, MoreVertical } from 'lucide-react';
 import IntelligenceDashboard from '../../components/IntelligenceDashboard';
 import ResearchConclusion from '../../components/ResearchConclusion';
 import {
@@ -44,6 +44,7 @@ export default function SurveyAnalytics() {
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Check if a question is a placeholder/hidden question that should not be analyzed
   const isPlaceholderQuestion = (question: Question): boolean => {
@@ -800,56 +801,111 @@ export default function SurveyAnalytics() {
               <p className="text-gray-600 mb-4">{survey?.description || 'No description'}</p>
             </div>
 
-            {/* Export Toolbar - Normal flow, non-floating */}
-            <div className="flex flex-wrap gap-2 lg:justify-end">
-              <button
-                onClick={exportToCSV}
-                disabled={!responses.length}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                CSV
-              </button>
-              <button
-                onClick={exportToJSON}
-                disabled={!responses.length}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
-              >
-                <FileJson className="w-4 h-4" />
-                JSON
-              </button>
-              <button
-                onClick={exportToExcel}
-                disabled={!responses.length}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
-              >
-                <Table className="w-4 h-4" />
-                Excel
-              </button>
-              <button
-                onClick={exportToSPSS}
-                disabled={!responses.length}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
-              >
-                <BarChart3 className="w-4 h-4" />
-                SPSS
-              </button>
-              <button
-                onClick={exportToLaTeX}
-                disabled={!responses.length}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
-              >
-                <span className="text-xs font-bold">TeX</span>
-                LaTeX
-              </button>
-              <button
-                onClick={exportChartsPNG}
-                disabled={!responses.length}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
-              >
-                <BarChart3 className="w-4 h-4" />
-                Charts
-              </button>
+            {/* Export Toolbar - Desktop: buttons, Mobile: dropdown */}
+            <div className="flex items-center gap-2">
+              {/* Desktop: Individual export buttons */}
+              <div className="hidden sm:flex flex-wrap gap-2">
+                <button
+                  onClick={exportToCSV}
+                  disabled={!responses.length}
+                  className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  CSV
+                </button>
+                <button
+                  onClick={exportToJSON}
+                  disabled={!responses.length}
+                  className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+                >
+                  <FileJson className="w-4 h-4" />
+                  JSON
+                </button>
+                <button
+                  onClick={exportToExcel}
+                  disabled={!responses.length}
+                  className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+                >
+                  <Table className="w-4 h-4" />
+                  Excel
+                </button>
+              </div>
+              
+              {/* Mobile: Export Dropdown */}
+              <div className="sm:hidden relative">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  disabled={!responses.length}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium text-sm disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+                
+                {showExportMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1">
+                      <button
+                        onClick={() => { exportToCSV(); setShowExportMenu(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Export CSV
+                      </button>
+                      <button
+                        onClick={() => { exportToJSON(); setShowExportMenu(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <FileJson className="w-4 h-4" />
+                        Export JSON
+                      </button>
+                      <button
+                        onClick={() => { exportToExcel(); setShowExportMenu(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Table className="w-4 h-4" />
+                        Export Excel
+                      </button>
+                      <button
+                        onClick={() => { exportToSPSS(); setShowExportMenu(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        Export SPSS
+                      </button>
+                      <button
+                        onClick={() => { exportChartsPNG(); setShowExportMenu(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        Export Charts
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+              
+              {/* Desktop: Additional export options */}
+              <div className="hidden lg:flex flex-wrap gap-2">
+                <button
+                  onClick={exportToSPSS}
+                  disabled={!responses.length}
+                  className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  SPSS
+                </button>
+                <button
+                  onClick={exportToLaTeX}
+                  disabled={!responses.length}
+                  className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+                >
+                  <span className="text-xs font-bold">TeX</span>
+                  LaTeX
+                </button>
+              </div>
             </div>
           </div>
 

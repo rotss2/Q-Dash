@@ -5,7 +5,7 @@ import { useToast } from '../../components/Toaster';
 import LiveBoard from '../../components/admin/LiveBoard';
 import { apiGet, apiDelete, apiPost } from '../../lib/api';
 import { Survey } from '../../types';
-import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, Activity, Sparkles, Calendar, ArrowUpRight, Loader2, User, Search, Clock, LayoutDashboard } from 'lucide-react';
+import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, Activity, Sparkles, Calendar, ArrowUpRight, Loader2, User, Search, Clock, LayoutDashboard, MoreVertical } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -16,6 +16,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'live'>('overview');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSurveys();
@@ -274,59 +275,58 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-            {/* Search Bar - NEW */}
-            {surveys.length > 0 && (
-          <div className="mb-6">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search surveys by title or description..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-              />
+            {/* Header: Search + Actions */}
+            <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+              {/* Left: Search */}
+              {surveys.length > 0 && (
+                <div className="relative w-full sm:max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search surveys..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                </div>
+              )}
+              
+              {/* Right: Action Group */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                {lastUpdated && (
+                  <span className="hidden md:flex text-xs text-gray-400 items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+                <button
+                  onClick={() => loadSurveys()}
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed group"
+                  title="Refresh"
+                >
+                  <Loader2 className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+                <button
+                  onClick={() => navigate('/admin/surveys/new')}
+                  className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Survey
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-
-            {/* Actions - Enhanced */}
-            <div className="flex flex-col gap-3 justify-between items-start md:flex-row md:items-center">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-gray-900">Your Surveys</h2>
-            {surveys.length > 0 && (
-              <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
-                {filteredSurveys.length} of {surveys.length}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {lastUpdated && (
-              <span className="text-xs text-gray-400 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                Updated {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-            <>
-              <button
-                onClick={() => loadSurveys()}
-                disabled={isLoading}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed group"
-                title="Refresh survey list"
-              >
-                <Loader2 className={`w-4 h-4 transition-transform duration-700 ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
-              <button
-                onClick={() => navigate('/admin/surveys/new')}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">New Survey</span>
-              </button>
-            </>
-          </div>
-        </div>
+            
+            {/* Section Title */}
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Your Surveys</h2>
+              {surveys.length > 0 && (
+                <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
+                  {filteredSurveys.length} of {surveys.length}
+                </span>
+              )}
+            </div>
 
             {/* Surveys List - Enhanced */}
             {isLoading ? (
@@ -369,127 +369,111 @@ export default function AdminDashboard() {
         ) : (
           <div className="grid gap-4">
             {filteredSurveys.map((survey) => (
-              <div key={survey.id} className="group bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 transition-all hover:shadow-xl hover:-translate-y-0.5 hover:border-gray-200">
-                {/* Mobile: Stack vertically, Desktop: Horizontal */}
-                <div className="flex flex-col gap-4">
-                  {/* Top row: Title, status, and mobile menu */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-slate-700 transition-colors">{survey.title}</h3>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full ${
-                          survey.status === 'open'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                            : 'bg-gray-50 text-gray-600 border border-gray-200'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${survey.status === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
-                          {survey.status === 'open' ? 'Open' : 'Closed'}
-                        </span>
-                      </div>
-                      <p className="text-gray-500 text-sm mb-3 line-clamp-1">{survey.description || 'No description'}</p>
-                      
-                      {/* Stats row */}
-                      <div className="flex flex-wrap items-center gap-4 text-sm">
-                        <span className="flex items-center gap-1.5 text-gray-600">
-                          <Users className="w-4 h-4 text-blue-600" />
-                          <span className="font-medium">{survey.total_responses} responses</span>
-                        </span>
-                        <span className="flex items-center gap-1.5 text-gray-400">
-                          <Calendar className="w-4 h-4" />
-                          {new Date(survey.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
-                      </div>
+              <div key={survey.id} className="group bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 transition-all hover:shadow-xl hover:-translate-y-0.5 hover:border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-slate-700 transition-colors">{survey.title}</h3>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+                        survey.status === 'open'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                          : 'bg-gray-50 text-gray-600 border border-gray-200'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${survey.status === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                        {survey.status === 'open' ? 'Open' : 'Closed'}
+                      </span>
                     </div>
-                    
-                    {/* Mobile: Simple action dropdown or stacked buttons */}
-                    <div className="sm:hidden">
-                      <button
-                        onClick={() => navigate(`/admin/surveys/${survey.id}/analytics`)}
-                        className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                        title="View analytics"
-                      >
-                        <BarChart3 className="w-5 h-5" />
-                      </button>
+                    <p className="text-gray-500 text-sm mb-3 line-clamp-1">{survey.description || 'No description'}</p>
+                    <div className="flex flex-wrap items-center gap-4 text-sm">
+                      <span className="flex items-center gap-1.5 text-gray-600">
+                        <Users className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">{survey.total_responses} responses</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 text-gray-400">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(survey.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
                     </div>
                   </div>
                   
-                  {/* Actions row - Mobile: full width buttons, Desktop: icon buttons */}
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-1 sm:justify-end pt-3 border-t border-gray-100">
-                    {/* Mobile: Full width action buttons */}
-                    <div className="grid grid-cols-2 gap-2 sm:hidden">
-                      <button
-                        onClick={() => copySurveyLink(survey.id)}
-                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-200 active:scale-95"
-                      >
-                        <Copy className="w-4 h-4" />
-                        Copy Link
-                      </button>
-                      <button
-                        onClick={() => navigate(`/admin/surveys/${survey.id}/edit`)}
-                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-200 active:scale-95"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => toggleStatus(survey)}
-                        className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-all active:scale-95 ${
-                          survey.status === 'open'
-                            ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                        }`}
-                      >
-                        {survey.status === 'open' ? 'Close Survey' : 'Open Survey'}
-                      </button>
-                      <button
-                        onClick={() => deleteSurvey(survey.id)}
-                        className="flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-medium transition-all hover:bg-red-100 active:scale-95"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
-                    </div>
+                  {/* Actions - Mobile: Primary + More menu, Desktop: All actions */}
+                  <div className="flex items-center gap-2 sm:pt-1">
+                    {/* Primary: Analytics */}
+                    <button
+                      onClick={() => navigate(`/admin/surveys/${survey.id}/analytics`)}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium text-sm transition-all hover:bg-slate-800 active:scale-95"
+                    >
+                      <BarChart3 className="w-4 h-4" />
+                      <span className="hidden sm:inline">Analytics</span>
+                      <span className="sm:hidden">View</span>
+                    </button>
                     
-                    {/* Desktop: Compact icon buttons */}
-                    <div className="hidden sm:flex items-center gap-1">
+                    {/* More Menu Button */}
+                    <div className="relative">
                       <button
-                        onClick={() => copySurveyLink(survey.id)}
-                        className="p-2.5 text-gray-400 hover:text-slate-600 hover:bg-gray-50 rounded-xl transition-all"
-                        title="Copy survey link"
+                        onClick={() => setOpenMenuId(openMenuId === survey.id ? null : survey.id)}
+                        className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
+                        title="More actions"
                       >
-                        <Copy className="w-5 h-5" />
+                        <MoreVertical className="w-5 h-5" />
                       </button>
-                      <button
-                        onClick={() => navigate(`/admin/surveys/${survey.id}/analytics`)}
-                        className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                        title="View analytics"
-                      >
-                        <BarChart3 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => navigate(`/admin/surveys/${survey.id}/edit`)}
-                        className="p-2.5 text-gray-400 hover:text-slate-600 hover:bg-gray-50 rounded-xl transition-all"
-                        title="Edit survey"
-                      >
-                        <Edit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => toggleStatus(survey)}
-                        className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
-                          survey.status === 'open'
-                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                        }`}
-                      >
-                        {survey.status === 'open' ? 'Close' : 'Open'}
-                      </button>
-                      <button
-                        onClick={() => deleteSurvey(survey.id)}
-                        className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                        title="Delete survey"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      {openMenuId === survey.id && (
+                        <>
+                          <div 
+                            className="fixed inset-0 z-40" 
+                            onClick={() => setOpenMenuId(null)}
+                          />
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1">
+                            <button
+                              onClick={() => {
+                                copySurveyLink(survey.id);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              <Copy className="w-4 h-4" />
+                              Copy Link
+                            </button>
+                            <button
+                              onClick={() => {
+                                navigate(`/admin/surveys/${survey.id}/edit`);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Edit Survey
+                            </button>
+                            <button
+                              onClick={() => {
+                                toggleStatus(survey);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                            >
+                              {survey.status === 'open' ? (
+                                <><span className="w-4 h-4 flex items-center justify-center">⏸</span> Close Survey</>
+                              ) : (
+                                <><span className="w-4 h-4 flex items-center justify-center">▶</span> Open Survey</>
+                              )}
+                            </button>
+                            <div className="border-t border-gray-100 my-1" />
+                            <button
+                              onClick={() => {
+                                deleteSurvey(survey.id);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -497,8 +481,24 @@ export default function AdminDashboard() {
             ))}
           </div>
         )}
+        </div>
+        )}
+        
+        {/* Mobile Sticky Bottom Action Bar */}
+        {activeTab !== 'live' && surveys.length > 0 && (
+          <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 shadow-lg">
+            <button
+              onClick={() => navigate('/admin/surveys/new')}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium transition-all active:scale-95"
+            >
+              <Plus className="w-5 h-5" />
+              Create New Survey
+            </button>
           </div>
         )}
+        
+        {/* Bottom padding for mobile sticky bar */}
+        {activeTab !== 'live' && surveys.length > 0 && <div className="sm:hidden h-20" />}
       </main>
     </div>
   );
