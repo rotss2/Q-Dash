@@ -5,7 +5,7 @@ import { useToast } from '../../components/Toaster';
 import LiveBoard from '../../components/admin/LiveBoard';
 import { apiGet, apiDelete, apiPost } from '../../lib/api';
 import { Survey } from '../../types';
-import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, Activity, Sparkles, Calendar, ArrowUpRight, Loader2, User, Search, Clock, LayoutDashboard, MoreVertical } from 'lucide-react';
+import { Plus, BarChart3, Edit2, Trash2, Copy, LogOut, Users, FileText, Radio, Activity, Calendar, Loader2, User, Search, LayoutDashboard, MoreVertical, ChevronDown, GraduationCap, HelpCircle, CheckSquare, X } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -14,9 +14,11 @@ export default function AdminDashboard() {
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'live'>('overview');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showCreateDropdown, setShowCreateDropdown] = useState(false);
+  const [modeFilter, setModeFilter] = useState<'all' | 'survey' | 'quiz' | 'exam'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
 
   useEffect(() => {
     loadSurveys();
@@ -60,7 +62,6 @@ export default function AdminDashboard() {
     const surveyCount = response.data?.surveys?.length || 0;
     console.log(`Dashboard: Loaded ${surveyCount} surveys`);
     setSurveys(response.data?.surveys || []);
-    setLastUpdated(new Date());
     setIsLoading(false);
   };
 
@@ -122,12 +123,20 @@ export default function AdminDashboard() {
   const totalResponses = surveys.reduce((sum, s) => sum + s.total_responses, 0);
   const openSurveys = surveys.filter(s => s.status === 'open').length;
 
-  // Filter surveys based on search query
-  const filteredSurveys = surveys.filter(survey => 
-    searchQuery === '' || 
-    survey.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (survey.description || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter surveys based on search query, mode, and status
+  const filteredSurveys = surveys.filter(survey => {
+    const matchesSearch = searchQuery === '' || 
+      survey.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (survey.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesMode = modeFilter === 'all' || survey.mode === modeFilter;
+    const matchesStatus = statusFilter === 'all' || survey.status === statusFilter;
+    return matchesSearch && matchesMode && matchesStatus;
+  });
+
+  // Calculate counts by mode
+  const surveyCount = surveys.filter(s => s.mode === 'survey' || !s.mode).length;
+  const quizCount = surveys.filter(s => s.mode === 'quiz').length;
+  const examCount = surveys.filter(s => s.mode === 'exam').length;
 
 
   return (
@@ -155,8 +164,8 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {/* Tabs */}
-              <div className="hidden sm:flex items-center bg-gray-100 rounded-xl p-1 mr-2">
+              {/* Navigation Tabs */}
+              <nav className="hidden sm:flex items-center bg-gray-100 rounded-xl p-1">
                 <button
                   onClick={() => setActiveTab('overview')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -179,7 +188,7 @@ export default function AdminDashboard() {
                   <Radio className={`w-4 h-4 ${activeTab === 'live' ? 'text-red-500 animate-pulse' : ''}`} />
                   Live Board
                 </button>
-              </div>
+              </nav>
               
               {/* Mobile tabs dropdown */}
               <div className="sm:hidden">
@@ -218,114 +227,216 @@ export default function AdminDashboard() {
           <LiveBoard surveys={surveys} />
         ) : (
           <div className="space-y-8">
-            {/* Stats - Mobile-first responsive grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          <button
-            onClick={() => navigate('/admin/surveys/all')}
-            className="relative overflow-hidden bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group active:scale-95"
-          >
-            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-gradient-to-br from-blue-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center gap-3 sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200 flex-shrink-0">
-                <FileText className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-medium text-gray-500 mb-0.5">Total Surveys</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{surveys.length}</p>
-              </div>
-            </div>
-            <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4">
-              <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-            </div>
-          </button>
-
-          <button
-            onClick={() => navigate('/admin/responses/all')}
-            className="relative overflow-hidden bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-all hover:shadow-lg hover:-translate-y-1 text-left cursor-pointer group active:scale-95"
-          >
-            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-gradient-to-br from-emerald-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center gap-3 sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 flex-shrink-0">
-                <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-medium text-gray-500 mb-0.5">Total Responses</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalResponses}</p>
-              </div>
-            </div>
-            <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4">
-              <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-            </div>
-          </button>
-
-          <div className="relative overflow-hidden bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 transition-all hover:shadow-lg hover:-translate-y-1 sm:col-span-2 lg:col-span-1">
-            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-gradient-to-br from-violet-50 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative flex items-center gap-3 sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-200 flex-shrink-0">
-                <Activity className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-medium text-gray-500 mb-0.5">Open Surveys</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{openSurveys}</p>
-              </div>
-            </div>
-            <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4">
-              <ArrowUpRight className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />
-            </div>
-          </div>
-        </div>
-
-            {/* Header: Search + Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-              {/* Left: Search */}
-              {surveys.length > 0 && (
-                <div className="relative w-full sm:max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search surveys..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  />
+            {/* Summary Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+              {/* Total Surveys */}
+              <div className="col-span-2 sm:col-span-1 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-slate-100 rounded-xl flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-slate-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Total</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">{surveys.length}</p>
+                  </div>
                 </div>
-              )}
+              </div>
+
+              {/* Surveys */}
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <HelpCircle className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Surveys</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">{surveyCount}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quizzes */}
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-green-50 rounded-xl flex items-center justify-center">
+                    <CheckSquare className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Quizzes</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">{quizCount}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Exams */}
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-purple-50 rounded-xl flex items-center justify-center">
+                    <GraduationCap className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Exams</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">{examCount}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Responses */}
+              <div className="col-span-2 sm:col-span-1 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-emerald-50 rounded-xl flex items-center justify-center">
+                    <Users className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Responses</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">{totalResponses}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Open */}
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-amber-50 rounded-xl flex items-center justify-center">
+                    <Activity className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">Open</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900">{openSurveys}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Page Title */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+                <p className="text-sm text-gray-500 mt-1">Manage your surveys, quizzes, exams, and responses.</p>
+              </div>
               
-              {/* Right: Action Group */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                {lastUpdated && (
-                  <span className="hidden md:flex text-xs text-gray-400 items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                )}
+              {/* Create Dropdown */}
+              <div className="relative">
                 <button
-                  onClick={() => loadSurveys()}
-                  disabled={isLoading}
-                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium transition-all hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed group"
-                  title="Refresh"
-                >
-                  <Loader2 className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">Refresh</span>
-                </button>
-                <button
-                  onClick={() => navigate('/admin/surveys/new')}
-                  className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
+                  onClick={() => setShowCreateDropdown(!showCreateDropdown)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 h-11 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800"
                 >
                   <Plus className="w-4 h-4" />
-                  New Survey
+                  Create New
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showCreateDropdown ? 'rotate-180' : ''}`} />
                 </button>
+                
+                {showCreateDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowCreateDropdown(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-2">
+                      <button
+                        onClick={() => { navigate('/admin/surveys/new'); setShowCreateDropdown(false); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3"
+                      >
+                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <HelpCircle className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">Survey</p>
+                          <p className="text-xs text-gray-500">Collect feedback and research responses</p>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => { navigate('/admin/surveys/new?mode=quiz'); setShowCreateDropdown(false); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3"
+                      >
+                        <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <CheckSquare className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">Quiz</p>
+                          <p className="text-xs text-gray-500">Create scored practice quizzes</p>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => { navigate('/admin/surveys/new?mode=exam'); setShowCreateDropdown(false); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3"
+                      >
+                        <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <GraduationCap className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">Exam</p>
+                          <p className="text-xs text-gray-500">Formal assessments with time limits</p>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-            
-            {/* Section Title */}
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Your Surveys</h2>
-              {surveys.length > 0 && (
-                <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full">
-                  {filteredSurveys.length} of {surveys.length}
-                </span>
-              )}
+
+            {/* Filters Toolbar */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              {/* Search */}
+              <div className="relative flex-1 sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-10 pl-9 pr-4 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Mode Filter */}
+              <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1 overflow-x-auto">
+                {(['all', 'survey', 'quiz', 'exam'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setModeFilter(mode)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                      modeFilter === mode
+                        ? 'bg-slate-900 text-white'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    {mode === 'all' ? 'All' : mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Status Filter */}
+              <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1">
+                {(['all', 'open', 'closed'] as const).map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      statusFilter === status
+                        ? 'bg-slate-900 text-white'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Refresh */}
+              <button
+                onClick={() => loadSurveys()}
+                disabled={isLoading}
+                className="h-10 px-3 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50"
+                title="Refresh"
+              >
+                <Loader2 className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </button>
             </div>
 
             {/* Surveys List - Enhanced */}
@@ -352,35 +463,72 @@ export default function AdminDashboard() {
             ))}
           </div>
         ) : surveys.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Sparkles className="w-10 h-10 text-blue-500" />
+          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <FileText className="w-8 h-8 text-slate-400" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Create your first survey</h3>
-            <p className="text-gray-500 mb-8 max-w-md mx-auto">Start collecting valuable feedback and insights from your audience in minutes.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No surveys yet</h3>
+            <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">
+              Create your first survey, quiz, or exam to start collecting responses.
+            </p>
             <button
-              onClick={() => navigate('/admin/surveys/new')}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200"
+              onClick={() => setShowCreateDropdown(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-medium text-sm transition-all hover:bg-slate-800"
             >
-              <Plus className="w-5 h-5" />
-              Create Survey
+              <Plus className="w-4 h-4" />
+              Create New
+            </button>
+          </div>
+        ) : filteredSurveys.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Search className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No results found</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Try adjusting your search or filters.
+            </p>
+            <button
+              onClick={() => { setSearchQuery(''); setModeFilter('all'); setStatusFilter('all'); }}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Clear all filters
             </button>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {filteredSurveys.map((survey) => (
-              <div key={survey.id} className="group bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 transition-all hover:shadow-xl hover:-translate-y-0.5 hover:border-gray-200">
+              <div key={survey.id} className="group bg-white rounded-xl sm:rounded-2xl border border-gray-200 p-4 sm:p-5 transition-all hover:shadow-lg hover:border-gray-300">
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-slate-700 transition-colors">{survey.title}</h3>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 group-hover:text-slate-700 transition-colors">{survey.title}</h3>
+                      
+                      {/* Mode Badge */}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${
+                        survey.mode === 'quiz'
+                          ? 'bg-green-50 text-green-700 border border-green-100'
+                          : survey.mode === 'exam'
+                          ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                          : 'bg-blue-50 text-blue-700 border border-blue-100'
+                      }`}>
+                        {survey.mode === 'quiz' ? (
+                          <><CheckSquare className="w-3 h-3" /> Quiz</>
+                        ) : survey.mode === 'exam' ? (
+                          <><GraduationCap className="w-3 h-3" /> Exam</>
+                        ) : (
+                          <><HelpCircle className="w-3 h-3" /> Survey</>
+                        )}
+                      </span>
+                      
+                      {/* Status Badge */}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${
                         survey.status === 'open'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                          : 'bg-gray-50 text-gray-600 border border-gray-200'
+                          : 'bg-gray-100 text-gray-600 border border-gray-200'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${survey.status === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${survey.status === 'open' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                         {survey.status === 'open' ? 'Open' : 'Closed'}
                       </span>
                     </div>
@@ -485,20 +633,53 @@ export default function AdminDashboard() {
         )}
         
         {/* Mobile Sticky Bottom Action Bar */}
-        {activeTab !== 'live' && surveys.length > 0 && (
+        {activeTab !== 'live' && (
           <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 shadow-lg">
             <button
-              onClick={() => navigate('/admin/surveys/new')}
+              onClick={() => setShowCreateDropdown(!showCreateDropdown)}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium transition-all active:scale-95"
             >
               <Plus className="w-5 h-5" />
-              Create New Survey
+              Create New
             </button>
+            
+            {/* Mobile Create Dropdown */}
+            {showCreateDropdown && (
+              <div className="absolute bottom-full left-4 right-4 mb-2 bg-white border border-gray-200 rounded-xl shadow-xl py-2">
+                <button
+                  onClick={() => { navigate('/admin/surveys/new'); setShowCreateDropdown(false); }}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3"
+                >
+                  <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                    <HelpCircle className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="font-medium text-gray-900">Survey</span>
+                </button>
+                <button
+                  onClick={() => { navigate('/admin/surveys/new?mode=quiz'); setShowCreateDropdown(false); }}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3"
+                >
+                  <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
+                    <CheckSquare className="w-4 h-4 text-green-600" />
+                  </div>
+                  <span className="font-medium text-gray-900">Quiz</span>
+                </button>
+                <button
+                  onClick={() => { navigate('/admin/surveys/new?mode=exam'); setShowCreateDropdown(false); }}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3"
+                >
+                  <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <span className="font-medium text-gray-900">Exam</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
         
         {/* Bottom padding for mobile sticky bar */}
-        {activeTab !== 'live' && surveys.length > 0 && <div className="sm:hidden h-20" />}
+        {activeTab !== 'live' && <div className="sm:hidden h-20" />}
       </main>
     </div>
   );
