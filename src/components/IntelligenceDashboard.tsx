@@ -258,12 +258,12 @@ export default function IntelligenceDashboard({ questions, responses, surveyTitl
         };
       } else if (question.type === 'likert') {
         const questionResponses = responsesByQuestion[question.id] || [];
-        const counts = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+        const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
         
         questionResponses.forEach(r => {
           const rating = mapLikertAnswer(r.answer as string);
-          if (rating !== null && counts[String(rating)] !== undefined) {
-            counts[String(rating)]++;
+          if (rating !== null && rating >= 1 && rating <= 5) {
+            counts[rating]++;
           }
         });
         
@@ -271,7 +271,7 @@ export default function IntelligenceDashboard({ questions, responses, surveyTitl
           labels: ['1 (Poor)', '2', '3', '4', '5 (Excellent)'],
           datasets: [{
             label: 'Responses',
-            data: ['1', '2', '3', '4', '5'].map((level) => counts[level]),
+            data: [1, 2, 3, 4, 5].map((level) => counts[level]),
             backgroundColor: ['#dc2626', '#f97316', '#facc15', '#84cc16', '#16a34a'] as unknown as string
           }]
         };

@@ -17,7 +17,7 @@ import {
   ArcElement,
   ChartData
 } from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
@@ -1118,7 +1118,7 @@ export default function SurveyAnalytics() {
                 <p className="text-gray-600">Only real, answerable questions are shown in analytics.</p>
               </div>
             ) : (
-              validQuestions.map((question, index) => {
+              validQuestions.map((question) => {
                 const agg = aggregationData.find(a => a.question_id === question.id);
                 const hasResponses = agg && agg.total_responses > 0;
                 const stats = question.type === 'likert' ? calculateQuestionStats(question.id, question.type) : null;
