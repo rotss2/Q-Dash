@@ -378,62 +378,68 @@ ${conclusions.filter(c => c.confidence === 'high').map(c => `• ${c.questionTex
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-gray-200">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Lightbulb className="w-6 h-6 text-slate-700" />
-            Research Intelligence
-          </h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Automated insights and analysis from {uniqueRespondentCount} respondent{uniqueRespondentCount === 1 ? '' : 's'}
-            {answerRowCount > 0 && (
-              <span className="text-slate-400"> • {answerRowCount} answer rows analyzed</span>
-            )}
-          </p>
-          {isPreliminary && (
-            <div className="mt-3 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-              Preliminary insights only. Sample size is too small for reliable conclusions.
-            </div>
-          )}
+      <div className="flex flex-col gap-4 pb-4 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2 break-words">
+              <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6 text-slate-700 flex-shrink-0" />
+              <span className="break-words">Research Intelligence</span>
+            </h2>
+            <p className="text-sm text-slate-600 mt-1 break-words">
+              Automated insights from {uniqueRespondentCount} respondent{uniqueRespondentCount === 1 ? '' : 's'}
+              {answerRowCount > 0 && (
+                <span className="text-slate-400"> • {answerRowCount} answers</span>
+              )}
+            </p>
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={generateReport}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800"
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Research Report</span>
+              <span className="sm:hidden">Report</span>
+            </button>
+            <button
+              onClick={downloadCSV}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-gray-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-gray-50"
+            >
+              <Download className="w-4 h-4" />
+              CSV
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={generateReport}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium hover:bg-slate-800"
-          >
-            <FileText className="w-4 h-4" />
-            Research Report
-          </button>
-          <button
-            onClick={downloadCSV}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-slate-700 text-sm font-medium hover:bg-gray-50"
-          >
-            <Download className="w-4 h-4" />
-            CSV
-          </button>
-        </div>
+        {isPreliminary && (
+          <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+            Preliminary insights only. Sample size is too small for reliable conclusions.
+          </div>
+        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
-        {[
-          { id: 'insights', label: 'Insights & Conclusions', icon: Lightbulb },
-          { id: 'themes', label: 'Thematic Analysis', icon: TrendingUp },
-          { id: 'charts', label: 'Charts', icon: Filter }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-slate-900 text-slate-900'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
+      {/* Tabs - Mobile: horizontally scrollable */}
+      <div className="border-b border-gray-200 overflow-x-auto">
+        <div className="flex min-w-max">
+          {[
+            { id: 'insights', label: 'Insights', mobileLabel: 'Insights', icon: Lightbulb },
+            { id: 'themes', label: 'Thematic Analysis', mobileLabel: 'Themes', icon: TrendingUp },
+            { id: 'charts', label: 'Charts', mobileLabel: 'Charts', icon: Filter }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-4 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-slate-900 text-slate-900'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.mobileLabel}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Insights Tab */}
@@ -441,14 +447,14 @@ ${conclusions.filter(c => c.confidence === 'high').map(c => `• ${c.questionTex
         <div className="space-y-6">
           {/* Top Insight Card */}
           {topInsight && (
-            <div className="bg-slate-900 text-white p-6">
+            <div className="bg-slate-900 text-white p-4 sm:p-6 rounded-xl overflow-hidden">
               <div className="flex items-center gap-2 mb-3">
                 <TrendingUp className="w-5 h-5" />
-                <span className="text-sm font-medium uppercase tracking-wide">Top Insight</span>
+                <span className="text-xs sm:text-sm font-medium uppercase tracking-wide">Top Insight</span>
               </div>
-              <h3 className="text-lg font-semibold mb-2">{topInsight.questionText}</h3>
-              <p className="text-3xl font-bold mb-2">{topInsight.finding}</p>
-              <p className="text-slate-300 text-sm">{topInsight.detail}</p>
+              <h3 className="text-base sm:text-lg font-semibold mb-2 break-words leading-snug">{topInsight.questionText}</h3>
+              <p className="text-2xl sm:text-3xl font-bold mb-2 break-words">{topInsight.finding}</p>
+              <p className="text-slate-300 text-xs sm:text-sm break-words">{topInsight.detail}</p>
             </div>
           )}
 

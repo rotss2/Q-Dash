@@ -228,12 +228,12 @@ export default function AdminDashboard() {
         ) : (
           <div className="space-y-8">
             {/* Summary Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
               {/* Total Surveys */}
-              <div className="col-span-2 sm:col-span-1 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-slate-100 rounded-xl flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-slate-600" />
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-5">
+                <div className="flex flex-col gap-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 font-medium">Total</p>
@@ -243,10 +243,10 @@ export default function AdminDashboard() {
               </div>
 
               {/* Surveys */}
-              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-blue-50 rounded-xl flex items-center justify-center">
-                    <HelpCircle className="w-5 h-5 text-blue-600" />
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-5">
+                <div className="flex flex-col gap-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 font-medium">Surveys</p>
@@ -256,10 +256,10 @@ export default function AdminDashboard() {
               </div>
 
               {/* Quizzes */}
-              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-green-50 rounded-xl flex items-center justify-center">
-                    <CheckSquare className="w-5 h-5 text-green-600" />
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-5">
+                <div className="flex flex-col gap-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-50 rounded-xl flex items-center justify-center">
+                    <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 font-medium">Quizzes</p>
@@ -269,10 +269,10 @@ export default function AdminDashboard() {
               </div>
 
               {/* Exams */}
-              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-purple-50 rounded-xl flex items-center justify-center">
-                    <GraduationCap className="w-5 h-5 text-purple-600" />
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-5">
+                <div className="flex flex-col gap-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-50 rounded-xl flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 font-medium">Exams</p>
@@ -282,10 +282,10 @@ export default function AdminDashboard() {
               </div>
 
               {/* Responses */}
-              <div className="col-span-2 sm:col-span-1 bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-emerald-50 rounded-xl flex items-center justify-center">
-                    <Users className="w-5 h-5 text-emerald-600" />
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-5">
+                <div className="flex flex-col gap-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 font-medium">Responses</p>
@@ -295,10 +295,10 @@ export default function AdminDashboard() {
               </div>
 
               {/* Open */}
-              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 bg-amber-50 rounded-xl flex items-center justify-center">
-                    <Activity className="w-5 h-5 text-amber-600" />
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 lg:p-5">
+                <div className="flex flex-col gap-2">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-50 rounded-xl flex items-center justify-center">
+                    <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 font-medium">Open</p>
@@ -315,8 +315,8 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-500 mt-1">Manage your surveys, quizzes, exams, and responses.</p>
               </div>
               
-              {/* Create Dropdown */}
-              <div className="relative">
+              {/* Create Dropdown - Desktop Only */}
+              <div className="relative hidden sm:block">
                 <button
                   onClick={() => setShowCreateDropdown(!showCreateDropdown)}
                   className="inline-flex items-center gap-2 px-4 py-2.5 h-11 bg-slate-900 text-white rounded-xl font-medium transition-all hover:bg-slate-800"
@@ -632,20 +632,19 @@ export default function AdminDashboard() {
         </div>
         )}
         
-        {/* Mobile Sticky Bottom Action Bar */}
-        {activeTab !== 'live' && (
-          <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 shadow-lg">
-            <button
-              onClick={() => setShowCreateDropdown(!showCreateDropdown)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl font-medium transition-all active:scale-95"
-            >
-              <Plus className="w-5 h-5" />
-              Create New
-            </button>
-            
-            {/* Mobile Create Dropdown */}
-            {showCreateDropdown && (
-              <div className="absolute bottom-full left-4 right-4 mb-2 bg-white border border-gray-200 rounded-xl shadow-xl py-2">
+        {/* Mobile Create Button - Inline, at bottom of content */}
+        <div className="sm:hidden px-4 py-4">
+          <button
+            onClick={() => setShowCreateDropdown(!showCreateDropdown)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 h-12 bg-slate-900 text-white rounded-xl font-medium transition-all active:scale-95"
+          >
+            <Plus className="w-5 h-5" />
+            Create New
+          </button>
+          
+          {/* Mobile Create Dropdown */}
+          {showCreateDropdown && (
+              <div className="mt-2 bg-white border border-gray-200 rounded-xl shadow-xl py-2">
                 <button
                   onClick={() => { navigate('/admin/surveys/new'); setShowCreateDropdown(false); }}
                   className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3"
@@ -675,11 +674,10 @@ export default function AdminDashboard() {
                 </button>
               </div>
             )}
-          </div>
-        )}
+        </div>
         
-        {/* Bottom padding for mobile sticky bar */}
-        {activeTab !== 'live' && <div className="sm:hidden h-20" />}
+        {/* Bottom padding for mobile */}
+        <div className="sm:hidden h-6" />
       </main>
     </div>
   );

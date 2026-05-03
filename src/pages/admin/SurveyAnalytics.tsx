@@ -794,12 +794,13 @@ export default function SurveyAnalytics() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Survey Info Card */}
-        <div className="card mb-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{survey?.title}</h1>
-              <p className="text-gray-600 mb-4">{survey?.description || 'No description'}</p>
-            </div>
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words leading-tight">{survey?.title}</h1>
+                <p className="text-sm sm:text-base text-gray-600 break-words">{survey?.description || 'No description'}</p>
+              </div>
 
             {/* Export Toolbar - Desktop: buttons, Mobile: dropdown */}
             <div className="flex items-center gap-2">
@@ -976,41 +977,44 @@ export default function SurveyAnalytics() {
             </div>
           </div>
         </div>
+        </div>
 
-        {/* View Toggle */}
-        <div className="flex flex-wrap items-center gap-2 mb-6 border-b border-gray-200">
-          <button
-            onClick={() => setActiveView('analytics')}
-            className={`px-4 py-2 font-medium ${activeView === 'analytics' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
-          >
-            Analytics
-          </button>
-          <button
-            onClick={() => setActiveView('intelligence')}
-            className={`px-4 py-2 font-medium flex items-center gap-2 ${activeView === 'intelligence' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
-          >
-            <Lightbulb className="w-4 h-4" />
-            Intelligence
-          </button>
-          <button
-            onClick={() => setActiveView('conclusion')}
-            className={`px-4 py-2 font-medium ${activeView === 'conclusion' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
-          >
-            Conclusion
-          </button>
-          <button
-            onClick={() => setActiveView('raw')}
-            className={`px-4 py-2 font-medium ${activeView === 'raw' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
-          >
-            Raw Data
-          </button>
-          <button
-            onClick={() => setActiveView('statistics')}
-            className={`px-4 py-2 font-medium flex items-center gap-2 ${activeView === 'statistics' ? 'text-primary-600 border-b-2 border-primary-600' : 'text-gray-500'}`}
-          >
-            <Calculator className="w-4 h-4" />
-            Statistics
-          </button>
+        {/* View Toggle - Mobile: horizontally scrollable */}
+        <div className="mb-6 border-b border-gray-200 overflow-x-auto">
+          <div className="flex min-w-max">
+            <button
+              onClick={() => setActiveView('analytics')}
+              className={`px-4 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors ${activeView === 'analytics' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}
+            >
+              Analytics
+            </button>
+            <button
+              onClick={() => setActiveView('intelligence')}
+              className={`px-4 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeView === 'intelligence' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}
+            >
+              <Lightbulb className="w-4 h-4" />
+              Intelligence
+            </button>
+            <button
+              onClick={() => setActiveView('conclusion')}
+              className={`px-4 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors ${activeView === 'conclusion' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}
+            >
+              Conclusion
+            </button>
+            <button
+              onClick={() => setActiveView('raw')}
+              className={`px-4 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors ${activeView === 'raw' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}
+            >
+              Raw Data
+            </button>
+            <button
+              onClick={() => setActiveView('statistics')}
+              className={`px-4 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeView === 'statistics' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}
+            >
+              <Calculator className="w-4 h-4" />
+              Statistics
+            </button>
+          </div>
         </div>
 
         {activeView === 'intelligence' ? (
