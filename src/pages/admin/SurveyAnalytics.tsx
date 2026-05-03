@@ -44,33 +44,44 @@ export default function SurveyAnalytics() {
   const [filterTo, setFilterTo] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
-  // All questions/blocks from the survey (headings, instructions, page breaks, and actual questions)
-  const allSurveyBlocks = useMemo(() => {
-    return questions;
+  const isPlaceholderQuestion = (question: Question) => {
+    const text = question.question_text?.trim().toLowerCase() || '';
+    if (!text) return true;
+    if (text === 'test') return true;
+    if (text === 'test question') return true;
+    if (text === 'placeholder') return true;
+    if (text.startsWith('dummy')) return true;
+    if (text.includes('hidden') || text.includes('layout') || text.includes('system-generated')) return true;
+    return false;
+  };
+
+  // Only real, visible answerable questions should be included in analytics
+  const validQuestions = useMemo(() => {
+    return questions.filter((q) =>
+      q.block_type === 'question' &&
+      ['text', 'choice', 'likert'].includes(q.type) &&
+      q.is_active !== false &&
+      !isPlaceholderQuestion(q)
+    );
   }, [questions]);
 
-  // Filter out test/placeholder questions by text pattern for display
-  // Keep only actual questions (not headings/instructions/page_breaks) for response-based analytics
-  const validQuestions = useMemo(() => {
-    // First filter to only question block types (exclude headings, instructions, page_breaks)
-    const questionBlocks = questions.filter((q) => q.block_type === 'question');
-    
-    // Then filter out test placeholders by text pattern
-    const filtered = questionBlocks.filter((q) => {
-      const text = q.question_text?.trim().toLowerCase() || '';
-      // Skip test placeholders
-      if (text === 'test') return false;
-      if (text === 'test question') return false;
-      if (text === 'placeholder') return false;
-      if (text.startsWith('dummy')) return false;
-      return true;
+  const questionLabelMap = useMemo(() => {
+    const duplicateCounts = new Map<string, number>();
+    validQuestions.forEach((q) => {
+      const text = q.question_text.trim();
+      duplicateCounts.set(text, (duplicateCounts.get(text) || 0) + 1);
     });
 
-    // Note: We intentionally do NOT deduplicate here
-    // Each question has a unique ID and should be displayed separately
-    // even if two questions happen to have the same text
-    return filtered;
-  }, [questions]);
+    const occurrence = new Map<string, number>();
+    return new Map(validQuestions.map((q) => {
+      const text = q.question_text.trim();
+      const total = duplicateCounts.get(text) || 0;
+      const index = (occurrence.get(text) || 0) + 1;
+      occurrence.set(text, index);
+      const label = total > 1 ? `Question ${index}` : q.question_text;
+      return [q.id, label];
+    }));
+  }, [validQuestions]);
 
   useEffect(() => {
     if (surveyId) {
@@ -154,20 +165,17 @@ export default function SurveyAnalytics() {
     }
   };
 
-  // Get set of all question IDs for response filtering (include all block types that might have responses)
-  const allQuestionIds = useMemo(() => new Set(allSurveyBlocks.map(q => q.id)), [allSurveyBlocks]);
+  // Only include responses for visible questions in analytics and exports
+  const allQuestionIds = useMemo(() => new Set(validQuestions.map(q => q.id)), [validQuestions]);
 
   const filteredResponses = useMemo(() => {
     return responses.filter((response) => {
-      // Filter by date
       const submittedAt = new Date(response.submitted_at);
       const fromDate = filterFrom ? new Date(filterFrom) : null;
       const toDate = filterTo ? new Date(filterTo) : null;
 
       if (fromDate && submittedAt < fromDate) return false;
       if (toDate && submittedAt > toDate) return false;
-
-      // Only include responses for survey blocks (exclude orphaned responses)
       if (!allQuestionIds.has(response.question_id)) return false;
 
       return true;
@@ -175,13 +183,29 @@ export default function SurveyAnalytics() {
   }, [responses, filterFrom, filterTo, allQuestionIds]);
 
   const aggregationData = useMemo((): ResponseAggregation[] => {
-    return validQuestions
-      .map((question) => {
-        const questionResponses = filteredResponses.filter(
-          (r) => r.question_id === question.id
-        );
-        const answers: { [key: string]: number } = {};
+    return validQuestions.map((question) => {
+      const questionResponses = filteredResponses.filter((r) => r.question_id === question.id);
 
+      if (question.type === 'likert') {
+        const counts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+        questionResponses.forEach((r) => {
+          const numeric = answerToNumeric(r.answer, question.type, question.options || undefined);
+          if (numeric !== null && numeric >= 1 && numeric <= 5) {
+            counts[String(numeric)] = (counts[String(numeric)] || 0) + 1;
+          }
+        });
+
+        return {
+          question_id: question.id,
+          question_text: question.question_text,
+          type: question.type,
+          answers: ['1', '2', '3', '4', '5'].map((value) => ({ value, count: counts[value] || 0 })),
+          total_responses: questionResponses.length
+        };
+      }
+
+      if (question.type === 'choice') {
+        const answers: { [key: string]: number } = {};
         questionResponses.forEach((r) => {
           answers[r.answer] = (answers[r.answer] || 0) + 1;
         });
@@ -193,9 +217,16 @@ export default function SurveyAnalytics() {
           answers: Object.entries(answers).map(([value, count]) => ({ value, count })),
           total_responses: questionResponses.length
         };
-      });
-      // Note: We keep ALL questions including those with 0 responses
-      // The render logic handles showing appropriate UI for empty responses
+      }
+
+      return {
+        question_id: question.id,
+        question_text: question.question_text,
+        type: question.type,
+        answers: questionResponses.map((r) => ({ value: r.answer, count: 1 })),
+        total_responses: questionResponses.length
+      };
+    });
   }, [validQuestions, filteredResponses]);
 
   const surveyUrl = surveyId ? `${window.location.origin}/survey/${surveyId}` : '';
@@ -270,7 +301,7 @@ export default function SurveyAnalytics() {
     if (!validQuestions.length || !responses.length) return;
 
     // Build CSV rows
-    const headers = ['User', 'Submitted At', ...validQuestions.map(q => q.question_text)];
+    const headers = ['User', 'Submitted At', ...validQuestions.map(q => questionLabelMap.get(q.id) || q.question_text)];
     
     // Group responses by user_id and submitted_at
     const grouped: { [key: string]: { userLabel: string; submitted_at: string; answers: { [qid: string]: string } } } = {};
@@ -309,7 +340,7 @@ export default function SurveyAnalytics() {
   const exportToJSON = () => {
     const data = {
       survey,
-      questions: allSurveyBlocks,
+      questions: validQuestions,
       responses: filteredResponses.map(r => ({
         ...r,
         user_label: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`
@@ -467,8 +498,8 @@ export default function SurveyAnalytics() {
   const calculateCorrelation = (q1Id: string, q2Id: string): number | null => {
     const { x, y } = getPairedResponses(q1Id, q2Id);
     
-    // Need at least 2 paired responses to calculate correlation
-    if (x.length < 2 || y.length < 2 || x.length !== y.length) return null;
+    // Need at least 3 paired responses for reliable correlation
+    if (x.length < 3 || y.length < 3 || x.length !== y.length) return null;
     
     const n = x.length;
     const sumX = x.reduce((a, b) => a + b, 0);
@@ -483,12 +514,30 @@ export default function SurveyAnalytics() {
     return denominator === 0 ? null : numerator / denominator;
   };
 
+  const eligibleCorrelationQuestions = useMemo(
+    () => validQuestions.filter(q => q.type === 'likert' || q.type === 'choice'),
+    [validQuestions]
+  );
+
+  const completeCorrelationRows = useMemo(() => {
+    const rows: Record<string, { answers: Record<string, string> }> = {};
+    filteredResponses.forEach((r) => {
+      const key = `${r.user_id}_${r.submitted_at}`;
+      if (!rows[key]) rows[key] = { answers: {} };
+      rows[key].answers[r.question_id] = r.answer;
+    });
+
+    return Object.values(rows).filter((row) =>
+      eligibleCorrelationQuestions.every((q) => row.answers[q.id] !== undefined)
+    ).length;
+  }, [filteredResponses, eligibleCorrelationQuestions]);
+
   // Export to Excel (CSV with multiple sheets simulated)
   const exportToExcel = () => {
-    if (!validQuestions.length || !responses.length) return;
+    if (!validQuestions.length || !filteredResponses.length) return;
     
     // Sheet 1: Raw Data
-    const rawHeaders = ['User ID', 'Submitted At', ...validQuestions.map(q => q.question_text)];
+    const rawHeaders = ['User ID', 'Submitted At', ...validQuestions.map(q => questionLabelMap.get(q.id) || q.question_text)];
     const grouped: any = {};
     filteredResponses.forEach(r => {
       const key = `${r.user_id}_${r.submitted_at}`;
@@ -542,7 +591,7 @@ export default function SurveyAnalytics() {
 
   // Export SPSS-compatible CSV
   const exportToSPSS = () => {
-    if (!validQuestions.length || !responses.length) return;
+    if (!validQuestions.length || !filteredResponses.length) return;
     
     // SPSS requires numeric codes for categorical data
     const questionCodes: { [key: string]: { [key: string]: number } } = {};
@@ -595,7 +644,7 @@ export default function SurveyAnalytics() {
 
   // Export LaTeX Table
   const exportToLaTeX = () => {
-    if (!questions.length || !responses.length) return;
+    if (!validQuestions.length || !filteredResponses.length) return;
     
     const aggregations = aggregationData;
     
@@ -679,7 +728,7 @@ export default function SurveyAnalytics() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
             <button
@@ -759,8 +808,8 @@ export default function SurveyAnalytics() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
               <span className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
-                {new Set(responses.map(r => r.user_id)).size} unique responses
-                {survey?.total_responses !== new Set(responses.map(r => r.user_id)).size && (
+                {new Set(filteredResponses.map(r => r.user_id)).size} unique responses
+                {survey?.total_responses !== new Set(filteredResponses.map(r => r.user_id)).size && (
                   <span className="text-xs text-gray-400">(cached: {survey?.total_responses})</span>
                 )}
               </span>
@@ -863,7 +912,7 @@ export default function SurveyAnalytics() {
           /* Intelligence Dashboard */
           <IntelligenceDashboard
             questions={validQuestions}
-            responses={responses}
+            responses={filteredResponses}
             surveyTitle={survey?.title || 'Survey'}
           />
         ) : activeView === 'statistics' ? (
@@ -915,49 +964,56 @@ export default function SurveyAnalytics() {
             </div>
 
             {/* Correlation Matrix */}
-            {validQuestions.filter(q => q.type === 'likert' || q.type === 'choice').length >= 2 && (
+            {eligibleCorrelationQuestions.length >= 2 && (
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-green-600" />
                   Correlation Analysis (Pearson r)
                 </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Questions</th>
-                        {validQuestions.filter(q => q.type === 'likert' || q.type === 'choice').map(q => (
-                          <th key={q.id} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase max-w-[8rem] truncate">
-                            Q{validQuestions.filter(q2 => q2.type === 'likert' || q2.type === 'choice').indexOf(q) + 1}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {validQuestions.filter(q => q.type === 'likert' || q.type === 'choice').map((q1, i) => (
-                        <tr key={q1.id}>
-                          <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
-                            Q{i + 1}: {q1.question_text}
-                          </td>
-                          {validQuestions.filter(q => q.type === 'likert' || q.type === 'choice').map((q2, j) => {
-                            if (i === j) {
-                              return <td key={q2.id} className="px-4 py-3 text-center text-sm text-gray-300 bg-gray-50">—</td>;
-                            }
-                            const corr = calculateCorrelation(q1.id, q2.id);
-                            const color = corr === null ? 'text-gray-300' :
-                              Math.abs(corr) >= 0.7 ? 'text-green-600 font-bold' :
-                              Math.abs(corr) >= 0.4 ? 'text-blue-600 font-semibold' : 'text-gray-500';
-                            return (
-                              <td key={q2.id} className={`px-4 py-3 text-center text-sm ${color}`}>
-                                {corr !== null ? corr.toFixed(2) : '—'}
-                              </td>
-                            );
-                          })}
+                {completeCorrelationRows < 3 ? (
+                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-sm text-yellow-800">
+                    Correlation analysis requires at least 3 complete responses across the selected questions. 
+                    Currently {completeCorrelationRows} complete respondent row{completeCorrelationRows === 1 ? '' : 's'} are available.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Questions</th>
+                          {eligibleCorrelationQuestions.map((q, index) => (
+                            <th key={q.id} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase max-w-[8rem] truncate">
+                              Q{index + 1}
+                            </th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {eligibleCorrelationQuestions.map((q1, i) => (
+                          <tr key={q1.id}>
+                            <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
+                              Q{i + 1}: {q1.question_text}
+                            </td>
+                            {eligibleCorrelationQuestions.map((q2, j) => {
+                              if (i === j) {
+                                return <td key={q2.id} className="px-4 py-3 text-center text-sm text-gray-300 bg-gray-50">—</td>;
+                              }
+                              const corr = calculateCorrelation(q1.id, q2.id);
+                              const color = corr === null ? 'text-gray-300' :
+                                Math.abs(corr) >= 0.7 ? 'text-green-600 font-bold' :
+                                Math.abs(corr) >= 0.4 ? 'text-blue-600 font-semibold' : 'text-gray-500';
+                              return (
+                                <td key={q2.id} className={`px-4 py-3 text-center text-sm ${color}`}>
+                                  {corr !== null ? corr.toFixed(2) : '—'}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
                 <div className="mt-4 text-sm text-gray-500">
                   <p className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-green-500"></span>
@@ -979,7 +1035,7 @@ export default function SurveyAnalytics() {
           /* Research Conclusion */
           <ResearchConclusion
             questions={validQuestions}
-            responses={responses}
+            responses={filteredResponses}
             surveyTitle={survey?.title || 'Survey'}
           />
         ) : activeView === 'raw' ? (
@@ -993,13 +1049,21 @@ export default function SurveyAnalytics() {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
-                      {allSurveyBlocks.filter(q => q.block_type === 'question').map(q => (
-                        <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase break-words max-w-[14rem]">
-                          {q.question_text}
-                        </th>
-                      ))}
+                      {validQuestions.map(q => {
+                        const label = questionLabelMap.get(q.id) || q.question_text;
+                        return (
+                          <th key={q.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase break-words max-w-[14rem]">
+                            <div className="flex flex-col gap-1">
+                              <span>{label}</span>
+                              {label !== q.question_text && (
+                                <span className="text-[10px] text-gray-400 uppercase tracking-wide">{q.question_text}</span>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                   </thead>
@@ -1025,7 +1089,7 @@ export default function SurveyAnalytics() {
                       <tr key={key}>
                         <td className="px-4 py-3 text-sm font-medium text-gray-900">{getUserIdentifier(submission)}</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{new Date(submission.submitted_at).toLocaleString()}</td>
-                        {allSurveyBlocks.filter(q => q.block_type === 'question').map((q) => (
+                        {validQuestions.map((q) => (
                           <td key={q.id} className="px-4 py-3 text-sm text-gray-900">{submission.answers[q.id] || '-'}</td>
                         ))}
                         <td className="px-4 py-3 text-sm text-gray-500">
@@ -1045,148 +1109,133 @@ export default function SurveyAnalytics() {
             )}
           </div>
         ) : (
-          /* Analytics View - Show all 20 blocks (questions, headings, instructions, page breaks) */
+          /* Analytics View - Show visible, answerable questions only */
           <div className="space-y-6">
-            {allSurveyBlocks.length === 0 ? (
+            {validQuestions.length === 0 ? (
               <div className="card text-center py-12">
                 <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No survey blocks found</h3>
-                <p className="text-gray-600">This survey has no questions or sections defined</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No visible questions found</h3>
+                <p className="text-gray-600">Only real, answerable questions are shown in analytics.</p>
               </div>
             ) : (
-              allSurveyBlocks.map((block, index) => {
-                const agg = aggregationData.find(a => a.question_id === block.id);
+              validQuestions.map((question, index) => {
+                const agg = aggregationData.find(a => a.question_id === question.id);
                 const hasResponses = agg && agg.total_responses > 0;
+                const stats = question.type === 'likert' ? calculateQuestionStats(question.id, question.type) : null;
+                const questionResponses = filteredResponses
+                  .filter(r => r.question_id === question.id)
+                  .sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
+                const latestTextResponses = question.type === 'text'
+                  ? questionResponses.map(r => r.answer).filter(Boolean).slice(0, 3)
+                  : [];
 
-                // Handle null/undefined block_type safely
-                const blockType = block.block_type || 'question';
-
-                // Render based on block type
-                switch (blockType) {
-                  case 'heading':
-                    return (
-                      <div key={block.id} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 shadow-lg">
-                        <h2 className="text-xl font-bold">{block.question_text}</h2>
-                        <p className="text-blue-100 text-sm mt-1">Section {index + 1}</p>
+                return (
+                  <div key={question.id} className="card">
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{question.question_text}</h3>
+                        <p className="text-sm text-gray-500">
+                          {hasResponses
+                            ? `${agg!.total_responses} responses • ${question.type === 'text' ? 'Text responses' : question.type === 'likert' ? 'Rating distribution' : 'Choice distribution'}`
+                            : 'No responses yet'
+                          }
+                        </p>
                       </div>
-                    );
-
-                  case 'instruction':
-                    return (
-                      <div key={block.id} className="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-5">
-                        <p className="text-amber-800 font-medium">{block.question_text}</p>
-                        <p className="text-amber-600 text-xs mt-1">Instructions</p>
-                      </div>
-                    );
-
-                  case 'page_break':
-                    return (
-                      <div key={block.id} className="flex items-center gap-4 py-4">
-                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-                        <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">Page Break</span>
-                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-                      </div>
-                    );
-
-                  case 'question':
-                  default:
-                    // Only hide if explicitly marked as test/placeholder by text
-                    // Don't use validQuestions lookup which had deduplication issues
-                    const isTestQuestion = (() => {
-                      const text = block.question_text?.trim().toLowerCase() || '';
-                      return text === 'test' || 
-                             text === 'test question' || 
-                             text === 'placeholder' ||
-                             text.startsWith('dummy');
-                    })();
-                    
-                    if (isTestQuestion) {
-                      return (
-                        <div key={block.id} className="card opacity-50">
-                          <p className="text-gray-400 text-sm italic">Test/placeholder question hidden</p>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div key={block.id} className="card">
-                        <div className="mb-4">
-                          <h3 className="text-lg font-semibold text-gray-900">{block.question_text}</h3>
-                          <p className="text-sm text-gray-500">
-                            {hasResponses 
-                              ? `${agg!.total_responses} responses • ${block.type === 'text' ? 'Text responses' : 'Choice distribution'}`
-                              : 'No responses yet'
-                            }
-                          </p>
-                        </div>
-
-                        {!hasResponses ? (
-                          <div className="h-32 flex items-center justify-center bg-gray-50 rounded-lg">
-                            <p className="text-gray-400 text-sm">Waiting for responses...</p>
+                      {question.type === 'likert' && stats && hasResponses && (
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                          <p className="font-medium text-gray-900">Rating Summary</p>
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div>
+                              <p className="text-xs uppercase text-gray-500">N</p>
+                              <p className="font-semibold text-gray-900">{stats.n}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase text-gray-500">Mean</p>
+                              <p className="font-semibold text-gray-900">{stats.mean.toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase text-gray-500">Median</p>
+                              <p className="font-semibold text-gray-900">{stats.median.toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase text-gray-500">Std Dev</p>
+                              <p className="font-semibold text-gray-900">{stats.stdDev.toFixed(2)}</p>
+                            </div>
                           </div>
-                        ) : agg!.type === 'text' ? (
-                          /* Text Responses List */
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {agg!.answers.map((answer: {value: string, count: number}, idx: number) => (
-                              <div key={idx} className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
-                                <span className="font-medium text-gray-500 mr-2">#{idx + 1}</span>
-                                {answer.value}
-                              </div>
-                            ))}
+                          {stats.n < 3 && (
+                            <p className="mt-2 text-xs text-yellow-700">Sample size is small; treat these values as preliminary.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {!hasResponses ? (
+                      <div className="h-32 flex items-center justify-center bg-gray-50 rounded-lg">
+                        <p className="text-gray-400 text-sm">Waiting for responses...</p>
+                      </div>
+                    ) : question.type === 'text' ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                            <p className="text-xs uppercase text-gray-500">Response Count</p>
+                            <p className="mt-2 text-xl font-semibold text-gray-900">{agg!.total_responses}</p>
                           </div>
-                        ) : (
-                          /* Chart for Choice/Likert */
-                          <div className="h-64">
-                            {agg!.type === 'likert' ? (
-                              <Bar
-                                data={getChartData(agg!) as ChartData<'bar'>}
-                                options={{
-                                  responsive: true,
-                                  maintainAspectRatio: false,
-                                  plugins: {
-                                    legend: { display: false },
-                                    tooltip: {
-                                      callbacks: {
-                                        label: (context) => {
-                                          const count = context.raw as number;
-                                          return `${count} response${count !== 1 ? 's' : ''}`;
-                                        }
-                                      }
-                                    }
-                                  },
-                                  scales: {
-                                    y: {
-                                      beginAtZero: true,
-                                      ticks: { stepSize: 1 }
+                          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                            <p className="text-xs uppercase text-gray-500">Latest Responses</p>
+                            <div className="mt-3 space-y-2">
+                              {latestTextResponses.map((answer, idx) => (
+                                <p key={idx} className="text-sm text-gray-700 border-l-2 border-slate-200 pl-3">{answer}</p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+                        <div className="h-64">
+                          <Bar
+                            data={getChartData(agg!) as ChartData<'bar'>}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                  callbacks: {
+                                    label: (context) => {
+                                      const count = context.raw as number;
+                                      return `${count} response${count !== 1 ? 's' : ''}`;
                                     }
                                   }
-                                }}
-                              />
-                            ) : (
-                              <Pie
-                                data={getChartData(agg!) as ChartData<'pie'>}
-                                options={{
-                                  responsive: true,
-                                  maintainAspectRatio: false,
-                                  plugins: {
-                                    tooltip: {
-                                      callbacks: {
-                                        label: (context) => {
-                                          const count = context.raw as number;
-                                          const label = context.label || '';
-                                          return `${label}: ${count} response${count !== 1 ? 's' : ''}`;
-                                        }
-                                      }
-                                    }
-                                  }
-                                }}
-                              />
-                            )}
+                                }
+                              },
+                              scales: {
+                                y: {
+                                  beginAtZero: true,
+                                  ticks: { stepSize: 1 }
+                                }
+                              }
+                            }}
+                          />
+                        </div>
+                        {question.type === 'likert' && stats && (
+                          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                            <p className="text-xs uppercase text-gray-500">Rating Details</p>
+                            <div className="mt-3 space-y-2 text-sm text-gray-700">
+                              <p>N: {stats.n}</p>
+                              <p>Mean: {stats.mean.toFixed(2)}</p>
+                              <p>Median: {stats.median.toFixed(2)}</p>
+                              <p>Mode: {stats.mode !== null ? stats.mode.toFixed(0) : 'N/A'}</p>
+                              <p>Min: {stats.min}</p>
+                              <p>Max: {stats.max}</p>
+                              <p>{stats.n < 2 ? 'Sample size too small for stable deviation.' : `Std Dev: ${stats.stdDev.toFixed(2)}`}</p>
+                            </div>
                           </div>
                         )}
                       </div>
-                    );
-                }
+                    )}
+                  </div>
+                );
               })
             )}
           </div>

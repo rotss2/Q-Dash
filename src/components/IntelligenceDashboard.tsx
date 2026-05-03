@@ -68,6 +68,45 @@ export default function IntelligenceDashboard({ questions, responses, surveyTitl
     return grouped;
   }, [questions, responses]);
 
+  const mapLikertAnswer = (answer: string): number | null => {
+    const normalized = (answer || '').trim().toLowerCase();
+    const likertMap: Record<string, number> = {
+      'strongly disagree': 1,
+      'disagree': 2,
+      'neutral': 3,
+      'agree': 4,
+      'strongly agree': 5,
+      'very dissatisfied': 1,
+      'dissatisfied': 2,
+      'somewhat dissatisfied': 2,
+      'somewhat satisfied': 4,
+      'satisfied': 4,
+      'very satisfied': 5,
+      'very poor': 1,
+      'poor': 2,
+      'fair': 3,
+      'good': 4,
+      'excellent': 5,
+      'never': 1,
+      'rarely': 2,
+      'sometimes': 3,
+      'often': 4,
+      'always': 5,
+      '1': 1,
+      '2': 2,
+      '3': 3,
+      '4': 4,
+      '5': 5
+    };
+
+    if (normalized in likertMap) return likertMap[normalized];
+    const parsed = parseFloat(normalized);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) return parsed;
+    return null;
+  };
+
+  const isPreliminary = uniqueRespondentCount < 3;
+
   // Generate automated conclusions
   const conclusions = useMemo((): Conclusion[] => {
     const results: Conclusion[] = [];
@@ -97,32 +136,32 @@ export default function IntelligenceDashboard({ questions, responses, surveyTitl
             type: 'choice',
             finding: `${percentage}% prefer "${topAnswer[0]}"`,
             detail: `Most popular choice out of ${sorted.length} options (${topAnswer[1]} of ${total} respondents)`,
-            confidence: percentage > 60 ? 'high' : percentage > 40 ? 'medium' : 'low'
+            confidence: isPreliminary ? 'low' : percentage > 60 ? 'high' : percentage > 40 ? 'medium' : 'low'
           });
         }
       } else if (question.type === 'likert') {
         // Rating - calculate average
         const ratings = questionResponses
-          .map(r => parseInt(r.answer as string))
-          .filter(n => !isNaN(n));
+          .map(r => mapLikertAnswer(r.answer as string))
+          .filter((n): n is number => n !== null);
         
         if (ratings.length > 0) {
           const avg = ratings.reduce((a, b) => a + b, 0) / ratings.length;
           const roundedAvg = avg.toFixed(1);
           
           let sentiment = '';
-          if (avg >= 4.5) sentiment = 'High Satisfaction';
-          else if (avg >= 3.5) sentiment = 'Moderate Satisfaction';
-          else if (avg >= 2.5) sentiment = 'Neutral/Mixed';
-          else sentiment = 'Low Satisfaction';
+          if (avg >= 4.5) sentiment = isPreliminary ? 'Early positive signal' : 'High Satisfaction';
+          else if (avg >= 3.5) sentiment = isPreliminary ? 'Early moderate signal' : 'Moderate Satisfaction';
+          else if (avg >= 2.5) sentiment = isPreliminary ? 'Early mixed signal' : 'Neutral/Mixed';
+          else sentiment = isPreliminary ? 'Early concern signal' : 'Low Satisfaction';
           
           results.push({
             questionId: question.id,
             questionText: question.question_text,
             type: 'rating',
             finding: `${roundedAvg}/5 - ${sentiment}`,
-            detail: `Average rating from ${ratings.length} responses`,
-            confidence: avg >= 4 || avg <= 2 ? 'high' : 'medium'
+            detail: `Average rating from ${ratings.length} response${ratings.length === 1 ? '' : 's'}`,
+            confidence: isPreliminary ? 'low' : avg >= 4 || avg <= 2 ? 'high' : 'medium'
           });
         }
       } else if (question.type === 'text') {
@@ -131,9 +170,9 @@ export default function IntelligenceDashboard({ questions, responses, surveyTitl
           questionId: question.id,
           questionText: question.question_text,
           type: 'text',
-          finding: `${questionResponses.length} text responses`,
+          finding: `${questionResponses.length} text response${questionResponses.length === 1 ? '' : 's'}`,
           detail: 'See Thematic Analysis tab for keyword insights',
-          confidence: 'medium'
+          confidence: isPreliminary ? 'low' : 'medium'
         });
       }
     });
@@ -222,9 +261,9 @@ export default function IntelligenceDashboard({ questions, responses, surveyTitl
         const counts = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
         
         questionResponses.forEach(r => {
-          const rating = r.answer as string;
-          if (counts[rating as keyof typeof counts] !== undefined) {
-            counts[rating as keyof typeof counts]++;
+          const rating = mapLikertAnswer(r.answer as string);
+          if (rating !== null && counts[String(rating)] !== undefined) {
+            counts[String(rating)]++;
           }
         });
         
@@ -232,7 +271,7 @@ export default function IntelligenceDashboard({ questions, responses, surveyTitl
           labels: ['1 (Poor)', '2', '3', '4', '5 (Excellent)'],
           datasets: [{
             label: 'Responses',
-            data: Object.values(counts),
+            data: ['1', '2', '3', '4', '5'].map((level) => counts[level]),
             backgroundColor: ['#dc2626', '#f97316', '#facc15', '#84cc16', '#16a34a'] as unknown as string
           }]
         };
@@ -369,6 +408,11 @@ ${conclusions.filter(c => c.confidence === 'high').map(c => `• ${c.questionTex
               <span className="text-slate-400"> • {answerRowCount} answer rows analyzed</span>
             )}
           </p>
+          {isPreliminary && (
+            <div className="mt-3 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              Preliminary insights only. Sample size is too small for reliable conclusions.
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <button

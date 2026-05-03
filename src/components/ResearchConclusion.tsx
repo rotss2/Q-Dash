@@ -25,7 +25,43 @@ interface TextInsight {
 }
 
 export default function ResearchConclusion({ questions, responses, surveyTitle }: ResearchConclusionProps) {
-  
+  const mapLikertAnswer = (answer: string): number | null => {
+    const normalized = (answer || '').trim().toLowerCase();
+    const likertMap: Record<string, number> = {
+      'strongly disagree': 1,
+      'disagree': 2,
+      'neutral': 3,
+      'agree': 4,
+      'strongly agree': 5,
+      'very dissatisfied': 1,
+      'dissatisfied': 2,
+      'somewhat dissatisfied': 2,
+      'somewhat satisfied': 4,
+      'satisfied': 4,
+      'very satisfied': 5,
+      'very poor': 1,
+      'poor': 2,
+      'fair': 3,
+      'good': 4,
+      'excellent': 5,
+      'never': 1,
+      'rarely': 2,
+      'sometimes': 3,
+      'often': 4,
+      'always': 5,
+      '1': 1,
+      '2': 2,
+      '3': 3,
+      '4': 4,
+      '5': 5
+    };
+
+    if (normalized in likertMap) return likertMap[normalized];
+    const parsed = parseFloat(normalized);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 5) return parsed;
+    return null;
+  };
+
   // Calculate comprehensive satisfaction metrics
   const satisfactionMetrics = useMemo((): ScoreMetric[] => {
     const metrics: ScoreMetric[] = [];
@@ -34,8 +70,8 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
       if (question.type === 'likert') {
         const questionResponses = responses.filter(r => r.question_id === question.id);
         const ratings = questionResponses
-          .map(r => parseInt(r.answer as string))
-          .filter(n => !isNaN(n) && n >= 1 && n <= 5);
+          .map(r => mapLikertAnswer(r.answer as string))
+          .filter((n): n is number => n !== null && n >= 1 && n <= 5);
         
         if (ratings.length > 0) {
           const sorted = [...ratings].sort((a, b) => a - b);
@@ -89,10 +125,16 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
       });
   }, [questions, responses]);
 
+  const uniqueRespondents = useMemo(() => {
+    const unique = new Set(responses.map(r => r.user_id).filter(Boolean));
+    return unique.size;
+  }, [responses]);
+
+  const isPreliminary = uniqueRespondents < 3;
+
   // Generate comprehensive conclusion
   const conclusion = useMemo(() => {
     const textResponseCount = textInsights.reduce((sum, insight) => sum + insight.responseCount, 0);
-    const uniqueRespondents = new Set(responses.map(r => r.user_id).filter(Boolean)).size;
     const answerRowCount = responses.length;
     
     // Count responses for non-likert questions (multiple_choice, text, etc.)
@@ -105,7 +147,7 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
     const totalMeaningfulResponses = uniqueRespondents;
     
     // Generate conclusion with 2+ responses of any type
-    if (totalMeaningfulResponses >= 2 || uniqueRespondents >= 1) {
+    if (totalMeaningfulResponses >= 1) {
       // If we have satisfaction metrics (likert), use them
       if (satisfactionMetrics.length > 0) {
         const overallAverage = satisfactionMetrics.reduce((sum, m) => sum + m.average, 0) / satisfactionMetrics.length;
@@ -116,7 +158,10 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
         const lowest = satisfactionMetrics[satisfactionMetrics.length - 1];
         
         const keyFindings: string[] = [];
-        if (overallAverage >= 4.0) {
+        if (isPreliminary) {
+          keyFindings.push(`Initial indicator: average score of ${roundedScore}/5 across ${uniqueRespondents} respondent${uniqueRespondents === 1 ? '' : 's'}`);
+          keyFindings.push(`Early signal from "${highest.questionText}" and "${lowest.questionText}" -- more responses are needed for confirmation.`);
+        } else if (overallAverage >= 4.0) {
           keyFindings.push(`Strong overall satisfaction with average score of ${roundedScore}/5`);
           keyFindings.push(`Best performing area: "${highest.questionText}" (${highest.average.toFixed(2)}/5)`);
         } else if (overallAverage >= 3.0) {
@@ -127,7 +172,6 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
           keyFindings.push(`Critical area needing attention: "${lowest.questionText}" (${lowest.average.toFixed(2)}/5)`);
         }
         
-        // Add text response insights if available
         if (textResponseCount > 0) {
           keyFindings.push(`${textResponseCount} qualitative text responses collected for deeper insights`);
         }
@@ -135,12 +179,12 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
         let summary = '';
         let nextSteps = '';
         
-        if (uniqueRespondents === 1) {
-          summary = `Initial data from ${uniqueRespondents} respondent shows an average satisfaction score of ${roundedScore}/5. While the sample size is small, early indicators suggest ${overallAverage >= 4.0 ? 'positive sentiment' : overallAverage >= 3.0 ? 'mixed sentiment' : 'areas for improvement'}.`;
-          nextSteps = 'Collect more responses for statistically significant conclusions. Share survey with broader audience.';
+        if (isPreliminary) {
+          summary = `Preliminary findings from ${uniqueRespondents} respondent${uniqueRespondents === 1 ? '' : 's'} are available. Trends are early and should be validated with more responses before making final decisions.`;
+          nextSteps = 'Collect more responses before drawing definitive conclusions. Continue monitoring response trends.';
         } else if (uniqueRespondents < 5) {
-          summary = `Preliminary analysis from ${uniqueRespondents} respondents indicates an average satisfaction score of ${roundedScore}/5. Early trends are emerging but more data is needed for definitive conclusions.`;
-          nextSteps = 'Continue collecting responses to reach minimum threshold of 5+ respondents for reliable insights.';
+          summary = `Preliminary analysis from ${uniqueRespondents} respondents indicates an average satisfaction score of ${roundedScore}/5. More data will improve confidence in these findings.`;
+          nextSteps = 'Continue collecting responses to reach a more reliable sample size for actionable insights.';
         } else {
           summary = `Analysis of ${uniqueRespondents} respondents reveals an average satisfaction score of ${roundedScore}/5 with ${consistencyScore.toFixed(0)}% consistency across metrics.`;
           nextSteps = `Focus on improving "${lowest.questionText}" while maintaining strengths in "${highest.questionText}".`;
@@ -191,12 +235,12 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
         }
         
         let summary = '';
-        if (uniqueRespondents === 1) {
-          summary = `Initial data collected from ${uniqueRespondents} respondent across ${questions.length} questions. ${hasText ? 'Qualitative feedback captured for thematic analysis.' : 'Response patterns are being established.'}`;
+        if (isPreliminary) {
+          summary = `Preliminary findings from ${uniqueRespondents} respondent${uniqueRespondents === 1 ? '' : 's'} are available. These observations are early and should be confirmed with additional responses.`;
         } else if (uniqueRespondents < 5) {
-          summary = `Preliminary insights from ${uniqueRespondents} respondents showing engagement across ${questions.length} survey questions. Data collection in progress.`;
+          summary = `Preliminary insights from ${uniqueRespondents} respondents show early engagement across ${questions.length} survey questions. More responses will improve reliability.`;
         } else {
-          summary = `Analysis of ${uniqueRespondents} respondents across ${questions.length} questions reveals meaningful engagement. ${hasText ? 'Rich qualitative data available for deeper insights.' : 'Response distribution patterns emerging.'}`;
+          summary = `Analysis of ${uniqueRespondents} respondents across ${questions.length} questions reveals meaningful engagement. ${hasText ? 'Rich qualitative data is available for deeper insights.' : 'Response distribution patterns are emerging.'}`;
         }
         
         return {
@@ -231,12 +275,6 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
     };
   }, [satisfactionMetrics, textInsights, responses, questions]);
 
-  // Count unique respondents
-  const uniqueRespondents = useMemo(() => {
-    const unique = new Set(responses.map(r => r.user_id));
-    return unique.size;
-  }, [responses]);
-
   if (responses.length === 0) {
     return (
       <div className="card">
@@ -269,7 +307,7 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
               </div>
               <div>
                 <span className="text-white/60">Overall Score:</span>
-                <span className="ml-2 font-semibold text-yellow-400">{conclusion.overallScore}/5.0</span>
+                <span className="ml-2 font-semibold text-yellow-400">{conclusion.overallScore ? `${conclusion.overallScore}/5.0` : 'N/A'}</span>
               </div>
               <div>
                 <span className="text-white/60">Consistency:</span>
