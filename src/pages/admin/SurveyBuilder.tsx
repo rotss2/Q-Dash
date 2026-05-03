@@ -8,6 +8,7 @@ import BulkQuestionImporter from '../../components/BulkQuestionImporter';
 import {
   BuilderMode,
   getConfigForMode,
+  getTabsForMode,
 } from '../../config/builderModes';
 
 interface SurveyTemplate {
@@ -113,6 +114,12 @@ export default function SurveyBuilder() {
       setTimeout(() => setModeChanged(false), 5000);
     }
   };
+
+  // Active tab for mode-aware navigation
+  const [activeTab, setActiveTab] = useState<string>('questions');
+
+  // Get tabs based on current mode
+  const modeTabs = useMemo(() => getTabsForMode(mode), [mode]);
 
   // Quiz/Exam Settings
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(null);
