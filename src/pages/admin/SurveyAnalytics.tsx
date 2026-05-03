@@ -957,9 +957,11 @@ export default function SurveyAnalytics() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
               <span className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
-                {new Set(filteredResponses.map(r => r.user_id)).size} unique responses
-                {survey?.total_responses !== new Set(filteredResponses.map(r => r.user_id)).size && (
-                  <span className="text-xs text-gray-400">(cached: {survey?.total_responses})</span>
+                {counts.completed_submissions} participants
+                {counts.completed_submissions !== counts.unique_response_users && (
+                  <span className="text-xs text-amber-600" title="Some submissions may have incomplete data">
+                    ({counts.unique_response_users} with responses)
+                  </span>
                 )}
               </span>
               <span className="flex items-center gap-1">
