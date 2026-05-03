@@ -66,14 +66,10 @@ export default function SurveyAnalytics() {
       return true;
     });
 
-    // Deduplicate by question_text - keep first occurrence only
-    const seen = new Set<string>();
-    return filtered.filter((q) => {
-      const normalized = q.question_text?.trim().toLowerCase() || '';
-      if (seen.has(normalized)) return false;
-      seen.add(normalized);
-      return true;
-    });
+    // Note: We intentionally do NOT deduplicate here
+    // Each question has a unique ID and should be displayed separately
+    // even if two questions happen to have the same text
+    return filtered;
   }, [questions]);
 
   useEffect(() => {
@@ -197,9 +193,10 @@ export default function SurveyAnalytics() {
           answers: Object.entries(answers).map(([value, count]) => ({ value, count })),
           total_responses: questionResponses.length
         };
-      })
-      .filter((agg) => agg.total_responses > 0); // Only show questions with at least 1 response
-  }, [allSurveyBlocks, filteredResponses]);
+      });
+      // Note: We keep ALL questions including those with 0 responses
+      // The render logic handles showing appropriate UI for empty responses
+  }, [validQuestions, filteredResponses]);
 
   const surveyUrl = surveyId ? `${window.location.origin}/survey/${surveyId}` : '';
 
@@ -1061,8 +1058,11 @@ export default function SurveyAnalytics() {
                 const agg = aggregationData.find(a => a.question_id === block.id);
                 const hasResponses = agg && agg.total_responses > 0;
 
+                // Handle null/undefined block_type safely
+                const blockType = block.block_type || 'question';
+
                 // Render based on block type
-                switch (block.block_type) {
+                switch (blockType) {
                   case 'heading':
                     return (
                       <div key={block.id} className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl p-6 shadow-lg">
@@ -1090,8 +1090,17 @@ export default function SurveyAnalytics() {
 
                   case 'question':
                   default:
-                    // Skip test/placeholder questions (already filtered in validQuestions)
-                    if (!validQuestions.find(q => q.id === block.id)) {
+                    // Only hide if explicitly marked as test/placeholder by text
+                    // Don't use validQuestions lookup which had deduplication issues
+                    const isTestQuestion = (() => {
+                      const text = block.question_text?.trim().toLowerCase() || '';
+                      return text === 'test' || 
+                             text === 'test question' || 
+                             text === 'placeholder' ||
+                             text.startsWith('dummy');
+                    })();
+                    
+                    if (isTestQuestion) {
                       return (
                         <div key={block.id} className="card opacity-50">
                           <p className="text-gray-400 text-sm italic">Test/placeholder question hidden</p>
