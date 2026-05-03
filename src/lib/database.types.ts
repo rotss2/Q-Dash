@@ -361,10 +361,31 @@ export interface Database {
           p_fingerprint?: string
           p_ip_address?: string
           p_user_agent?: string
+          p_email?: string
+          p_gender?: string
+          p_age?: number
         }
         Returns: {
           success: boolean
           error_message: string
+        }[]
+      }
+      submit_survey_response: {
+        Args: {
+          p_survey_id: string
+          p_user_id: string
+          p_fingerprint?: string
+          p_ip_address?: string
+          p_user_agent?: string
+          p_email?: string
+          p_gender?: string
+          p_age?: number
+          p_answers: Json
+        }
+        Returns: {
+          success: boolean
+          error_message: string
+          submission_id: string
         }[]
       }
       increment_survey_response_count: {

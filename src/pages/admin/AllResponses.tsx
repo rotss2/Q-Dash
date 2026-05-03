@@ -50,7 +50,7 @@ export default function AllResponses() {
     
     for (const survey of surveyList) {
       const response = await apiGet<{
-        responses: Array<Response & { question?: Question; profile?: { email: string } }>;
+        responses: Array<Response & { question?: Question; profile?: { email?: string; age?: number; gender?: string } }>;
       }>(`/api/admin/surveys/${survey.id}/analytics?_t=${timestamp}`);
       
       if (!response.error && response.data?.responses) {

@@ -3,9 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiDelete } from '../../lib/api';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
-import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Table, BarChart3, RotateCcw, Download, MoreVertical } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Table, BarChart3, RotateCcw, Download, MoreVertical, UserCircle } from 'lucide-react';
 import IntelligenceDashboard from '../../components/IntelligenceDashboard';
 import ResearchConclusion from '../../components/ResearchConclusion';
+import DemographicsDashboard from '../../components/DemographicsDashboard';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -37,10 +38,18 @@ export default function SurveyAnalytics() {
   
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [responses, setResponses] = useState<Array<Response & { question?: Question; profile?: { email: string } }>>([]);
+  const [responses, setResponses] = useState<Array<Response & { question?: Question; profile?: { email?: string; age?: number; gender?: string } }>>([]);
+  const [sessions, setSessions] = useState<Array<{ user_id: string; email?: string; age?: number; gender?: string; completed_at?: string; response_count: number }>>([]);
+  const [counts, setCounts] = useState({
+    completed_submissions: 0,
+    unique_response_users: 0,
+    answer_rows: 0,
+    valid_answer_rows: 0,
+    orphan_answer_rows: 0
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'conclusion' | 'raw' | 'statistics'>('analytics');
+  const [activeView, setActiveView] = useState<'analytics' | 'intelligence' | 'conclusion' | 'demographics' | 'raw' | 'statistics'>('analytics');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
   const [isResetting, setIsResetting] = useState(false);
@@ -100,7 +109,15 @@ export default function SurveyAnalytics() {
       const { data, error } = await apiGet<{
         survey: Survey;
         questions: Question[];
-        responses: Array<Response & { question?: Question; profile?: { email: string } }>;
+        responses: Array<Response & { question?: Question; profile?: { email?: string; age?: number; gender?: string } }>;
+        sessions: Array<{ user_id: string; email?: string; age?: number; gender?: string; completed_at?: string; response_count: number }>;
+        counts: {
+          completed_submissions: number;
+          unique_response_users: number;
+          answer_rows: number;
+          valid_answer_rows: number;
+          orphan_answer_rows: number;
+        };
       }>(`/api/admin/surveys/${surveyId}/analytics?_t=${timestamp}`);
 
       if (error || !data?.survey) {
@@ -118,6 +135,14 @@ export default function SurveyAnalytics() {
 
       setSurvey(data.survey);
       setQuestions(data.questions || []);
+      setSessions(data.sessions || []);
+      setCounts(data.counts || {
+        completed_submissions: 0,
+        unique_response_users: 0,
+        answer_rows: 0,
+        valid_answer_rows: 0,
+        orphan_answer_rows: 0
+      });
 
       const typedResponses = (data.responses || []).map((r: any) => ({
         ...r,
@@ -387,17 +412,27 @@ export default function SurveyAnalytics() {
   const exportToCSV = () => {
     if (!validQuestions.length || !responses.length) return;
 
-    // Build CSV rows
-    const headers = ['User', 'Submitted At', ...validQuestions.map(q => q.question_text)];
+    // Build CSV rows with demographics
+    const headers = ['User ID', 'Email', 'Age', 'Gender', 'Submitted At', ...validQuestions.map(q => q.question_text)];
     
     // Group responses by user_id and submitted_at
-    const grouped: { [key: string]: { userLabel: string; submitted_at: string; answers: { [qid: string]: string } } } = {};
+    const grouped: { [key: string]: { 
+      userId: string;
+      email: string | null;
+      age: number | null;
+      gender: string | null;
+      submitted_at: string; 
+      answers: { [qid: string]: string } 
+    } } = {};
     
     filteredResponses.forEach(r => {
       const key = `${r.user_id}_${r.submitted_at}`;
       if (!grouped[key]) {
         grouped[key] = {
-          userLabel: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`,
+          userId: r.user_id,
+          email: r.profile?.email || null,
+          age: r.profile?.age || null,
+          gender: r.profile?.gender || null,
           submitted_at: r.submitted_at,
           answers: {}
         };
@@ -406,7 +441,10 @@ export default function SurveyAnalytics() {
     });
 
     const rows = Object.values(grouped).map(g => [
-      g.userLabel,
+      g.userId,
+      g.email || '',
+      g.age || '',
+      g.gender || '',
       new Date(g.submitted_at).toLocaleString(),
       ...validQuestions.map(q => g.answers[q.id] || '')
     ]);
@@ -430,7 +468,12 @@ export default function SurveyAnalytics() {
       questions: validQuestions,
       responses: filteredResponses.map(r => ({
         ...r,
-        user_label: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`
+        user_label: (r as any).userLabel || `User-${r.user_id?.slice(0, 8) || 'Unknown'}`,
+        profile: {
+          email: r.profile?.email || null,
+          age: r.profile?.age || null,
+          gender: r.profile?.gender || null
+        }
       }))
     };
 
@@ -1002,6 +1045,13 @@ export default function SurveyAnalytics() {
               Conclusion
             </button>
             <button
+              onClick={() => setActiveView('demographics')}
+              className={`px-4 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeView === 'demographics' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}
+            >
+              <UserCircle className="w-4 h-4" />
+              Demographics
+            </button>
+            <button
               onClick={() => setActiveView('raw')}
               className={`px-4 py-3 whitespace-nowrap text-sm font-medium border-b-2 transition-colors ${activeView === 'raw' ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent hover:text-gray-700'}`}
             >
@@ -1157,6 +1207,14 @@ export default function SurveyAnalytics() {
             questions={validQuestions}
             responses={filteredResponses}
             surveyTitle={survey?.title || 'Survey'}
+          />
+        ) : activeView === 'demographics' ? (
+          /* Demographics Dashboard */
+          <DemographicsDashboard
+            questions={validQuestions}
+            responses={filteredResponses}
+            sessions={sessions}
+            counts={counts}
           />
         ) : activeView === 'raw' ? (
           /* Raw Data View */

@@ -7,7 +7,7 @@ import type { Question, Response } from '../types';
 
 interface IntelligenceDashboardProps {
   questions: Question[];
-  responses: (Response & { question?: Question; profile?: { email: string } })[];
+  responses: (Response & { question?: Question; profile?: { email?: string; age?: number; gender?: string } })[];
   surveyTitle: string;
 }
 

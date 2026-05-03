@@ -724,12 +724,13 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
       (profiles || []).forEach(p => profilesMap.set(p.id, p.email));
     }
 
-    // Fetch survey_sessions for ALL users (to get email from anonymous users)
+    // Fetch survey_sessions for ALL users (to get demographics from anonymous users)
     let sessionsMap = new Map();
+    let sessionsArray = [];
     if (allUserIds.length > 0) {
       const { data: sessions, error: sessionsError } = await supabaseAdmin
         .from('survey_sessions')
-        .select('user_id, email')
+        .select('user_id, email, age, gender, completed_at, created_at')
         .eq('survey_id', surveyId)
         .in('user_id', allUserIds);
       
@@ -738,33 +739,77 @@ app.get('/api/admin/surveys/:surveyId/analytics', requireAdmin, async (req, res)
       }
       
       console.log('Found survey_sessions:', sessions?.length || 0, 'for users:', allUserIds.length);
-      console.log('Sessions with email:', (sessions || []).filter(s => s.email).map(s => ({ user_id: s.user_id?.slice(0, 8), email: s.email })));
+      console.log('Sessions with demographics:', (sessions || []).filter(s => s.email || s.age || s.gender).map(s => ({ 
+        user_id: s.user_id?.slice(0, 8), 
+        email: s.email,
+        age: s.age,
+        gender: s.gender 
+      })));
       
+      sessionsArray = sessions || [];
       (sessions || []).forEach(s => {
-        if (s.email) {
-          sessionsMap.set(s.user_id, s.email);
-        }
+        sessionsMap.set(s.user_id, {
+          email: s.email,
+          age: s.age,
+          gender: s.gender,
+          completed_at: s.completed_at
+        });
       });
     }
 
-    // Enrich responses with profile email, survey session email (for anonymous), and question text
+    // Enrich responses with profile data and question text
     const enrichedResponses = (responses || []).map(r => {
       const question = questions?.find(q => q.id === r.question_id);
-      // Priority: 1. Profile email (registered user), 2. Survey session email (anonymous), 3. null
-      const email = profilesMap.get(r.user_id) || sessionsMap.get(r.user_id) || null;
+      // Priority: 1. Profile email (registered user), 2. Survey session data (anonymous)
+      const profileData = profilesMap.get(r.user_id) 
+        ? { email: profilesMap.get(r.user_id) }
+        : sessionsMap.get(r.user_id) || { email: null, age: null, gender: null };
+      
       return {
         ...r,
-        profile: { email },
-        question: question ? { question_text: question.question_text } : null
+        profile: profileData,
+        question
       };
     });
 
-    console.log('Enriched responses sample:', enrichedResponses.slice(0, 3).map(r => ({ 
-      user_id: r.user_id?.slice(0, 8), 
-      email: r.profile?.email 
-    })));
+    // Enrich sessions with response counts
+    const enrichedSessions = sessionsArray.map(s => {
+      const userResponses = responses.filter(r => r.user_id === s.user_id);
+      return {
+        ...s,
+        response_count: userResponses.length
+      };
+    });
 
-    return res.json({ survey, questions: questions || [], responses: enrichedResponses });
+    // Calculate clear count definitions
+    const validQuestionIds = new Set(questions.map(q => q.id));
+    const validAnswerRows = responses.filter(r => validQuestionIds.has(r.question_id));
+    const orphanAnswerRows = responses.filter(r => !validQuestionIds.has(r.question_id));
+    
+    const counts = {
+      completed_submissions: sessionsArray.length,  // From survey_sessions
+      unique_response_users: allUserIds.length,      // Distinct user_ids in responses
+      answer_rows: responses.length,                 // Total response rows
+      valid_answer_rows: validAnswerRows.length,     // Responses for valid/active questions
+      orphan_answer_rows: orphanAnswerRows.length    // Responses for deleted/inactive questions
+    };
+
+    console.log('Analytics response prepared:', {
+      surveyId,
+      questions: questions?.length || 0,
+      responses: enrichedResponses.length,
+      uniqueUsers: allUserIds.length,
+      sessions: sessionsArray.length,
+      counts
+    });
+
+    return res.json({ 
+      survey, 
+      questions, 
+      responses: enrichedResponses,
+      sessions: enrichedSessions,
+      counts
+    });
   } catch (error) {
     console.error('Admin analytics load failed:', error);
     return res.status(500).json({ error: 'Unable to load analytics.' });

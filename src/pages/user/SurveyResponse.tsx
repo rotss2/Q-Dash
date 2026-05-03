@@ -871,8 +871,8 @@ function SurveyContent() {
         p_ip_address: typeof window !== 'undefined' ? window.location.hostname : undefined,
         p_user_agent: navigator.userAgent,
         p_email: cleanedEmail,
-        p_gender: userGender || null,
-        p_age: userAge ? parseInt(userAge, 10) : null,
+        p_gender: userGender || undefined,
+        p_age: userAge ? parseInt(userAge, 10) : undefined,
       });
 
       if (!result.error) {
