@@ -10,6 +10,15 @@ import {
   getConfigForMode,
   getTabsForMode,
 } from '../../config/builderModes';
+import {
+  SetupTab,
+  DesignTab,
+  QuestionsTab,
+  ScoringTab,
+  SecurityTab,
+  PreviewTab,
+  PublishTab,
+} from '../../components/builder';
 
 interface SurveyTemplate {
   id: string;
@@ -144,6 +153,14 @@ export default function SurveyBuilder() {
       loadSurvey(surveyId);
     }
   }, [isEditing, surveyId]);
+
+  // Validate activeTab when mode changes - reset to first available tab if current tab doesn't exist in new mode
+  useEffect(() => {
+    const validTabs = getTabsForMode(mode).map(tab => tab.id);
+    if (!validTabs.includes(activeTab)) {
+      setActiveTab(validTabs[0] || 'setup');
+    }
+  }, [mode]);
 
   const loadSurvey = async (id: string) => {
     setIsLoading(true);
@@ -796,50 +813,122 @@ export default function SurveyBuilder() {
       </div>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-24 sm:pb-8">
-        {/* Survey Details */}
-        <div className="space-y-6">
-          {/* Basic Information */}
-          <div className="card">
-            <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                mode === 'survey' ? 'bg-blue-100' :
-                mode === 'quiz' ? 'bg-green-100' :
-                'bg-purple-100'
-              }`}>
-                <span className="text-xl">📋</span>
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
-                <p className="text-sm text-gray-500">Define your {modeConfig.label.toLowerCase()} identity</p>
-              </div>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <label className="label flex items-center gap-1">
-                  {modeConfig.labels.title}
-                  <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="input text-lg font-medium"
-                  placeholder="e.g., Customer Satisfaction Survey 2024"
-                />
-                <p className="text-xs text-gray-500 mt-2">Give your survey a clear, descriptive title that respondents will recognize.</p>
-              </div>
-              <div>
-                <label className="label">{modeConfig.labels.description}</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="input min-h-[100px] resize-y"
-                  placeholder={`Briefly explain the purpose of this ${modeConfig.label.toLowerCase()} to your respondents...`}
-                />
-                <p className="text-xs text-gray-500 mt-2">Optional context shown to respondents before they start. Helps set expectations.</p>
-              </div>
-            </div>
+        {/* Tabs Navigation */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-2">
+            {modeTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                {tab.label}
+                {tab.required && (
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    activeTab === tab.id ? 'bg-white/50' : 'bg-amber-500'
+                  }`} />
+                )}
+              </button>
+            ))}
           </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'setup' && (
+          <SetupTab
+            mode={mode}
+            modeConfig={modeConfig}
+            title={title}
+            setTitle={setTitle}
+            description={description}
+            setDescription={setDescription}
+            handleModeChange={handleModeChange}
+            modeChanged={modeChanged}
+          />
+        )}
+
+        {activeTab === 'design' && (
+          <DesignTab
+            themeColor={themeColor}
+            setThemeColor={setThemeColor}
+            logoUrl={logoUrl}
+            setLogoUrl={setLogoUrl}
+            theme={theme}
+            setTheme={setTheme}
+            fontFamily={fontFamily}
+            setFontFamily={setFontFamily}
+            backgroundTheme={backgroundTheme}
+            setBackgroundTheme={setBackgroundTheme}
+          />
+        )}
+
+        {activeTab === 'questions' && (
+          <QuestionsTab
+            mode={mode}
+            modeConfig={modeConfig}
+            questions={questions}
+            showBulkImporter={showBulkImporter}
+            setShowBulkImporter={setShowBulkImporter}
+            addQuestion={addQuestion}
+          />
+        )}
+
+        {(activeTab === 'scoring' || activeTab === 'answer_key' || activeTab === 'feedback') && mode !== 'survey' && (
+          <ScoringTab
+            mode={mode}
+            timeLimitMinutes={timeLimitMinutes}
+            setTimeLimitMinutes={setTimeLimitMinutes}
+            passingScore={passingScore}
+            setPassingScore={setPassingScore}
+            maxAttempts={maxAttempts}
+            setMaxAttempts={setMaxAttempts}
+            showScoreImmediately={showScoreImmediately}
+            setShowScoreImmediately={setShowScoreImmediately}
+            showCorrectAnswers={showCorrectAnswers}
+            setShowCorrectAnswers={setShowCorrectAnswers}
+            showExplanations={showExplanations}
+            setShowExplanations={setShowExplanations}
+            shuffleQuestions={shuffleQuestions}
+            setShuffleQuestions={setShuffleQuestions}
+            shuffleOptions={shuffleOptions}
+            setShuffleOptions={setShuffleOptions}
+            releaseResultsMode={releaseResultsMode}
+            setReleaseResultsMode={setReleaseResultsMode}
+          />
+        )}
+
+        {activeTab === 'security' && mode === 'exam' && (
+          <SecurityTab
+            antiCheatingEnabled={antiCheatingEnabled}
+            setAntiCheatingEnabled={setAntiCheatingEnabled}
+          />
+        )}
+
+        {activeTab === 'preview' && (
+          <PreviewTab
+            mode={mode}
+            modeConfig={modeConfig}
+          />
+        )}
+
+        {activeTab === 'publish' && (
+          <PublishTab
+            mode={mode}
+            modeConfig={modeConfig}
+            questions={questions}
+            isEditing={isEditing}
+            isSaving={isSaving}
+            saveSurvey={saveSurvey}
+          />
+        )}
+
+        {/* Legacy Content - To be removed once all tabs are implemented */}
+        {!['setup', 'design', 'questions', 'scoring', 'security', 'preview', 'publish', 'answer_key', 'feedback'].includes(activeTab) && (
+          <div className="space-y-6">
 
           {/* Mode Selector - Survey / Quiz / Exam */}
           <div className="card">
@@ -1190,6 +1279,7 @@ export default function SurveyBuilder() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Scoring Settings - Only for Quiz/Exam */}
         {mode !== 'survey' && (
