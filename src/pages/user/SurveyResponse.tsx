@@ -1095,33 +1095,30 @@ function SurveyContent() {
 
   if (hasSubmitted && submissionPreview) {
     return (
-      <div className={`min-h-screen flex flex-col ${themeClasses.bg} touch-manipulation select-none`} style={{ WebkitUserSelect: 'none', userSelect: 'none' }}>
+      <div className={`min-h-screen ${themeClasses.bg}`}>
         {/* Animated Background Theme */}
         <ThemedBackground theme={survey?.background_theme || 'default'} />
         
-        <div className="flex-1 flex items-center justify-center py-8 px-4 sm:px-6">
-          <div className="card max-w-3xl w-full text-center space-y-6">
-            {/* Success Logo - PROMINENT */}
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-3xl blur-xl"></div>
-                <img 
-                  src="/logo.png" 
-                  alt="SurveyTest" 
-                  className="relative h-28 sm:h-32 md:h-40 w-auto object-contain drop-shadow-2xl"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
+        <div className="w-full py-6 sm:py-10 px-4 sm:px-6">
+          <div className="max-w-2xl mx-auto w-full">
+            {/* Success Logo */}
+            <div className="flex flex-col items-center gap-3 mb-6">
+              <img 
+                src="/logo.png" 
+                alt="SurveyTest" 
+                className="h-14 sm:h-16 w-auto object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
             </div>
 
-            {/* Success Message - Professional */}
-            <div className="space-y-2">
-              <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
+            {/* Success Message */}
+            <div className="text-center space-y-2 mb-6">
+              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight">
                 {t('thankYou')}
               </h1>
-              <p className="text-lg text-gray-600 max-w-md mx-auto">
+              <p className="text-base sm:text-lg text-gray-600">
                 Your response has been successfully submitted
               </p>
               <p className="text-sm text-gray-500">
@@ -1129,139 +1126,138 @@ function SurveyContent() {
               </p>
             </div>
 
-            {/* Session ID - Visible for tracking leaked screenshots */}
-            <div className="bg-gray-100 border border-gray-300 rounded-lg p-3 mb-4">
-              <p className="text-xs text-gray-500 text-center uppercase tracking-wider font-semibold">
-                Session ID (Screenshots are traceable)
+            {/* Session ID */}
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 sm:p-4 mb-6 mx-auto max-w-xs">
+              <p className="text-xs text-gray-500 text-center mb-1">
+                Session ID
               </p>
-              <p className="text-center font-mono text-sm text-gray-700 mt-1">
+              <p className="text-xs text-gray-400 text-center mb-2">
+                Screenshots are traceable
+              </p>
+              <p className="text-center font-mono text-sm text-gray-700 break-all">
                 {userId.substring(0, 12).toUpperCase()}
               </p>
             </div>
 
-            {/* Success Stats - BIGGER & BOLDER */}
-            <div className="grid grid-cols-3 gap-6 py-8">
-              <div className="text-center bg-green-50 rounded-2xl p-4 border border-green-100">
-                <div className="text-3xl sm:text-4xl font-extrabold text-green-600">{submissionPreview.answers.length}</div>
-                <div className="text-sm font-medium text-green-700 mt-1">Questions Answered</div>
+            {/* Success Stats */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
+              <div className="text-center bg-green-50 rounded-xl p-3 border border-green-100">
+                <div className="text-xl sm:text-2xl font-bold text-green-600">{submissionPreview.answers.length}</div>
+                <div className="text-xs sm:text-sm text-green-700 mt-1">Answered</div>
               </div>
-              <div className="text-center bg-blue-50 rounded-2xl p-4 border border-blue-100">
-                <div className="text-3xl sm:text-4xl font-extrabold text-blue-600">100%</div>
-                <div className="text-sm font-medium text-blue-700 mt-1">Completed</div>
+              <div className="text-center bg-blue-50 rounded-xl p-3 border border-blue-100">
+                <div className="text-xl sm:text-2xl font-bold text-blue-600">100%</div>
+                <div className="text-xs sm:text-sm text-blue-700 mt-1">Done</div>
               </div>
-              <div className="text-center bg-purple-50 rounded-2xl p-4 border border-purple-100">
-                <div className="text-3xl sm:text-4xl font-extrabold text-purple-600">✓</div>
-                <div className="text-sm font-medium text-purple-700 mt-1">Success</div>
+              <div className="text-center bg-purple-50 rounded-xl p-3 border border-purple-100">
+                <div className="text-xl sm:text-2xl font-bold text-purple-600">✓</div>
+                <div className="text-xs sm:text-sm text-purple-700 mt-1">Success</div>
               </div>
             </div>
 
             {submissionPreview.email && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-lg">📧</span>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm sm:text-lg">📧</span>
                   </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-blue-900">
-                      Preview summary sent to {submissionPreview.email}
+                  <div className="text-left min-w-0">
+                    <p className="text-sm font-medium text-blue-900 break-words">
+                      Summary sent to {submissionPreview.email}
                     </p>
                     <p className="text-xs text-blue-700">
-                      Check your inbox for a copy of your responses
+                      Check your inbox
                     </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Response Preview - PDF/Print Version */}
-            <div ref={summaryRef} className="bg-white rounded-2xl p-8 text-left border border-gray-200 print:shadow-none print:border-0">
-              {/* PDF Header with Logo - BIG & Centered */}
-              <div className="border-b-2 border-gray-100 pb-6 mb-6 print:pb-4">
-                <div className="flex flex-col items-center text-center gap-4 mb-6">
-                  <img 
-                    src="/logo.png" 
-                    alt="SurveyTest" 
-                    className="h-20 sm:h-24 w-auto object-contain print:h-16 drop-shadow-md"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                  <div className="space-y-1">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">{survey?.title}</h2>
-                    <p className="text-base text-gray-500 font-medium">Response Summary</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-500 mt-4 bg-gray-50 rounded-xl p-3">
-                  <span className="font-medium">
-                    <span className="text-gray-400">Submitted:</span> {new Date().toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            {/* Response Summary Card */}
+            <div ref={summaryRef} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              {/* Header */}
+              <div className="p-4 sm:p-6 border-b border-gray-100">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 text-center leading-tight break-words mb-2">
+                  {survey?.title}
+                </h2>
+                <p className="text-sm sm:text-base text-gray-500 text-center">Response Summary</p>
+                
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 mt-4 text-xs sm:text-sm text-gray-500">
+                  <span className="text-center">
+                    <span className="text-gray-400">Submitted:</span>{' '}
+                    {new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </span>
                   {submissionPreview.email && (
-                    <span className="text-blue-600 font-medium">
+                    <span className="text-blue-600 text-center break-all">
                       <span className="text-gray-400">Email:</span> {submissionPreview.email}
                     </span>
                   )}
-                  <span className="font-medium text-gray-400">
-                    User ID: {userId.slice(0, 12)}...
-                  </span>
                 </div>
               </div>
-
-              {/* All Answers - Collapsible */}
-              <button
-                onClick={() => setShowResponseSummary(!showResponseSummary)}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors text-gray-700 font-medium"
-              >
-                <CheckCircle className="w-5 h-5 text-green-500" />
-                {showResponseSummary ? 'Hide' : 'View'} Your Responses ({submissionPreview.answers.length})
-                <span className="ml-2">{showResponseSummary ? '▲' : '▼'}</span>
-              </button>
               
-              {showResponseSummary && (
-                <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
-                  {submissionPreview.answers.slice(0, 5).map((item, index) => (
-                    <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 p-4 sm:p-5 break-inside-avoid hover:border-blue-300 transition-colors">
-                      <div className="flex items-start gap-3 sm:gap-4">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center text-sm sm:text-base font-bold text-blue-600 flex-shrink-0 shadow-sm">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0 space-y-2">
-                          <p className="text-sm sm:text-base font-semibold text-gray-800 leading-relaxed">{item.questionText}</p>
-                          <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm min-h-[48px]">
-                            <p className="text-base sm:text-lg text-gray-900 font-medium break-words">
-                              {item.answer}
-                            </p>
+              {/* Response List Container */}
+              <div className="space-y-4">
+                {/* All Answers - Collapsible */}
+                <button
+                  onClick={() => setShowResponseSummary(!showResponseSummary)}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors text-gray-700 font-medium"
+                  aria-expanded={showResponseSummary}
+                >
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  {showResponseSummary ? 'Hide' : 'View'} Your Responses ({submissionPreview.answers.length})
+                  <span className="ml-2">{showResponseSummary ? '▲' : '▼'}</span>
+                </button>
+                
+                {showResponseSummary && (
+                  <div className="space-y-3">
+                    {submissionPreview.answers.map((item, index) => (
+                      <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 p-3 sm:p-4 break-inside-avoid">
+                        <div className="flex items-start gap-3">
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-blue-600 flex-shrink-0">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <p className="text-sm font-medium text-gray-800 leading-relaxed break-words">{item.questionText}</p>
+                            <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200">
+                              <p className="text-sm sm:text-base text-gray-900 font-medium break-words">
+                                {item.answer}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                  {submissionPreview.answers.length > 5 && (
-                    <p className="text-center text-sm text-gray-500">
-                      + {submissionPreview.answers.length - 5} more responses...
-                    </p>
-                  )}
-                </div>
-              )}
+                    ))}
+                    
+                    {/* Collapse button at bottom */}
+                    <button
+                      onClick={() => setShowResponseSummary(false)}
+                      className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      ▲ Collapse responses
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* PDF Footer */}
-              <div className="mt-8 pt-4 border-t border-gray-200 text-center text-sm text-gray-400 print:mt-8">
+              <div className="mt-6 pt-4 border-t border-gray-200 text-center text-xs sm:text-sm text-gray-400">
                 <p>Generated by Q-Dash Survey Platform</p>
                 <p className="text-xs mt-1">q-dash.onrender.com</p>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6 pb-8">
               <button
                 onClick={downloadPDF}
-                className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 font-medium transition-all shadow-lg shadow-slate-200"
+                className="flex items-center justify-center gap-2 px-6 py-3 h-12 bg-slate-900 text-white rounded-xl hover:bg-slate-800 font-medium transition-all shadow-lg w-full sm:w-auto sm:flex-1"
               >
                 <Download className="w-5 h-5" />
                 Download PDF
               </button>
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-2 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-all"
+                className="flex items-center justify-center gap-2 px-6 py-3 h-12 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-all w-full sm:w-auto"
               >
                 <Printer className="w-5 h-5" />
                 Print
@@ -1272,7 +1268,7 @@ function SurveyContent() {
                     title: `Completed: ${survey?.title}`,
                     text: `I just completed the survey "${survey?.title}"!`,
                   })}
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition-all"
+                  className="flex items-center justify-center gap-2 px-6 py-3 h-12 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition-all w-full sm:w-auto"
                 >
                   <span>📤</span>
                   Share
