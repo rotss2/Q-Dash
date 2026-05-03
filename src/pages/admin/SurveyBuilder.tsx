@@ -3,8 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 import { QuestionType, Survey } from '../../types';
-import { ArrowLeft, Plus, Trash2, X, Save, FileText, Globe, Calendar, GripVertical, Type, Info, ToggleRight } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, FileText, Globe, Calendar, GripVertical, Type, Info, ToggleRight, HelpCircle, CheckSquare, GraduationCap, AlertTriangle } from 'lucide-react';
 import BulkQuestionImporter from '../../components/BulkQuestionImporter';
+import {
+  BuilderMode,
+  getConfigForMode,
+} from '../../config/builderModes';
 
 interface SurveyTemplate {
   id: string;
@@ -97,7 +101,18 @@ export default function SurveyBuilder() {
   const [healthIssues, setHealthIssues] = useState<HealthIssue[]>([]);
 
   // Mode: survey | quiz | exam
-  const [mode, setMode] = useState<'survey' | 'quiz' | 'exam'>('survey');
+  const [mode, setMode] = useState<BuilderMode>('survey');
+  const [modeChanged, setModeChanged] = useState(false);
+
+  // Handle mode change with warning
+  const handleModeChange = (newMode: BuilderMode) => {
+    if (newMode !== mode) {
+      setMode(newMode);
+      setModeChanged(true);
+      // Hide warning after 5 seconds
+      setTimeout(() => setModeChanged(false), 5000);
+    }
+  };
 
   // Quiz/Exam Settings
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(null);
@@ -776,8 +791,8 @@ export default function SurveyBuilder() {
           {/* Mode Selector - Survey / Quiz / Exam */}
           <div className="card">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <span className="text-xl">🎯</span>
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                <HelpCircle className="w-5 h-5 text-slate-600" />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Assessment Mode</h2>
@@ -786,39 +801,64 @@ export default function SurveyBuilder() {
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <button
-                onClick={() => setMode('survey')}
+                onClick={() => handleModeChange('survey')}
                 className={`p-4 rounded-xl border-2 text-left transition-all ${
                   mode === 'survey'
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-blue-300'
                 }`}
               >
-                <div className="font-semibold text-gray-900 mb-1">Survey</div>
-                <div className="text-xs text-gray-500">Collect feedback, ratings, and opinions. No scoring.</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <HelpCircle className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="font-semibold text-gray-900">Survey</div>
+                </div>
+                <div className="text-xs text-gray-500">Collect feedback and research responses. No scoring.</div>
               </button>
               <button
-                onClick={() => setMode('quiz')}
+                onClick={() => handleModeChange('quiz')}
                 className={`p-4 rounded-xl border-2 text-left transition-all ${
                   mode === 'quiz'
                     ? 'border-green-500 bg-green-50'
                     : 'border-gray-200 hover:border-green-300'
                 }`}
               >
-                <div className="font-semibold text-gray-900 mb-1">Quiz</div>
-                <div className="text-xs text-gray-500">Practice assessment with instant scoring and feedback.</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <CheckSquare className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div className="font-semibold text-gray-900">Quiz</div>
+                </div>
+                <div className="text-xs text-gray-500">Practice assessments with instant scoring and feedback.</div>
               </button>
               <button
-                onClick={() => setMode('exam')}
+                onClick={() => handleModeChange('exam')}
                 className={`p-4 rounded-xl border-2 text-left transition-all ${
                   mode === 'exam'
-                    ? 'border-red-500 bg-red-50'
-                    : 'border-gray-200 hover:border-red-300'
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200 hover:border-purple-300'
                 }`}
               >
-                <div className="font-semibold text-gray-900 mb-1">Exam</div>
-                <div className="text-xs text-gray-500">Formal assessment with time limits and controlled results.</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="font-semibold text-gray-900">Exam</div>
+                </div>
+                <div className="text-xs text-gray-500">Formal timed assessments with controlled results.</div>
               </button>
             </div>
+            
+            {/* Mode Switch Warning */}
+            {modeChanged && (
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700">
+                  Switching to {getConfigForMode(mode).label} mode will hide scoring fields, but your scoring data is preserved.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Appearance & Settings - Two Column Layout on Desktop */}
