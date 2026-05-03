@@ -287,31 +287,35 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
 
   return (
     <div className="space-y-6">
-      {/* Research Paper Header */}
-      <div className="card bg-gradient-to-r from-slate-900 to-slate-800 text-white border-0">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
-            <FileText className="w-6 h-6" />
+      {/* Research Paper Header - Mobile First */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-2xl border-0 overflow-hidden p-5 sm:p-6 lg:p-8">
+        <div className="flex flex-col sm:flex-row items-start gap-4">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+            <FileText className="w-6 h-6 sm:w-7 sm:h-7" />
           </div>
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-2">Research Analysis Report</h2>
-            <p className="text-white/80 mb-4">{surveyTitle}</p>
-            <div className="flex gap-6 text-sm">
-              <div>
-                <span className="text-white/60">Participants:</span>
-                <span className="ml-2 font-semibold">{uniqueRespondents}</span>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 leading-tight break-words max-w-full">Research Analysis Report</h2>
+            <p className="text-sm sm:text-base text-white/80 mb-4 leading-relaxed break-words whitespace-normal max-w-full">{surveyTitle}</p>
+            
+            {/* Metrics - Stacked on mobile, grid on larger screens */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+              <div className="rounded-xl bg-white/10 p-3 min-w-0">
+                <p className="text-xs sm:text-sm text-slate-300 break-words">Participants</p>
+                <p className="text-lg sm:text-xl font-bold break-words">{uniqueRespondents}</p>
               </div>
-              <div>
-                <span className="text-white/60">Answer Rows:</span>
-                <span className="ml-2 font-semibold">{conclusion.answerRows}</span>
+              <div className="rounded-xl bg-white/10 p-3 min-w-0">
+                <p className="text-xs sm:text-sm text-slate-300 break-words">Answer Rows</p>
+                <p className="text-lg sm:text-xl font-bold break-words">{conclusion.answerRows}</p>
               </div>
-              <div>
-                <span className="text-white/60">Overall Score:</span>
-                <span className="ml-2 font-semibold text-yellow-400">{conclusion.overallScore ? `${conclusion.overallScore}/5.0` : 'N/A'}</span>
+              <div className="rounded-xl bg-white/10 p-3 min-w-0">
+                <p className="text-xs sm:text-sm text-slate-300 break-words">Overall Score</p>
+                <p className="text-lg sm:text-xl font-bold text-yellow-400 break-words whitespace-normal">
+                  {conclusion.overallScore ? `${conclusion.overallScore} / 5` : 'N/A'}
+                </p>
               </div>
-              <div>
-                <span className="text-white/60">Consistency:</span>
-                <span className="ml-2 font-semibold">{conclusion.consistencyScore}%</span>
+              <div className="rounded-xl bg-white/10 p-3 min-w-0">
+                <p className="text-xs sm:text-sm text-slate-300 break-words">Consistency</p>
+                <p className="text-lg sm:text-xl font-bold break-words">{conclusion.consistencyScore}%</p>
               </div>
             </div>
           </div>
@@ -319,27 +323,27 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
       </div>
 
       {/* Executive Summary */}
-      <div className="card border-slate-200">
-        <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-slate-600" />
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 overflow-hidden">
+        <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-slate-600 shrink-0" />
           Executive Summary
         </h3>
-        <p className="text-gray-700 leading-relaxed italic">
+        <p className="text-base sm:text-lg leading-relaxed text-gray-700 break-words whitespace-normal">
           {conclusion.summary}
         </p>
       </div>
 
       {/* Key Findings */}
-      <div className="card border-slate-200">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <CheckCircle className="w-5 h-5 text-green-600" />
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 overflow-hidden">
+        <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
           Key Findings
         </h3>
-        <ul className="space-y-2">
+        <ul className="space-y-4">
           {conclusion.keyFindings.map((finding, index) => (
-            <li key={index} className="flex gap-3 text-gray-700">
-              <span className="text-green-600 font-bold mt-0.5">•</span>
-              <span>{finding}</span>
+            <li key={index} className="flex items-start gap-3 text-gray-700">
+              <span className="text-green-600 font-bold mt-1 shrink-0">•</span>
+              <span className="text-base sm:text-lg leading-relaxed break-words whitespace-normal min-w-0">{finding}</span>
             </li>
           ))}
         </ul>
@@ -347,27 +351,27 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
 
       {/* Satisfaction Metrics Breakdown */}
       {satisfactionMetrics.length > 0 && (
-        <div className="card border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 overflow-hidden">
+          <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-blue-600 shrink-0" />
             Detailed Metrics Analysis
           </h3>
           <div className="space-y-6">
             {satisfactionMetrics.map((metric, index) => (
-              <div key={index} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <p className="font-medium text-gray-900">{metric.questionText}</p>
+              <div key={index} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 break-words leading-snug">{metric.questionText}</p>
                     <p className="text-xs text-gray-500 mt-1">n={metric.count} responses</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-left sm:text-right shrink-0">
                     <p className={`text-2xl font-bold ${
                       metric.sentiment === 'positive' ? 'text-green-600' :
                       metric.sentiment === 'negative' ? 'text-red-600' : 'text-yellow-600'
                     }`}>
                       {metric.average.toFixed(2)}
                     </p>
-                    <p className="text-xs text-gray-500">/5.0</p>
+                    <p className="text-xs text-gray-500">/ 5</p>
                   </div>
                 </div>
                 
@@ -424,25 +428,25 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
 
       {/* Qualitative Insights */}
       {textInsights.some(insight => insight.responseCount > 0) && (
-        <div className="card border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-purple-600" />
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 overflow-hidden">
+          <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-purple-600 shrink-0" />
             Qualitative Insights
           </h3>
           <div className="space-y-4">
             {textInsights.map((insight, index) => (
               insight.responseCount > 0 && (
-                <div key={index} className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex justify-between items-center mb-3">
-                    <p className="font-medium text-gray-900">{insight.questionText}</p>
-                    <span className="text-sm bg-purple-200 text-purple-900 px-2 py-1 rounded">
+                <div key={index} className="p-4 bg-purple-50 rounded-xl border border-purple-200">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-3">
+                    <p className="font-medium text-gray-900 break-words leading-snug flex-1 min-w-0">{insight.questionText}</p>
+                    <span className="text-xs sm:text-sm bg-purple-200 text-purple-900 px-2 py-1 rounded shrink-0">
                       {insight.responseCount} responses
                     </span>
                   </div>
                   {insight.sampleResponses.length > 0 && (
                     <div className="space-y-2">
                       {insight.sampleResponses.map((response, idx) => (
-                        <p key={idx} className="text-sm text-gray-700 italic border-l-2 border-purple-400 pl-3">
+                        <p key={idx} className="text-sm text-gray-700 italic border-l-2 border-purple-400 pl-3 break-words whitespace-normal">
                           "{response}"
                         </p>
                       ))}
@@ -456,21 +460,21 @@ export default function ResearchConclusion({ questions, responses, surveyTitle }
       )}
 
       {/* Recommendations & Next Steps */}
-      <div className="card bg-blue-50 border border-blue-200">
-        <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-blue-600" />
+      <div className="bg-blue-50 rounded-2xl border border-blue-200 p-5 sm:p-6 overflow-hidden">
+        <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-3 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-blue-600 shrink-0" />
           Recommendations & Next Steps
         </h3>
-        <p className="text-gray-700 leading-relaxed">
+        <p className="text-base sm:text-lg text-gray-700 leading-relaxed break-words whitespace-normal">
           {conclusion.nextSteps}
         </p>
       </div>
 
       {/* Methodology Note */}
-      <div className="card bg-slate-50 border border-slate-200">
-        <div className="flex gap-2 text-sm text-gray-600">
-          <AlertCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-          <p>
+      <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 sm:p-6 overflow-hidden">
+        <div className="flex gap-3 text-sm sm:text-base text-gray-600">
+          <AlertCircle className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
+          <p className="break-words whitespace-normal leading-relaxed">
             <span className="font-medium">Methodology:</span> This analysis is based on {uniqueRespondents} unique respondent{uniqueRespondents === 1 ? '' : 's'} ({conclusion.answerRows} answer rows analyzed). Statistical measures include mean, median, and standard deviation. Results should be interpreted within the context of sample size and response distribution.
           </p>
         </div>
