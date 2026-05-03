@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { apiGet, apiPost, apiDelete } from '../../lib/api';
 import { Survey, Question, Response, ResponseAggregation } from '../../types';
-import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Download, Table, FileCode, BarChart3, RotateCcw } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, FileJson, Users, Calendar, Lightbulb, Trash2, Calculator, Table, BarChart3, RotateCcw } from 'lucide-react';
 import IntelligenceDashboard from '../../components/IntelligenceDashboard';
 import ResearchConclusion from '../../components/ResearchConclusion';
 import {
@@ -45,7 +45,8 @@ export default function SurveyAnalytics() {
   const [filterTo, setFilterTo] = useState('');
   const [isResetting, setIsResetting] = useState(false);
 
-  const isPlaceholderQuestion = (question: Question) => {
+  // Check if a question is a placeholder/hidden question that should not be analyzed
+  const isPlaceholderQuestion = (question: Question): boolean => {
     const text = question.question_text?.trim().toLowerCase() || '';
     if (!text) return true;
     if (text === 'test') return true;
@@ -57,14 +58,25 @@ export default function SurveyAnalytics() {
   };
 
   // Only real, visible answerable questions should be included in analytics
+  // This is the single source of truth for which questions to analyze
   const validQuestions = useMemo(() => {
-    return questions.filter((q) =>
-      q.block_type === 'question' &&
-      ['text', 'choice', 'likert'].includes(q.type) &&
-      q.is_active !== false &&
-      !isPlaceholderQuestion(q)
-    );
+    return questions.filter((q) => {
+      // Must be a question block type
+      if (q.block_type !== 'question') return false;
+      // Must be a valid question type
+      if (!['text', 'choice', 'likert'].includes(q.type)) return false;
+      // Must be active
+      if (q.is_active === false) return false;
+      // Must not be a placeholder
+      if (isPlaceholderQuestion(q)) return false;
+      // Must have valid question text
+      if (!q.question_text || q.question_text.trim() === '') return false;
+      return true;
+    });
   }, [questions]);
+
+  // Create a Set of valid question IDs for fast lookup
+  const validQuestionIds = useMemo(() => new Set(validQuestions.map(q => q.id)), [validQuestions]);
 
   // Always use question.id as source of truth - never dedupe by text
   // Multiple questions with the same text are different questions and must both be analyzed
@@ -161,8 +173,84 @@ export default function SurveyAnalytics() {
     }
   };
 
-  // Only include responses for visible questions in analytics and exports
-  const allQuestionIds = useMemo(() => new Set(validQuestions.map(q => q.id)), [validQuestions]);
+  // ===== STATISTICAL HELPER FUNCTIONS =====
+  // These MUST be defined before useMemo hooks to avoid temporal dead zone errors
+
+  // Map text answers to numeric values for correlation analysis
+  const answerToNumeric = (answer: string, questionType: string, options?: string[]): number | null => {
+    if (!answer || answer.trim() === '') return null;
+
+    const trimmed = answer.trim().toLowerCase();
+
+    // Likert scale mappings
+    const likertMap: { [key: string]: number } = {
+      'strongly disagree': 1, 'disagree': 2, 'neutral': 3, 'agree': 4, 'strongly agree': 5,
+      '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+      'very dissatisfied': 1, 'dissatisfied': 2, 'somewhat dissatisfied': 2,
+      'somewhat satisfied': 4, 'satisfied': 4, 'very satisfied': 5,
+      'very poor': 1, 'poor': 2, 'fair': 3, 'good': 4, 'excellent': 5,
+      'never': 1, 'rarely': 2, 'sometimes': 3, 'often': 4, 'always': 5,
+      'yes': 1, 'no': 0
+    };
+
+    // Check likert map first
+    if (likertMap[trimmed] !== undefined) {
+      return likertMap[trimmed];
+    }
+
+    // For choice questions, map option index to numeric value (1-based)
+    if (questionType === 'choice' && options && options.length > 0) {
+      const optionIndex = options.findIndex(opt => opt.toLowerCase().trim() === trimmed);
+      if (optionIndex !== -1) {
+        // Map to 1-based scale, or use the position relative to total options
+        return optionIndex + 1;
+      }
+    }
+
+    // Try parsing as direct number
+    const parsed = parseFloat(answer);
+    if (!isNaN(parsed)) {
+      return parsed;
+    }
+
+    return null;
+  };
+
+  // Statistical Analysis Functions
+  const calculateMean = (values: number[]): number => {
+    if (values.length === 0) return 0;
+    return values.reduce((a, b) => a + b, 0) / values.length;
+  };
+
+  const calculateMedian = (values: number[]): number => {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  };
+
+  const calculateMode = (values: number[]): number | null => {
+    if (values.length === 0) return null;
+    const frequency: { [key: number]: number } = {};
+    values.forEach(v => { frequency[v] = (frequency[v] || 0) + 1; });
+    let mode = values[0];
+    let maxFreq = 0;
+    Object.entries(frequency).forEach(([value, freq]) => {
+      if (freq > maxFreq) {
+        maxFreq = freq;
+        mode = Number(value);
+      }
+    });
+    return maxFreq > 1 ? mode : null;
+  };
+
+  const calculateStdDev = (values: number[]): number => {
+    if (values.length < 2) return 0;
+    const mean = calculateMean(values);
+    const squaredDiffs = values.map(v => Math.pow(v - mean, 2));
+    const variance = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
+    return Math.sqrt(variance);
+  };
 
   const filteredResponses = useMemo(() => {
     return responses.filter((response) => {
@@ -172,14 +260,16 @@ export default function SurveyAnalytics() {
 
       if (fromDate && submittedAt < fromDate) return false;
       if (toDate && submittedAt > toDate) return false;
-      if (!allQuestionIds.has(response.question_id)) return false;
+      // CRITICAL: Only include responses for valid questions (matched by question_id)
+      if (!validQuestionIds.has(response.question_id)) return false;
 
       return true;
     });
-  }, [responses, filterFrom, filterTo, allQuestionIds]);
+  }, [responses, filterFrom, filterTo, validQuestionIds]);
 
   const aggregationData = useMemo((): ResponseAggregation[] => {
     return validQuestions.map((question) => {
+      // Match responses by exact question_id - NEVER by text or index
       const questionResponses = filteredResponses.filter((r) => r.question_id === question.id);
 
       if (question.type === 'likert') {
@@ -352,82 +442,6 @@ export default function SurveyAnalytics() {
     window.URL.revokeObjectURL(url);
     
     showToast('JSON exported successfully', 'success');
-  };
-
-  // Statistical Analysis Functions
-  const calculateMean = (values: number[]): number => {
-    if (values.length === 0) return 0;
-    return values.reduce((a, b) => a + b, 0) / values.length;
-  };
-
-  const calculateMedian = (values: number[]): number => {
-    if (values.length === 0) return 0;
-    const sorted = [...values].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-  };
-
-  const calculateMode = (values: number[]): number | null => {
-    if (values.length === 0) return null;
-    const frequency: { [key: number]: number } = {};
-    values.forEach(v => { frequency[v] = (frequency[v] || 0) + 1; });
-    let mode = values[0];
-    let maxFreq = 0;
-    Object.entries(frequency).forEach(([value, freq]) => {
-      if (freq > maxFreq) {
-        maxFreq = freq;
-        mode = Number(value);
-      }
-    });
-    return maxFreq > 1 ? mode : null;
-  };
-
-  const calculateStdDev = (values: number[]): number => {
-    if (values.length < 2) return 0;
-    const mean = calculateMean(values);
-    const squaredDiffs = values.map(v => Math.pow(v - mean, 2));
-    const variance = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
-    return Math.sqrt(variance);
-  };
-
-  // Map text answers to numeric values for correlation analysis
-  const answerToNumeric = (answer: string, questionType: string, options?: string[]): number | null => {
-    if (!answer || answer.trim() === '') return null;
-    
-    const trimmed = answer.trim().toLowerCase();
-    
-    // Likert scale mappings
-    const likertMap: { [key: string]: number } = {
-      'strongly disagree': 1, 'disagree': 2, 'neutral': 3, 'agree': 4, 'strongly agree': 5,
-      '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
-      'very dissatisfied': 1, 'dissatisfied': 2, 'somewhat dissatisfied': 2, 
-      'somewhat satisfied': 4, 'satisfied': 4, 'very satisfied': 5,
-      'very poor': 1, 'poor': 2, 'fair': 3, 'good': 4, 'excellent': 5,
-      'never': 1, 'rarely': 2, 'sometimes': 3, 'often': 4, 'always': 5,
-      'yes': 1, 'no': 0
-    };
-    
-    // Check likert map first
-    if (likertMap[trimmed] !== undefined) {
-      return likertMap[trimmed];
-    }
-    
-    // For choice questions, map option index to numeric value (1-based)
-    if (questionType === 'choice' && options && options.length > 0) {
-      const optionIndex = options.findIndex(opt => opt.toLowerCase().trim() === trimmed);
-      if (optionIndex !== -1) {
-        // Map to 1-based scale, or use the position relative to total options
-        return optionIndex + 1;
-      }
-    }
-    
-    // Try parsing as direct number
-    const parsed = parseFloat(answer);
-    if (!isNaN(parsed)) {
-      return parsed;
-    }
-    
-    return null;
   };
 
   const getLikertResponses = (questionId: string, questionType: string = 'likert', options?: string[]): number[] => {
@@ -761,11 +775,11 @@ export default function SurveyAnalytics() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Header - Simple navigation only */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between h-auto md:h-16">
+          <div className="flex items-center h-16">
             <button
               onClick={() => navigate('/admin')}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
@@ -773,73 +787,73 @@ export default function SurveyAnalytics() {
               <ArrowLeft className="w-5 h-5" />
               Back to Dashboard
             </button>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={exportToCSV}
-                disabled={!responses.length}
-                className="btn-secondary flex flex-wrap items-center gap-2 disabled:opacity-50"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                Export CSV
-              </button>
-              <button
-                onClick={exportToJSON}
-                disabled={!responses.length}
-                className="btn-secondary flex items-center gap-2 disabled:opacity-50"
-              >
-                <FileJson className="w-4 h-4" />
-                Export JSON
-              </button>
-              <div className="relative group">
-                <button
-                  disabled={!responses.length}
-                  className="btn-secondary flex items-center gap-2 disabled:opacity-50"
-                >
-                  <Download className="w-4 h-4" />
-                  Research Export
-                </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                  <button
-                    onClick={exportToExcel}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center gap-2"
-                  >
-                    <Table className="w-4 h-4" />
-                    Excel + Stats
-                  </button>
-                  <button
-                    onClick={exportToSPSS}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center gap-2"
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    SPSS CSV
-                  </button>
-                  <button
-                    onClick={exportToLaTeX}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center gap-2"
-                  >
-                    <FileCode className="w-4 h-4" />
-                    LaTeX Table
-                  </button>
-                  <button
-                    onClick={exportChartsPNG}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex items-center gap-2"
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    Charts PNG
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Survey Info */}
+        {/* Survey Info Card */}
         <div className="card mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">{survey?.title}</h1>
-          <p className="text-gray-600 mb-4">{survey?.description || 'No description'}</p>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-500">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">{survey?.title}</h1>
+              <p className="text-gray-600 mb-4">{survey?.description || 'No description'}</p>
+            </div>
+
+            {/* Export Toolbar - Normal flow, non-floating */}
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <button
+                onClick={exportToCSV}
+                disabled={!responses.length}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                CSV
+              </button>
+              <button
+                onClick={exportToJSON}
+                disabled={!responses.length}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+              >
+                <FileJson className="w-4 h-4" />
+                JSON
+              </button>
+              <button
+                onClick={exportToExcel}
+                disabled={!responses.length}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+              >
+                <Table className="w-4 h-4" />
+                Excel
+              </button>
+              <button
+                onClick={exportToSPSS}
+                disabled={!responses.length}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+              >
+                <BarChart3 className="w-4 h-4" />
+                SPSS
+              </button>
+              <button
+                onClick={exportToLaTeX}
+                disabled={!responses.length}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+              >
+                <span className="text-xs font-bold">TeX</span>
+                LaTeX
+              </button>
+              <button
+                onClick={exportChartsPNG}
+                disabled={!responses.length}
+                className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm"
+              >
+                <BarChart3 className="w-4 h-4" />
+                Charts
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm text-gray-500 mt-4 pt-4 border-t border-gray-100">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
               <span className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
