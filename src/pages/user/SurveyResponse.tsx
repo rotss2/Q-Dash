@@ -49,6 +49,9 @@ function SurveyContent() {
   const [violationCount, setViolationCount] = useState(0);
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
   const [isScreenCaptured, setIsScreenCaptured] = useState(false);
+  
+  // Response summary collapsible state
+  const [showResponseSummary, setShowResponseSummary] = useState(false);
 
   const answersMap = useMemo(
     () => Object.fromEntries(answers.map((answer) => [answer.question_id, answer.answer])),
@@ -1096,8 +1099,8 @@ function SurveyContent() {
         {/* Animated Background Theme */}
         <ThemedBackground theme={survey?.background_theme || 'default'} />
         
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="card max-w-2xl w-full text-center space-y-6">
+        <div className="flex-1 flex items-center justify-center py-8 px-4 sm:px-6">
+          <div className="card max-w-3xl w-full text-center space-y-6">
             {/* Success Logo - PROMINENT */}
             <div className="flex flex-col items-center gap-4">
               <div className="relative">
@@ -1203,30 +1206,42 @@ function SurveyContent() {
                 </div>
               </div>
 
-              {/* All Answers - BIGGER & More Professional */}
-              <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-green-500" />
-                Your Responses ({submissionPreview.answers.length} {submissionPreview.answers.length === 1 ? 'question' : 'questions'})
-              </h3>
-              <div className="space-y-5">
-                {submissionPreview.answers.map((item, index) => (
-                  <div key={index} className="bg-gray-50 rounded-xl border-2 border-gray-200 p-5 break-inside-avoid hover:border-blue-300 transition-colors">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-base font-bold text-blue-600 flex-shrink-0 shadow-sm">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-3">
-                        <p className="text-base font-semibold text-gray-800 leading-relaxed">{item.questionText}</p>
-                        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm min-h-[56px]">
-                          <p className="text-lg text-gray-900 font-medium break-words">
-                            {item.answer}
-                          </p>
+              {/* All Answers - Collapsible */}
+              <button
+                onClick={() => setShowResponseSummary(!showResponseSummary)}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors text-gray-700 font-medium"
+              >
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                {showResponseSummary ? 'Hide' : 'View'} Your Responses ({submissionPreview.answers.length})
+                <span className="ml-2">{showResponseSummary ? '▲' : '▼'}</span>
+              </button>
+              
+              {showResponseSummary && (
+                <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+                  {submissionPreview.answers.slice(0, 5).map((item, index) => (
+                    <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 p-4 sm:p-5 break-inside-avoid hover:border-blue-300 transition-colors">
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center text-sm sm:text-base font-bold text-blue-600 flex-shrink-0 shadow-sm">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <p className="text-sm sm:text-base font-semibold text-gray-800 leading-relaxed">{item.questionText}</p>
+                          <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm min-h-[48px]">
+                            <p className="text-base sm:text-lg text-gray-900 font-medium break-words">
+                              {item.answer}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                  {submissionPreview.answers.length > 5 && (
+                    <p className="text-center text-sm text-gray-500">
+                      + {submissionPreview.answers.length - 5} more responses...
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* PDF Footer */}
               <div className="mt-8 pt-4 border-t border-gray-200 text-center text-sm text-gray-400 print:mt-8">
@@ -1408,11 +1423,11 @@ function SurveyContent() {
       <ThemedBackground theme={survey?.background_theme || 'default'} />
       
       {/* Header with Logo & Progress */}
-      <header className={`${themeClasses.card} border-b sticky top-0 z-10 shadow-sm`}>
-        <div className="max-w-2xl mx-auto px-4 py-4">
+      <header className={`${themeClasses.card} border-b sticky top-0 z-40 shadow-sm backdrop-blur-md bg-white/95`}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           {/* Top Row: Survey Title Only */}
-          <div className="flex items-center justify-center mb-3">
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
+          <div className="flex items-center justify-center mb-2">
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 truncate max-w-full">
               {survey.title}
             </h1>
           </div>
@@ -1442,8 +1457,8 @@ function SurveyContent() {
       </header>
 
       {/* Main Content - Welcome Screen or Questions */}
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-lg">
+      <main className="flex-1 py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-3xl mx-auto">
           {showWelcome ? (
             // Welcome Screen
             <div className="card space-y-8 text-center mb-8">
@@ -1621,30 +1636,21 @@ function SurveyContent() {
                     // QUESTION - Numbered with input (headings are now section titles, not items)
                     if (item.block_type === 'question') {
                       return (
-                        <div key={item.id} className="space-y-5 mb-8 pb-6 border-b border-gray-100 last:border-0">
+                        <div key={item.id} className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm space-y-5">
                           <div className="flex items-start gap-4">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-base font-bold shadow-md ${themeClasses.button}`}>
                               {item._questionNumber}
                             </div>
                             <div className="flex-1 pt-1">
-                              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug break-words">
+                              <h3 className="text-lg sm:text-xl font-semibold text-slate-900 leading-snug break-words">
                                 {item.question_text}
                                 {item.required && (
-                                  <span className="text-red-500 ml-2" title={t('required')}>*</span>
+                                  <span className="text-red-500 ml-1" title={t('required')}>*</span>
                                 )}
                               </h3>
                               <div className="flex items-center gap-2 mt-2">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  item.type === 'text' ? 'bg-blue-100 text-blue-700' :
-                                  item.type === 'choice' ? 'bg-green-100 text-green-700' :
-                                  'bg-orange-100 text-orange-700'
-                                }`}>
-                                  {item.type === 'text' ? 'Text Response' :
-                                   item.type === 'choice' ? 'Multiple Choice' :
-                                   'Rating Scale'}
-                                </span>
                                 {item.required && (
-                                  <span className="text-xs text-gray-500">Required</span>
+                                  <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Required</span>
                                 )}
                               </div>
                             </div>
@@ -1657,42 +1663,44 @@ function SurveyContent() {
                                 <textarea
                                   value={getAnswer(item.id)}
                                   onChange={(e) => updateAnswer(item.id, e.target.value)}
-                                  className="w-full p-4 border-2 border-gray-200 rounded-xl text-slate-900 min-h-[140px] focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 resize-none transition-all"
-                                  placeholder={t('textPlaceholder')}
+                                  className="w-full p-4 border-2 border-gray-200 rounded-xl text-slate-900 min-h-[160px] focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100/50 resize-y transition-all text-base sm:text-lg"
+                                  placeholder="Type your answer here..."
                                 />
                                 {getAnswer(item.id) && (
                                   <div className="absolute top-3 right-3">
-                                    <CheckCircle className="w-5 h-5 text-green-500" />
+                                    <CheckCircle className="w-6 h-6 text-green-500" />
                                   </div>
                                 )}
                               </div>
                             )}
                             
                             {item.type === 'choice' && item.options && (
-                              <div className="space-y-2" role="radiogroup" aria-label={item.question_text}>
-                                {item.options.map((option, optionIndex) => {
+                              <div className="space-y-3" role="radiogroup" aria-label={item.question_text}>
+                                {item.options.map((option) => {
                                   const isSelected = getAnswer(item.id) === option;
                                   return (
                                     <button
                                       key={option}
                                       onClick={() => updateAnswer(item.id, option)}
-                                      className={`w-full p-4 text-left border-2 rounded-xl transition-all duration-200 flex items-center gap-3 ${
+                                      className={`w-full p-5 text-left border-2 rounded-xl transition-all duration-200 flex items-center gap-4 ${
                                         isSelected
-                                          ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                          : 'border-gray-200 hover:border-slate-400 hover:bg-gray-50'
+                                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                                       }`}
                                       role="radio"
                                       aria-checked={isSelected}
                                       tabIndex={isSelected ? 0 : -1}
                                     >
-                                      <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold transition-colors ${
+                                      <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                                         isSelected
-                                          ? 'bg-white text-slate-900'
-                                          : 'bg-gray-100 text-gray-600'
+                                          ? 'border-blue-500 bg-blue-500'
+                                          : 'border-gray-300'
                                       }`}>
-                                        {optionIndex + 1}
-                                      </span>
-                                      <span className="text-base font-medium">{option}</span>
+                                        {isSelected && (
+                                          <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                                        )}
+                                      </div>
+                                      <span className={`text-base sm:text-lg ${isSelected ? 'font-medium text-slate-900' : 'text-slate-700'}`}>{option}</span>
                                     </button>
                                   );
                                 })}
@@ -1745,14 +1753,14 @@ function SurveyContent() {
                 </div>
 
                 {/* Navigation - Section Based */}
-                <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center border-t-2 border-gray-100 mt-8">
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t-2 border-gray-100 mt-8">
                   {!isFirstSection && (
                     <button
                       onClick={goToPreviousSection}
-                      className="flex items-center gap-2 px-6 py-3 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all hover:scale-[1.02] touch-manipulation"
+                      className="flex items-center justify-center gap-2 px-6 py-3.5 border-2 border-gray-200 text-slate-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 font-medium transition-all active:scale-[0.98] touch-manipulation w-full sm:w-auto sm:order-1 order-2"
                     >
                       <ChevronLeft className="w-5 h-5" />
-                      {t('back')}
+                      Back
                     </button>
                   )}
                   
@@ -1760,27 +1768,27 @@ function SurveyContent() {
                     <button
                       onClick={handleSubmit}
                       disabled={isSubmitting}
-                      className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg touch-manipulation`}
+                      className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-3.5 rounded-xl font-medium text-base sm:text-lg transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg touch-manipulation w-full sm:w-auto order-1 sm:order-2`}
                     >
                       {isSubmitting ? (
                         <>
                           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          {t('loading')}
+                          Submitting...
                         </>
                       ) : (
                         <>
-                          <CheckCircle className="w-6 h-6" />
-                          {t('submit')}
+                          <CheckCircle className="w-5 h-5" />
+                          Submit Response
                         </>
                       )}
                     </button>
                   ) : (
                     <button
                       onClick={goToNextSection}
-                      className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-4 rounded-xl font-medium text-lg transition-all hover:scale-[1.02] shadow-lg touch-manipulation`}
+                      className={`flex-1 flex items-center justify-center gap-3 ${themeClasses.button} text-white py-3.5 rounded-xl font-medium text-base sm:text-lg transition-all active:scale-[0.98] shadow-lg touch-manipulation w-full sm:w-auto order-1 sm:order-2`}
                     >
-                      {t('next')}
-                      <ChevronRight className="w-6 h-6" />
+                      Next
+                      <ChevronRight className="w-5 h-5" />
                     </button>
                   )}
                 </div>
@@ -1791,8 +1799,8 @@ function SurveyContent() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-4">
-        <div className="max-w-lg mx-auto px-4 text-center flex flex-col items-center gap-2">
+      <footer className="bg-white border-t border-gray-200 py-4 sm:py-6">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col items-center gap-3">
           <LanguageSwitcher variant="minimal" />
           <p className="text-xs text-slate-500">
             Secured with browser fingerprinting
