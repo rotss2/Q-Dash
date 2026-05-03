@@ -137,7 +137,7 @@ CREATE POLICY "Quiz attempts are viewable by survey admin"
         EXISTS (
             SELECT 1 FROM surveys s
             WHERE s.id = quiz_attempts.survey_id
-            AND s.admin_id = auth.uid()::text
+            AND s.admin_id = auth.uid()
         )
     );
 
@@ -161,7 +161,7 @@ CREATE POLICY "Quiz attempts are updatable by survey admin"
         EXISTS (
             SELECT 1 FROM surveys s
             WHERE s.id = quiz_attempts.survey_id
-            AND s.admin_id = auth.uid()::text
+            AND s.admin_id = auth.uid()
         )
     );
 
@@ -182,7 +182,7 @@ CREATE POLICY "Quiz attempt answers are viewable by survey admin"
             SELECT 1 FROM quiz_attempts qa
             JOIN surveys s ON s.id = qa.survey_id
             WHERE qa.id = quiz_attempt_answers.attempt_id
-            AND s.admin_id = auth.uid()::text
+            AND s.admin_id = auth.uid()
         )
     );
 
@@ -210,7 +210,7 @@ CREATE POLICY "Quiz attempt answers are updatable by survey admin"
             SELECT 1 FROM quiz_attempts qa
             JOIN surveys s ON s.id = qa.survey_id
             WHERE qa.id = quiz_attempt_answers.attempt_id
-            AND s.admin_id = auth.uid()::text
+            AND s.admin_id = auth.uid()
         )
     );
 
