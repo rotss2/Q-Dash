@@ -973,6 +973,15 @@ export default function SurveyAnalytics() {
                 <Calculator className="w-5 h-5 text-blue-600" />
                 Descriptive Statistics (Likert Scale Questions)
               </h2>
+              
+              {/* Small sample warning */}
+              {new Set(filteredResponses.map(r => r.user_id)).size < 3 && (
+                <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 mb-4 text-sm text-yellow-800">
+                  <strong>Preliminary statistics only.</strong> Sample size is small (N = {new Set(filteredResponses.map(r => r.user_id)).size}).
+                  Standard deviation requires at least 2 responses. Treat these values as early indicators only.
+                </div>
+              )}
+              
               {validQuestions.filter(q => q.type === 'likert').length === 0 ? (
                 <p className="text-gray-500">No Likert scale questions available for statistical analysis</p>
               ) : filteredResponses.length === 0 ? (
@@ -1002,7 +1011,7 @@ export default function SurveyAnalytics() {
                             <td className="px-4 py-3 text-sm text-center font-semibold text-blue-600">{stats.mean.toFixed(2)}</td>
                             <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.median.toFixed(2)}</td>
                             <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.mode?.toFixed(2) || 'N/A'}</td>
-                            <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.stdDev.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.n < 2 ? 'N/A' : stats.stdDev.toFixed(2)}</td>
                             <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.min}</td>
                             <td className="px-4 py-3 text-sm text-center text-gray-600">{stats.max}</td>
                           </tr>
