@@ -30,7 +30,13 @@ export default function UserDashboard() {
     if (surveysError) {
       showToast('Failed to load surveys', 'error');
     } else {
-      setSurveys(surveysData || []);
+      // Cast surveys with proper typing
+      const typedSurveys = (surveysData || []).map((s) => ({
+        ...s,
+        release_results_mode: s.release_results_mode as Survey['release_results_mode'],
+        mode: s.mode as Survey['mode']
+      })) as Survey[];
+      setSurveys(typedSurveys);
     }
 
     // Load user's completed responses

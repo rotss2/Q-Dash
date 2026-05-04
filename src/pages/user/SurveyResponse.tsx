@@ -891,11 +891,16 @@ function SurveyContent() {
     }
 
     // For regular surveys, use the normal submission flow
-    await handleSurveySubmit(allQuestions);
-  };
 
   // Separate handler for regular survey submission
   const handleSurveySubmit = async (allQuestions: Question[]) => {
+    // Validate surveyId is available
+    if (!surveyId) {
+      showToast('Survey ID is missing', 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
     const cleanedEmail = email.trim();
 
     // Validate email format only if email is provided
@@ -1274,7 +1279,7 @@ function SurveyContent() {
             {/* Success Stats */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
               <div className="text-center bg-green-50 rounded-xl p-3 border border-green-100">
-                <div className="text-xl sm:text-2xl font-bold text-green-600">{submissionPreview.answers.length}</div>
+                <div className="text-xl sm:text-2xl font-bold text-green-600">{submissionPreview?.answers?.length || 0}</div>
                 <div className="text-xs sm:text-sm text-green-700 mt-1">Answered</div>
               </div>
               <div className="text-center bg-blue-50 rounded-xl p-3 border border-blue-100">
@@ -1348,7 +1353,7 @@ function SurveyContent() {
               </div>
             )}
 
-            {submissionPreview.email && (
+            {submissionPreview?.email && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 mb-6">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1356,7 +1361,7 @@ function SurveyContent() {
                   </div>
                   <div className="text-left min-w-0">
                     <p className="text-sm font-medium text-blue-900 break-words">
-                      Summary sent to {submissionPreview.email}
+                      Summary sent to {submissionPreview?.email}
                     </p>
                     <p className="text-xs text-blue-700">
                       Check your inbox
@@ -1380,9 +1385,9 @@ function SurveyContent() {
                     <span className="text-gray-400">Submitted:</span>{' '}
                     {new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  {submissionPreview.email && (
+                  {submissionPreview?.email && (
                     <span className="text-blue-600 text-center break-all">
-                      <span className="text-gray-400">Email:</span> {submissionPreview.email}
+                      <span className="text-gray-400">Email:</span> {submissionPreview?.email}
                     </span>
                   )}
                 </div>
@@ -1397,13 +1402,13 @@ function SurveyContent() {
                   aria-expanded={showResponseSummary}
                 >
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                  {showResponseSummary ? 'Hide' : 'View'} Your Responses ({submissionPreview.answers.length})
+                  {showResponseSummary ? 'Hide' : 'View'} Your Responses ({submissionPreview?.answers?.length || 0})
                   <span className="ml-2">{showResponseSummary ? '▲' : '▼'}</span>
                 </button>
                 
                 {showResponseSummary && (
                   <div className="space-y-3">
-                    {submissionPreview.answers.map((item, index) => (
+                    {submissionPreview?.answers?.map((item, index) => (
                       <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 p-3 sm:p-4 break-inside-avoid">
                         <div className="flex items-start gap-3">
                           <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-blue-600 flex-shrink-0">
