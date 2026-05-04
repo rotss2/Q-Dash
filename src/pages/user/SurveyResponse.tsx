@@ -891,6 +891,8 @@ function SurveyContent() {
     }
 
     // For regular surveys, use the normal submission flow
+    await handleSurveySubmit(allQuestions);
+  };
 
   // Separate handler for regular survey submission
   const handleSurveySubmit = async (allQuestions: Question[]) => {
