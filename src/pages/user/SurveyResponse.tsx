@@ -52,6 +52,25 @@ function SurveyContent() {
   
   // Response summary collapsible state
   const [showResponseSummary, setShowResponseSummary] = useState(false);
+  
+  // Quiz/Exam mode states
+  const [quizResult, setQuizResult] = useState<{
+    score: number;
+    totalPoints: number;
+    percentage: number;
+    passed: boolean;
+    questionResults: Array<{
+      question_id: string;
+      question_text: string;
+      user_answer: string;
+      correct_answer: string;
+      is_correct: boolean;
+      points_earned: number;
+      points_possible: number;
+    }>;
+    showCorrectAnswers: boolean;
+    showExplanations: boolean;
+  } | null>(null);
 
   const answersMap = useMemo(
     () => Object.fromEntries(answers.map((answer) => [answer.question_id, answer.answer])),
@@ -76,6 +95,11 @@ function SurveyContent() {
         return '';
     }
   }, [survey?.font_family]);
+
+  // Check if survey is in quiz or exam mode
+  const isQuizOrExam = useMemo(() => {
+    return survey?.mode === 'quiz' || survey?.mode === 'exam';
+  }, [survey?.mode]);
 
   // Theme styles based on survey.theme
   const themeClasses = useMemo(() => {
@@ -829,15 +853,6 @@ function SurveyContent() {
 
     setIsSubmitting(true);
 
-    const cleanedEmail = email.trim();
-
-    // Validate email format only if email is provided
-    if (cleanedEmail && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i.test(cleanedEmail)) {
-      showToast(t('errorInvalidEmail'), 'error');
-      setIsSubmitting(false);
-      return;
-    }
-
     // Check if user already completed this survey before proceeding
     const { data: hasCompletedBeforeSubmit, error: completionCheckError } =
       await supabase.rpc('has_user_completed_survey', {
@@ -869,6 +884,27 @@ function SurveyContent() {
       return;
     }
 
+    // For Quiz/Exam modes, use quiz/exam submission API
+    if (isQuizOrExam) {
+      await handleQuizExamSubmit(allQuestions);
+      return;
+    }
+
+    // For regular surveys, use the normal submission flow
+    await handleSurveySubmit(allQuestions);
+  };
+
+  // Separate handler for regular survey submission
+  const handleSurveySubmit = async (allQuestions: Question[]) => {
+    const cleanedEmail = email.trim();
+
+    // Validate email format only if email is provided
+    if (cleanedEmail && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i.test(cleanedEmail)) {
+      showToast(t('errorInvalidEmail'), 'error');
+      setIsSubmitting(false);
+      return;
+    }
+
     // Record survey completion and email BEFORE inserting responses
     // Add retry logic for transient failures
     let completionResult = null;
@@ -882,7 +918,7 @@ function SurveyContent() {
         p_fingerprint: fingerprint,
         p_ip_address: typeof window !== 'undefined' ? window.location.hostname : undefined,
         p_user_agent: navigator.userAgent,
-        p_email: cleanedEmail,
+        p_email: cleanedEmail || undefined,
         p_gender: userGender || undefined,
         p_age: userAge ? parseInt(userAge, 10) : undefined,
       });
@@ -907,7 +943,7 @@ function SurveyContent() {
       console.error('Error details:', JSON.stringify(completionError, null, 2));
       console.error('Survey ID:', surveyId);
       console.error('User ID:', userId);
-      console.error('Email:', cleanedEmail);
+      console.error('Email:', cleanedEmail || '(not provided)');
       const errorMessage = completionError.message || completionError.details || 'Unable to record your submission. Please try again.';
       showToast(`Submission error: ${errorMessage}`, 'error');
       setIsSubmitting(false);
@@ -1001,6 +1037,90 @@ function SurveyContent() {
     showToast(t('success'), 'success');
     setHasSubmitted(true);
     setIsSubmitting(false);
+  };
+
+  // Handler for quiz/exam submission with scoring
+  const handleQuizExamSubmit = async (allQuestions: Question[]) => {
+    try {
+      // Insert responses first
+      const now = new Date().toISOString();
+      const allQuestionIds = new Set(allQuestions.map((q: Question) => q.id));
+      const responsesToInsert = answers
+        .filter((a) => allQuestionIds.has(a.question_id))
+        .map((a) => ({
+          survey_id: surveyId!,
+          user_id: userId,
+          question_id: a.question_id,
+          answer: a.answer,
+          submitted_at: now
+        }));
+
+      const { error: insertError } = await supabase
+        .from('responses')
+        .insert(responsesToInsert);
+
+      if (insertError) {
+        console.error('Failed to insert responses:', insertError);
+        showToast('Failed to submit responses. Please try again.', 'error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Submit quiz/exam and get score
+      const { data: scoreData, error: scoreError } = await apiPost<{
+        success: boolean;
+        score: number;
+        totalPoints: number;
+        percentage: number;
+        passed: boolean;
+        questionResults: Array<{
+          question_id: string;
+          question_text: string;
+          user_answer: string;
+          correct_answer: string;
+          is_correct: boolean;
+          points_earned: number;
+          points_possible: number;
+        }>;
+        showCorrectAnswers: boolean;
+        showExplanations: boolean;
+      }>(
+        `/api/surveys/${surveyId}/submit-quiz`,
+        {
+          userId,
+          responses: answers
+        }
+      );
+
+      if (scoreError || !scoreData) {
+        console.error('Quiz submission failed:', scoreError);
+        showToast(scoreError?.error || 'Failed to submit quiz. Please try again.', 'error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Set quiz result for display
+      setQuizResult({
+        score: scoreData.score,
+        totalPoints: scoreData.totalPoints,
+        percentage: scoreData.percentage,
+        passed: scoreData.passed,
+        questionResults: scoreData.questionResults || [],
+        showCorrectAnswers: scoreData.showCorrectAnswers,
+        showExplanations: scoreData.showExplanations
+      });
+
+      // Save completion to localStorage
+      localStorage.setItem(`survey-completed-${surveyId}`, 'true');
+
+      showToast(`Quiz completed! Score: ${scoreData.score}/${scoreData.totalPoints}`, 'success');
+      setHasSubmitted(true);
+      setIsSubmitting(false);
+    } catch (error) {
+      console.error('Quiz exam submit error:', error);
+      showToast('An error occurred. Please try again.', 'error');
+      setIsSubmitting(false);
+    }
   };
 
   const downloadPDF = async () => {
@@ -1105,7 +1225,7 @@ function SurveyContent() {
     );
   }
 
-  if (hasSubmitted && submissionPreview) {
+  if (hasSubmitted && (submissionPreview || quizResult)) {
     return (
       <div className={`min-h-screen ${themeClasses.bg}`}>
         {/* Animated Background Theme */}
@@ -1166,6 +1286,67 @@ function SurveyContent() {
                 <div className="text-xs sm:text-sm text-purple-700 mt-1">Success</div>
               </div>
             </div>
+
+            {/* Quiz/Exam Results */}
+            {quizResult && (
+              <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 mb-6 shadow-sm">
+                {/* Score Header */}
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                    {isQuizOrExam ? (survey?.mode === 'exam' ? 'Exam Results' : 'Quiz Results') : 'Results'}
+                  </h2>
+                  <div className={`text-4xl sm:text-5xl font-bold mb-2 ${
+                    quizResult.passed ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {quizResult.score}/{quizResult.totalPoints}
+                  </div>
+                  <div className="text-lg text-gray-600">
+                    {quizResult.percentage}% {quizResult.passed ? '✓ Passed' : '✗ Did not pass'}
+                  </div>
+                </div>
+
+                {/* Question-by-question breakdown */}
+                {quizResult.questionResults.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-gray-900 border-b pb-2">Question Breakdown</h3>
+                    {quizResult.questionResults.map((q, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border ${
+                          q.is_correct
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-red-50 border-red-200'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={`font-bold ${q.is_correct ? 'text-green-600' : 'text-red-600'}`}>
+                            {q.is_correct ? '✓' : '✗'}
+                          </span>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900 text-sm">{q.question_text}</p>
+                            <div className="mt-1 text-sm">
+                              <span className="text-gray-600">Your answer: </span>
+                              <span className={q.is_correct ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>
+                                {q.user_answer || '(no answer)'}
+                              </span>
+                            </div>
+                            {!q.is_correct && quizResult.showCorrectAnswers && (
+                              <div className="mt-1 text-sm">
+                                <span className="text-gray-600">Correct answer: </span>
+                                <span className="text-green-700 font-medium">{q.correct_answer}</span>
+                              </div>
+                            )}
+                            <div className="mt-1 text-xs text-gray-500">
+                              Points: {q.points_earned}/{q.points_possible}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {submissionPreview.email && (
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 mb-6">
