@@ -402,11 +402,451 @@ export interface Database {
           }
         ]
       }
+      activity_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string
+          actor_role: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name: string
+          actor_role: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string
+          actor_role?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      badges: {
+        Row: {
+          color: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          name: string
+          requirement_type: string
+          requirement_value: number
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description: string
+          icon?: string
+          id?: string
+          name: string
+          requirement_type: string
+          requirement_value?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          requirement_type?: string
+          requirement_value?: number
+        }
+        Relationships: []
+      }
+      live_answers: {
+        Row: {
+          answer_text: string | null
+          id: string
+          is_correct: boolean
+          participant_id: string
+          points: number
+          question_id: string
+          response_time_ms: number
+          room_id: string
+          selected_option_id: string | null
+          submitted_at: string
+        }
+        Insert: {
+          answer_text?: string | null
+          id?: string
+          is_correct?: boolean
+          participant_id: string
+          points?: number
+          question_id: string
+          response_time_ms?: number
+          room_id: string
+          selected_option_id?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          answer_text?: string | null
+          id?: string
+          is_correct?: boolean
+          participant_id?: string
+          points?: number
+          question_id?: string
+          response_time_ms?: number
+          room_id?: string
+          selected_option_id?: string | null
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_answers_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "live_room_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_answers_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "live_rooms"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      live_room_participants: {
+        Row: {
+          display_name: string
+          id: string
+          is_active: boolean | null
+          joined_at: string
+          rank: number | null
+          room_id: string
+          score: number
+          user_id: string | null
+        }
+        Insert: {
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          joined_at?: string
+          rank?: number | null
+          room_id: string
+          score?: number
+          user_id?: string | null
+        }
+        Update: {
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          joined_at?: string
+          rank?: number | null
+          room_id?: string
+          score?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_room_participants_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "live_rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_room_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      live_rooms: {
+        Row: {
+          created_at: string
+          current_question_index: number
+          ended_at: string | null
+          host_id: string
+          id: string
+          quiz_id: string
+          room_code: string
+          started_at: string | null
+          status: string
+          timer_seconds: number
+        }
+        Insert: {
+          created_at?: string
+          current_question_index?: number
+          ended_at?: string | null
+          host_id: string
+          id?: string
+          quiz_id: string
+          room_code: string
+          started_at?: string | null
+          status?: string
+          timer_seconds?: number
+        }
+        Update: {
+          created_at?: string
+          current_question_index?: number
+          ended_at?: string | null
+          host_id?: string
+          id?: string
+          quiz_id?: string
+          room_code?: string
+          started_at?: string | null
+          status?: string
+          timer_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_rooms_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_rooms_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      question_bank: {
+        Row: {
+          correct_answer: string | null
+          correct_answers: Json | null
+          created_at: string
+          created_by: string
+          difficulty: string
+          explanation: string | null
+          id: string
+          mode_compatibility: string[] | null
+          options: Json
+          points: number
+          question_text: string
+          question_type: string
+          topic: string
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          correct_answer?: string | null
+          correct_answers?: Json | null
+          created_at?: string
+          created_by: string
+          difficulty?: string
+          explanation?: string | null
+          id?: string
+          mode_compatibility?: string[] | null
+          options?: Json
+          points?: number
+          question_text: string
+          question_type: string
+          topic?: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          correct_answer?: string | null
+          correct_answers?: Json | null
+          created_at?: string
+          created_by?: string
+          difficulty?: string
+          explanation?: string | null
+          id?: string
+          mode_compatibility?: string[] | null
+          options?: Json
+          points?: number
+          question_text?: string
+          question_type?: string
+          topic?: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      student_badges: {
+        Row: {
+          badge_id: string
+          earned_at: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          badge_id: string
+          earned_at?: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          badge_id?: string
+          earned_at?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_badges_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      quiz_exam_results: {
+        Row: {
+          completed_at: string | null
+          id: string
+          percentage: number | null
+          passed: boolean | null
+          responses: unknown
+          score: number
+          submitted_at: string | null
+          survey_id: string
+          total_points: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: string
+          percentage?: number | null
+          passed?: boolean | null
+          responses?: unknown
+          score: number
+          submitted_at?: string | null
+          survey_id: string
+          total_points: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          id?: string
+          percentage?: number | null
+          passed?: boolean | null
+          responses?: unknown
+          score?: number
+          submitted_at?: string | null
+          survey_id?: string
+          total_points?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_exam_results_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      add_xp_to_student: {
+        Args: {
+          p_student_id: string
+          p_xp_amount: number
+          p_reason?: string
+        }
+        Returns: {
+          leveled_up: boolean
+          new_level: number
+          new_xp: number
+        }[]
+      }
+      generate_room_code: {
+        Args: {}
+        Returns: string
+      }
+      get_live_leaderboard: {
+        Args: {
+          p_room_id: string
+        }
+        Returns: {
+          avg_response_time_ms: number
+          correct_answers: number
+          display_name: string
+          participant_id: string
+          rank: number
+          score: number
+          total_answers: number
+        }[]
+      }
+      join_live_room: {
+        Args: {
+          p_room_code: string
+          p_user_id?: string
+          p_display_name: string
+        }
+        Returns: {
+          error_message: string
+          participant_id: string
+          room_id: string
+          success: boolean
+        }[]
+      }
+      log_activity: {
+        Args: {
+          p_action: string
+          p_actor_id?: string
+          p_actor_name: string
+          p_actor_role: string
+          p_entity_id?: string
+          p_entity_type: string
+          p_metadata?: Record<string, unknown>
+        }
+        Returns: string
+      }
       has_user_completed_survey: {
         Args: {
           p_survey_id: string
