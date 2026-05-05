@@ -374,7 +374,7 @@ export default function StudentProfilePage() {
             <div className="relative">
               <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
                 {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt={profile.full_name || ''} className="w-full h-full rounded-2xl object-cover" />
+                  <img src={profile.avatar_url} alt={profile.full_name ?? 'Student'} className="w-full h-full rounded-2xl object-cover" />
                 ) : (
                   getInitials(profile.full_name)
                 )}

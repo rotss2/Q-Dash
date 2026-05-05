@@ -15,12 +15,8 @@ import {
 
 export default function LiveRoomStudent() {
   const { roomCode } = useParams<{ roomCode: string }>();
-  // const location = useLocation();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  
-  // Participant ID from navigation state (extracted from location if needed)
-  // const participantId = (location.state as { participantId?: string })?.participantId;
   
   const { 
     room, 

@@ -112,7 +112,7 @@ export default function ReviewMode() {
       if (questionsError) throw questionsError;
       
       // Cast to proper type (bypass Supabase type inference issue)
-      const questions = (questionsData as unknown) as ReviewQuestion[] | null;
+      const questions = (questionsData as unknown as ReviewQuestion[]) || [];
 
       // Parse responses
       const responses = result.responses as Record<string, { answer: string; is_correct: boolean; points_earned: number }> || {};
