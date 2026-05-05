@@ -223,8 +223,8 @@ $$ LANGUAGE plpgsql;
 -- Function to join a live room
 CREATE OR REPLACE FUNCTION join_live_room(
   p_room_code TEXT,
-  p_user_id UUID DEFAULT NULL,
-  p_display_name TEXT
+  p_display_name TEXT,
+  p_user_id UUID DEFAULT NULL
 )
 RETURNS TABLE (
   participant_id UUID,
@@ -387,20 +387,24 @@ ALTER TABLE badges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_badges ENABLE ROW LEVEL SECURITY;
 
 -- Live Rooms policies
+DROP POLICY IF EXISTS live_rooms_select ON live_rooms;
 CREATE POLICY live_rooms_select ON live_rooms
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS live_rooms_insert ON live_rooms;
 CREATE POLICY live_rooms_insert ON live_rooms
   FOR INSERT WITH CHECK (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
   );
 
+DROP POLICY IF EXISTS live_rooms_update ON live_rooms;
 CREATE POLICY live_rooms_update ON live_rooms
   FOR UPDATE USING (
     host_id = auth.uid() OR
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
   );
 
+DROP POLICY IF EXISTS live_rooms_delete ON live_rooms;
 CREATE POLICY live_rooms_delete ON live_rooms
   FOR DELETE USING (
     host_id = auth.uid() OR
@@ -408,12 +412,15 @@ CREATE POLICY live_rooms_delete ON live_rooms
   );
 
 -- Live Room Participants policies
+DROP POLICY IF EXISTS live_participants_select ON live_room_participants;
 CREATE POLICY live_participants_select ON live_room_participants
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS live_participants_insert ON live_room_participants;
 CREATE POLICY live_participants_insert ON live_room_participants
   FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS live_participants_update ON live_room_participants;
 CREATE POLICY live_participants_update ON live_room_participants
   FOR UPDATE USING (
     user_id = auth.uid() OR
@@ -424,24 +431,29 @@ CREATE POLICY live_participants_update ON live_room_participants
   );
 
 -- Activity Logs policies
+DROP POLICY IF EXISTS activity_logs_select ON activity_logs;
 CREATE POLICY activity_logs_select ON activity_logs
   FOR SELECT USING (true);
 
 -- Question Bank policies
+DROP POLICY IF EXISTS question_bank_select ON question_bank;
 CREATE POLICY question_bank_select ON question_bank
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS question_bank_insert ON question_bank;
 CREATE POLICY question_bank_insert ON question_bank
   FOR INSERT WITH CHECK (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
   );
 
+DROP POLICY IF EXISTS question_bank_update ON question_bank;
 CREATE POLICY question_bank_update ON question_bank
   FOR UPDATE USING (
     created_by = auth.uid() OR
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
   );
 
+DROP POLICY IF EXISTS question_bank_delete ON question_bank;
 CREATE POLICY question_bank_delete ON question_bank
   FOR DELETE USING (
     created_by = auth.uid() OR
@@ -449,9 +461,11 @@ CREATE POLICY question_bank_delete ON question_bank
   );
 
 -- Badges policies (read-only for students, admin manages)
+DROP POLICY IF EXISTS badges_select ON badges;
 CREATE POLICY badges_select ON badges
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS student_badges_select ON student_badges;
 CREATE POLICY student_badges_select ON student_badges
   FOR SELECT USING (
     student_id = auth.uid() OR
