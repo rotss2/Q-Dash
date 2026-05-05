@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/Toaster';
 import { useLiveRoomStudent } from '../../hooks/useLiveRoom';
 import { SkeletonCard } from '../../components/LoadingSkeleton';
@@ -15,12 +15,12 @@ import {
 
 export default function LiveRoomStudent() {
   const { roomCode } = useParams<{ roomCode: string }>();
-  const location = useLocation();
+  // const location = useLocation();
   const navigate = useNavigate();
   const { showToast } = useToast();
   
-  // Participant ID from navigation state
-  const _participantId = (location.state as { participantId?: string })?.participantId;
+  // Participant ID from navigation state (extracted from location if needed)
+  // const participantId = (location.state as { participantId?: string })?.participantId;
   
   const { 
     room, 

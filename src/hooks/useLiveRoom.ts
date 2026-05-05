@@ -23,12 +23,6 @@ interface CreateRoomParams {
   timerSeconds?: number;
 }
 
-interface JoinRoomParams {
-  roomCode: string;
-  displayName: string;
-  userId?: string;
-}
-
 interface SubmitAnswerParams {
   roomId: string;
   participantId: string;

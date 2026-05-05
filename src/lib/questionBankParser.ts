@@ -13,7 +13,6 @@
 
 import type { BulkImportQuestion, BulkImportResult, BankQuestionType, DifficultyLevel } from '../types/questionBank';
 
-const VALID_QUESTION_TYPES: BankQuestionType[] = ['multiple_choice', 'true_false', 'identification', 'essay'];
 const VALID_DIFFICULTIES: DifficultyLevel[] = ['easy', 'medium', 'hard'];
 const VALID_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F'];
 

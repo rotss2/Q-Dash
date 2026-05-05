@@ -722,7 +722,7 @@ export default function StudentProfilePage() {
                           </span>
                         </div>
                         <h4 className="font-medium text-gray-900">{attempt.survey_title}</h4>
-                        <p className="text-sm text-gray-500">{formatDate(attempt.submitted_at)}</p>
+                        <p className="text-sm text-gray-500">{attempt.submitted_at ? formatDate(attempt.submitted_at) : 'Unknown date'}</p>
                       </div>
                       
                       <div className="flex items-center gap-6">

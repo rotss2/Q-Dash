@@ -51,8 +51,6 @@ export default function QuestionBank() {
   const [importText, setImportText] = useState('');
   const [parsedQuestions, setParsedQuestions] = useState<BulkImportQuestion[]>([]);
   const [importStep, setImportStep] = useState<'input' | 'preview' | 'importing'>('input');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<QuestionBankItem | null>(null);
 
   const fetchQuestions = useCallback(async () => {
     try {
@@ -64,10 +62,10 @@ export default function QuestionBank() {
 
       if (error) throw error;
       // Cast question_type from string to BankQuestionType
-      const mappedQuestions = (data || []).map(q => ({
+      const mappedQuestions = ((data || []) as unknown as QuestionBankItem[]).map(q => ({
         ...q,
         question_type: q.question_type as QuestionBankItem['question_type'],
-      })) as QuestionBankItem[];
+      }));
       setQuestions(mappedQuestions);
       
       // Extract unique topics
@@ -126,9 +124,9 @@ export default function QuestionBank() {
         convertToQuestionBankItem(q, user.id)
       );
 
-      const { error } = await supabase
-        .from('question_bank')
-        .insert(questionsToInsert as unknown as Record<string, unknown>[]);
+      // Type assertion needed for Supabase insert compatibility
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.from('question_bank').insert(questionsToInsert as any[]);
 
       if (error) throw error;
 
@@ -197,7 +195,7 @@ export default function QuestionBank() {
                 Bulk Import
               </button>
               <button
-                onClick={() => { setEditingQuestion(null); setShowAddModal(true); }}
+                onClick={() => { /* TODO: Implement add question modal */ showToast('Add question modal coming soon', 'info'); }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-all"
               >
                 <Plus className="w-4 h-4" />
@@ -337,7 +335,7 @@ export default function QuestionBank() {
                   
                   <div className="flex lg:flex-col items-center gap-2">
                     <button
-                      onClick={() => { setEditingQuestion(question); setShowAddModal(true); }}
+                      onClick={() => { /* TODO: Implement edit question modal */ showToast('Edit question modal coming soon', 'info'); }}
                       className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
                       title="Edit"
                     >

@@ -103,13 +103,16 @@ export default function ReviewMode() {
       if (surveyError) throw surveyError;
 
       // Fetch questions
-      const { data: questions, error: questionsError } = await supabase
+      const { data: questionsData, error: questionsError } = await supabase
         .from('questions')
         .select('id, question_text, question_type, options, correct_answer, explanation, points, topic')
         .eq('survey_id', surveyId)
         .order('order_index');
 
       if (questionsError) throw questionsError;
+      
+      // Cast to proper type (bypass Supabase type inference issue)
+      const questions = (questionsData as unknown) as ReviewQuestion[] | null;
 
       // Parse responses
       const responses = result.responses as Record<string, { answer: string; is_correct: boolean; points_earned: number }> || {};

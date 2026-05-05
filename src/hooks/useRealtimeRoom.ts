@@ -16,7 +16,7 @@ export function useRealtimeRoom({ roomId, participantId }: UseRealtimeRoomOption
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch initial room state
   const fetchRoomState = useCallback(async () => {
