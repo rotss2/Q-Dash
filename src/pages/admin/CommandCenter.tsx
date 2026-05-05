@@ -163,7 +163,7 @@ export default function AdminCommandCenter() {
     onCreateQuiz: () => navigate('/admin/surveys/new?mode=quiz'),
     onCreateExam: () => navigate('/admin/surveys/new?mode=exam'),
     onOpenQuestionBank: () => navigate('/admin/question-bank'),
-    onStartLiveBattle: () => navigate('/admin/live/create'),
+    onStartLiveBattle: () => navigate('/live/create'),
     onViewAnalytics: () => navigate('/admin/analytics'),
     onImportQuestions: () => navigate('/admin/question-bank?import=true'),
     onManageStudents: () => navigate('/admin/students'),
