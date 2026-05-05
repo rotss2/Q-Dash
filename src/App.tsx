@@ -14,6 +14,13 @@ import StudentDashboard from './pages/user/Dashboard';
 import SurveyDashboard from './pages/student/SurveyDashboard';
 import QuizDashboard from './pages/student/QuizDashboard';
 import ExamDashboard from './pages/student/ExamDashboard';
+import ReviewMode from './pages/student/ReviewMode';
+import StudentProfilePage from './pages/student/StudentProfilePage';
+import LiveRoomCreate from './pages/live/LiveRoomCreate';
+import JoinLiveRoom from './pages/live/JoinLiveRoom';
+import LiveRoomHost from './pages/live/LiveRoomHost';
+import LiveRoomStudent from './pages/live/LiveRoomStudent';
+import AnalyticsDashboard from './pages/admin/AnalyticsDashboard';
 import Login from './pages/Login';
 import Forbidden from './pages/Forbidden';
 import RequireAdmin from './components/RequireAdmin';
@@ -33,6 +40,36 @@ function App() {
             <Route path="/student/surveys" element={<SurveyDashboard />} />
             <Route path="/student/quizzes" element={<QuizDashboard />} />
             <Route path="/student/exams" element={<ExamDashboard />} />
+            <Route path="/review/:surveyId" element={<ReviewMode />} />
+            <Route path="/profile" element={<StudentProfilePage />} />
+
+            {/* Live Quiz Battle Routes */}
+            <Route
+              path="/live/create"
+              element={
+                <RequireAdmin>
+                  <LiveRoomCreate />
+                </RequireAdmin>
+              }
+            />
+            <Route path="/live/join" element={<JoinLiveRoom />} />
+            <Route
+              path="/live/host/:roomId"
+              element={
+                <RequireAdmin>
+                  <LiveRoomHost />
+                </RequireAdmin>
+              }
+            />
+            <Route path="/live/room/:roomCode" element={<LiveRoomStudent />} />
+            <Route
+              path="/admin/analytics"
+              element={
+                <RequireAdmin>
+                  <AnalyticsDashboard />
+                </RequireAdmin>
+              }
+            />
 
             {/* Admin Routes (Protected) */}
             {/* New Command Center - Modern Admin Dashboard */}
